@@ -1,0 +1,8 @@
+hapi:
+  fhir:
+    fhir_version: R4
+    # Validate every incoming write against the base profiles and return
+    # OperationOutcome errors. This is the "real validation errors feeding
+    # back to the agent" piece of the PoC (used in the build B session).
+    validation:
+      requests_enabled: true

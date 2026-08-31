@@ -1,0 +1,32 @@
+{
+  "run_id": "s1-cold-opus-01",
+  "scenario": "s1-build",
+  "condition": "cold",
+  "model": "claude-opus-5",
+  "replicate": 1,
+  "date": "2026-08-26",
+  "harness": "claude-code-headless",
+  "scaffold_repo": "templates/cold",
+  "baseline_commit": "003b718",
+  "session_id": "a85f02bf-46d5-4185-aa3a-9f1b2ec6cbc3",
+  "wall_minutes": 13.5,
+  "user_turns": 1,
+  "corrective_turns": 0,
+  "tool_calls": 59,
+  "assistant_text_blocks": 10,
+  "tool_errors": 0,
+  "build_failures_self_fixed": 1,
+  "server_validation_incidents": 0,
+  "tokens": {
+    "input": 212,
+    "output": 114332,
+    "cache_read": 7910173,
+    "cache_write": 221738
+  },
+  "cost_usd_api_rates": 8.2,
+  "diff_lines_added": 1616,
+  "smoke_check": "pass",
+  "verified_working": null,
+  "round_trip_pass": null,
+  "notes": "agent_exit=0"
+}

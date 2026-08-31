@@ -1,0 +1,32 @@
+{
+  "run_id": "s1-ohs-opus-01",
+  "scenario": "s1-build",
+  "condition": "ohs",
+  "model": "claude-opus-5",
+  "replicate": 1,
+  "date": "2026-08-26",
+  "harness": "claude-code-headless",
+  "scaffold_repo": "templates/ohs",
+  "baseline_commit": "4694bad",
+  "session_id": "4e6865e7-2e48-4741-b852-d5660f36cab0",
+  "wall_minutes": 42.8,
+  "user_turns": 1,
+  "corrective_turns": 0,
+  "tool_calls": 151,
+  "assistant_text_blocks": 5,
+  "tool_errors": 2,
+  "build_failures_self_fixed": 2,
+  "server_validation_incidents": 3,
+  "tokens": {
+    "input": 482,
+    "output": 162162,
+    "cache_read": 42197576,
+    "cache_write": 497091
+  },
+  "cost_usd_api_rates": 28.26,
+  "diff_lines_added": 1132,
+  "smoke_check": "pass",
+  "verified_working": null,
+  "round_trip_pass": null,
+  "notes": "agent_exit=0"
+}

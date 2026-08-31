@@ -1,0 +1,32 @@
+{
+  "run_id": "s1-ohs-sonnet-01",
+  "scenario": "s1-build",
+  "condition": "ohs",
+  "model": "claude-sonnet-5",
+  "replicate": 1,
+  "date": "2026-08-26",
+  "harness": "claude-code-headless",
+  "scaffold_repo": "templates/ohs",
+  "baseline_commit": "4694bad",
+  "session_id": "a8dd046d-bd81-4feb-bf1f-4881df4779c9",
+  "wall_minutes": 36.8,
+  "user_turns": 1,
+  "corrective_turns": 0,
+  "tool_calls": 192,
+  "assistant_text_blocks": 43,
+  "tool_errors": 0,
+  "build_failures_self_fixed": 3,
+  "server_validation_incidents": 1,
+  "tokens": {
+    "input": 672,
+    "output": 253981,
+    "cache_read": 73412120,
+    "cache_write": 693933
+  },
+  "cost_usd_api_rates": 18.96,
+  "diff_lines_added": 880,
+  "smoke_check": "pass",
+  "verified_working": null,
+  "round_trip_pass": null,
+  "notes": "agent_exit=0"
+}

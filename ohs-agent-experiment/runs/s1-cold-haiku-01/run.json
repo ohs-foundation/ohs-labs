@@ -1,0 +1,32 @@
+{
+  "run_id": "s1-cold-haiku-01",
+  "scenario": "s1-build",
+  "condition": "cold",
+  "model": "claude-haiku-4-5-20251001",
+  "replicate": 1,
+  "date": "2026-08-26",
+  "harness": "claude-code-headless",
+  "scaffold_repo": "templates/cold",
+  "baseline_commit": "003b718",
+  "session_id": "67122d7d-60f4-4fe8-876e-ce32cf8d805f",
+  "wall_minutes": 9.1,
+  "user_turns": 1,
+  "corrective_turns": 0,
+  "tool_calls": 78,
+  "assistant_text_blocks": 3,
+  "tool_errors": 1,
+  "build_failures_self_fixed": 14,
+  "server_validation_incidents": 0,
+  "tokens": {
+    "input": 1283,
+    "output": 55954,
+    "cache_read": 8317780,
+    "cache_write": 129511
+  },
+  "cost_usd_api_rates": 1.27,
+  "diff_lines_added": 859,
+  "smoke_check": "pass",
+  "verified_working": null,
+  "round_trip_pass": null,
+  "notes": "agent_exit=0"
+}

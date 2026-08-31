@@ -1,0 +1,32 @@
+{
+  "run_id": "s1-ohs-haiku-01",
+  "scenario": "s1-build",
+  "condition": "ohs",
+  "model": "claude-haiku-4-5-20251001",
+  "replicate": 1,
+  "date": "2026-08-26",
+  "harness": "claude-code-headless",
+  "scaffold_repo": "templates/ohs",
+  "baseline_commit": "4694bad",
+  "session_id": "1d5e7a17-fb7c-499c-bf84-2f3cb6017710",
+  "wall_minutes": 15.7,
+  "user_turns": 1,
+  "corrective_turns": 0,
+  "tool_calls": 57,
+  "assistant_text_blocks": 6,
+  "tool_errors": 2,
+  "build_failures_self_fixed": 6,
+  "server_validation_incidents": 0,
+  "tokens": {
+    "input": 971,
+    "output": 51354,
+    "cache_read": 5713877,
+    "cache_write": 123427
+  },
+  "cost_usd_api_rates": 0.98,
+  "diff_lines_added": 1098,
+  "smoke_check": "pass",
+  "verified_working": false,
+  "round_trip_pass": false,
+  "notes": "agent_exit=0 | WALK FAIL: crashes at launch - agent added Room (AncDatabase) without wiring KSP, so AncDatabase_Impl missing at runtime; campaign smoke screenshot was the app drawer (launch never surfaced)."
+}

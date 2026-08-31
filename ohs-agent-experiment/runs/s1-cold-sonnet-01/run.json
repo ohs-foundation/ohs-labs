@@ -1,0 +1,32 @@
+{
+  "run_id": "s1-cold-sonnet-01",
+  "scenario": "s1-build",
+  "condition": "cold",
+  "model": "claude-sonnet-5",
+  "replicate": 1,
+  "date": "2026-08-26",
+  "harness": "claude-code-headless",
+  "scaffold_repo": "templates/cold",
+  "baseline_commit": "003b718",
+  "session_id": "81e11b5b-2fbb-4274-8b91-93ad04075fe0",
+  "wall_minutes": 8.5,
+  "user_turns": 1,
+  "corrective_turns": 0,
+  "tool_calls": 62,
+  "assistant_text_blocks": 29,
+  "tool_errors": 0,
+  "build_failures_self_fixed": 0,
+  "server_validation_incidents": 0,
+  "tokens": {
+    "input": 212,
+    "output": 58874,
+    "cache_read": 7070815,
+    "cache_write": 202776
+  },
+  "cost_usd_api_rates": 2.51,
+  "diff_lines_added": 641,
+  "smoke_check": "pass",
+  "verified_working": null,
+  "round_trip_pass": null,
+  "notes": "agent_exit=0"
+}

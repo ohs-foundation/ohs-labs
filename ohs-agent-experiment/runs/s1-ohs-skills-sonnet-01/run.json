@@ -1,0 +1,32 @@
+{
+  "run_id": "s1-ohs-skills-sonnet-01",
+  "scenario": "s1-build",
+  "condition": "ohs-skills",
+  "model": "claude-sonnet-5",
+  "replicate": 1,
+  "date": "2026-08-26",
+  "harness": "claude-code-headless",
+  "scaffold_repo": "templates/ohs-skills",
+  "baseline_commit": "24e8485",
+  "session_id": "7385cc6a-32eb-4976-aeb5-e869e21ccf9b",
+  "wall_minutes": 57.8,
+  "user_turns": 2,
+  "corrective_turns": 1,
+  "tool_calls": 236,
+  "assistant_text_blocks": 71,
+  "tool_errors": 3,
+  "build_failures_self_fixed": 4,
+  "server_validation_incidents": 3,
+  "tokens": {
+    "input": 820,
+    "output": 324916,
+    "cache_read": 102976958,
+    "cache_write": 851341
+  },
+  "cost_usd_api_rates": 25.97,
+  "diff_lines_added": 845,
+  "smoke_check": "pass",
+  "verified_working": null,
+  "round_trip_pass": null,
+  "notes": "agent_exit=0"
+}

@@ -1,0 +1,32 @@
+{
+  "run_id": "s1-ohs-skills-fable-01",
+  "scenario": "s1-build",
+  "condition": "ohs-skills",
+  "model": "claude-fable-5",
+  "replicate": 1,
+  "date": "2026-08-26",
+  "harness": "claude-code-headless",
+  "scaffold_repo": "templates/ohs-skills",
+  "baseline_commit": "24e8485",
+  "session_id": "ebff6b64-5dd5-417f-aa7d-46fe82adefee",
+  "wall_minutes": 9.6,
+  "user_turns": 1,
+  "corrective_turns": 0,
+  "tool_calls": 45,
+  "assistant_text_blocks": 16,
+  "tool_errors": 0,
+  "build_failures_self_fixed": 1,
+  "server_validation_incidents": 0,
+  "tokens": {
+    "input": 158,
+    "output": 128378,
+    "cache_read": 4932178,
+    "cache_write": 236224
+  },
+  "cost_usd_api_rates": 14.31,
+  "diff_lines_added": 749,
+  "smoke_check": "pass",
+  "verified_working": null,
+  "round_trip_pass": null,
+  "notes": "agent_exit=0"
+}

@@ -1,0 +1,748 @@
+diff --git a/app/build.gradle.kts b/app/build.gradle.kts
+index ead0056..df2c71a 100644
+--- a/app/build.gradle.kts
++++ b/app/build.gradle.kts
+@@ -4,6 +4,7 @@ plugins {
+   id("com.android.application")
+   id("org.jetbrains.kotlin.android")
+   id("org.jetbrains.kotlin.plugin.compose")
++  id("com.google.devtools.ksp")
+ }
+ 
+ android {
+@@ -34,4 +35,10 @@ dependencies {
+   implementation("androidx.activity:activity-compose:1.13.0")
+   implementation("androidx.compose.ui:ui")
+   implementation("androidx.compose.material3:material3")
++  implementation("androidx.compose.material:material-icons-core:1.7.8")
++  implementation("androidx.navigation:navigation-compose:2.9.8")
++  implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.10.0")
++  implementation("androidx.room:room-runtime:2.8.4")
++  implementation("androidx.room:room-ktx:2.8.4")
++  ksp("androidx.room:room-compiler:2.8.4")
+ }
+diff --git a/app/src/main/java/com/example/ancapp/AncViewModel.kt b/app/src/main/java/com/example/ancapp/AncViewModel.kt
+new file mode 100644
+index 0000000..f023a0a
+--- /dev/null
++++ b/app/src/main/java/com/example/ancapp/AncViewModel.kt
+@@ -0,0 +1,27 @@
++package com.example.ancapp
++
++import android.app.Application
++import androidx.lifecycle.AndroidViewModel
++import androidx.lifecycle.viewModelScope
++import com.example.ancapp.data.AncDatabase
++import com.example.ancapp.data.Patient
++import com.example.ancapp.data.Visit
++import kotlinx.coroutines.flow.Flow
++import kotlinx.coroutines.launch
++
++class AncViewModel(app: Application) : AndroidViewModel(app) {
++  private val dao = AncDatabase.get(app).dao()
++
++  val patients: Flow<List<Patient>> = dao.patientsByDueDate()
++
++  fun patient(id: Long): Flow<Patient?> = dao.patient(id)
++
++  fun visits(patientId: Long): Flow<List<Visit>> = dao.visitsForPatient(patientId)
++
++  fun addVisit(visit: Visit, onSaved: () -> Unit) {
++    viewModelScope.launch {
++      dao.insertVisit(visit)
++      onSaved()
++    }
++  }
++}
+diff --git a/app/src/main/java/com/example/ancapp/MainActivity.kt b/app/src/main/java/com/example/ancapp/MainActivity.kt
+index b5e554b..41d76f1 100644
+--- a/app/src/main/java/com/example/ancapp/MainActivity.kt
++++ b/app/src/main/java/com/example/ancapp/MainActivity.kt
+@@ -5,11 +5,60 @@ import androidx.activity.ComponentActivity
+ import androidx.activity.compose.setContent
+ import androidx.compose.material3.MaterialTheme
+ import androidx.compose.material3.Surface
+-import androidx.compose.material3.Text
++import androidx.compose.runtime.Composable
++import androidx.lifecycle.viewmodel.compose.viewModel
++import androidx.navigation.NavType
++import androidx.navigation.compose.NavHost
++import androidx.navigation.compose.composable
++import androidx.navigation.compose.rememberNavController
++import androidx.navigation.navArgument
++import com.example.ancapp.ui.PatientDetailScreen
++import com.example.ancapp.ui.RegisterScreen
++import com.example.ancapp.ui.VisitFormScreen
+ 
+ class MainActivity : ComponentActivity() {
+   override fun onCreate(savedInstanceState: Bundle?) {
+     super.onCreate(savedInstanceState)
+-    setContent { MaterialTheme { Surface { Text("Hello") } } }
++    setContent {
++      MaterialTheme {
++        Surface { AncApp() }
++      }
++    }
++  }
++}
++
++@Composable
++fun AncApp(viewModel: AncViewModel = viewModel()) {
++  val navController = rememberNavController()
++  NavHost(navController = navController, startDestination = "register") {
++    composable("register") {
++      RegisterScreen(
++        viewModel = viewModel,
++        onPatientClick = { id -> navController.navigate("patient/$id") },
++      )
++    }
++    composable(
++      "patient/{patientId}",
++      arguments = listOf(navArgument("patientId") { type = NavType.LongType }),
++    ) { entry ->
++      val patientId = entry.arguments?.getLong("patientId") ?: return@composable
++      PatientDetailScreen(
++        viewModel = viewModel,
++        patientId = patientId,
++        onBack = { navController.popBackStack() },
++        onRecordVisit = { navController.navigate("patient/$patientId/new-visit") },
++      )
++    }
++    composable(
++      "patient/{patientId}/new-visit",
++      arguments = listOf(navArgument("patientId") { type = NavType.LongType }),
++    ) { entry ->
++      val patientId = entry.arguments?.getLong("patientId") ?: return@composable
++      VisitFormScreen(
++        viewModel = viewModel,
++        patientId = patientId,
++        onBack = { navController.popBackStack() },
++      )
++    }
+   }
+ }
+diff --git a/app/src/main/java/com/example/ancapp/data/AncDao.kt b/app/src/main/java/com/example/ancapp/data/AncDao.kt
+new file mode 100644
+index 0000000..42d68cc
+--- /dev/null
++++ b/app/src/main/java/com/example/ancapp/data/AncDao.kt
+@@ -0,0 +1,21 @@
++package com.example.ancapp.data
++
++import androidx.room.Dao
++import androidx.room.Insert
++import androidx.room.Query
++import kotlinx.coroutines.flow.Flow
++
++@Dao
++interface AncDao {
++  @Query("SELECT * FROM patients ORDER BY dueDate ASC")
++  fun patientsByDueDate(): Flow<List<Patient>>
++
++  @Query("SELECT * FROM patients WHERE id = :id")
++  fun patient(id: Long): Flow<Patient?>
++
++  @Query("SELECT * FROM visits WHERE patientId = :patientId ORDER BY date DESC")
++  fun visitsForPatient(patientId: Long): Flow<List<Visit>>
++
++  @Insert
++  suspend fun insertVisit(visit: Visit): Long
++}
+diff --git a/app/src/main/java/com/example/ancapp/data/AncDatabase.kt b/app/src/main/java/com/example/ancapp/data/AncDatabase.kt
+new file mode 100644
+index 0000000..ea2a779
+--- /dev/null
++++ b/app/src/main/java/com/example/ancapp/data/AncDatabase.kt
+@@ -0,0 +1,49 @@
++package com.example.ancapp.data
++
++import android.content.Context
++import androidx.room.Database
++import androidx.room.Room
++import androidx.room.RoomDatabase
++import androidx.room.TypeConverters
++import androidx.sqlite.db.SupportSQLiteDatabase
++
++@Database(entities = [Patient::class, Visit::class], version = 1)
++@TypeConverters(Converters::class)
++abstract class AncDatabase : RoomDatabase() {
++  abstract fun dao(): AncDao
++
++  companion object {
++    @Volatile private var instance: AncDatabase? = null
++
++    fun get(context: Context): AncDatabase =
++      instance ?: synchronized(this) {
++        instance ?: Room.databaseBuilder(
++          context.applicationContext,
++          AncDatabase::class.java,
++          "anc.db",
++        )
++          .addCallback(SeedCallback)
++          .build()
++          .also { instance = it }
++      }
++  }
++
++  // Patients already on file at the clinic, inserted once when the database
++  // is first created. Gestational weeks are derived from each due date.
++  private object SeedCallback : Callback() {
++    override fun onCreate(db: SupportSQLiteDatabase) {
++      db.execSQL(
++        "INSERT INTO patients (id, name, dateOfBirth, dueDate) VALUES " +
++          "(1, 'Emily Carter', '1996-04-12', '2026-12-05')," +
++          "(2, 'Sarah Mitchell', '1990-11-02', '2027-01-20')," +
++          "(3, 'Grace Thompson', '2001-07-30', '2026-10-15')"
++      )
++      db.execSQL(
++        "INSERT INTO visits (patientId, date, gestationalWeeks, weightKg, systolic, diastolic, hemoglobin, dangerSigns, notes) VALUES " +
++          "(1, '2026-08-10', 23, 68.5, 118, 76, 11.8, '', '')," +
++          "(2, '2026-08-12', 17, 61.2, 110, 70, 12.4, '', '')," +
++          "(3, '2026-08-05', 29, 72.0, 128, 84, 10.2, '', '')"
++      )
++    }
++  }
++}
+diff --git a/app/src/main/java/com/example/ancapp/data/Models.kt b/app/src/main/java/com/example/ancapp/data/Models.kt
+new file mode 100644
+index 0000000..b8652ab
+--- /dev/null
++++ b/app/src/main/java/com/example/ancapp/data/Models.kt
+@@ -0,0 +1,74 @@
++package com.example.ancapp.data
++
++import androidx.room.Entity
++import androidx.room.ForeignKey
++import androidx.room.Index
++import androidx.room.PrimaryKey
++import androidx.room.TypeConverter
++import java.time.LocalDate
++import java.time.Period
++import java.time.temporal.ChronoUnit
++
++@Entity(tableName = "patients")
++data class Patient(
++  @PrimaryKey(autoGenerate = true) val id: Long = 0,
++  val name: String,
++  val dateOfBirth: LocalDate,
++  val dueDate: LocalDate,
++) {
++  fun ageYears(today: LocalDate = LocalDate.now()): Int =
++    Period.between(dateOfBirth, today).years
++
++  // Full pregnancy is 280 days; gestational age counts back from the due date.
++  fun gestationalWeeks(today: LocalDate = LocalDate.now()): Int =
++    ((280 - ChronoUnit.DAYS.between(today, dueDate)) / 7).toInt().coerceAtLeast(0)
++}
++
++enum class DangerSign(val label: String) {
++  VAGINAL_BLEEDING("Vaginal bleeding"),
++  SEVERE_HEADACHE("Severe headache"),
++  BLURRED_VISION("Blurred vision"),
++  FEVER("Fever"),
++}
++
++@Entity(
++  tableName = "visits",
++  foreignKeys = [
++    ForeignKey(
++      entity = Patient::class,
++      parentColumns = ["id"],
++      childColumns = ["patientId"],
++      onDelete = ForeignKey.CASCADE,
++    )
++  ],
++  indices = [Index("patientId")],
++)
++data class Visit(
++  @PrimaryKey(autoGenerate = true) val id: Long = 0,
++  val patientId: Long,
++  val date: LocalDate,
++  val gestationalWeeks: Int,
++  val weightKg: Double,
++  val systolic: Int,
++  val diastolic: Int,
++  val hemoglobin: Double?,
++  val dangerSigns: Set<DangerSign>,
++  val notes: String,
++)
++
++class Converters {
++  @TypeConverter
++  fun localDateToString(value: LocalDate?): String? = value?.toString()
++
++  @TypeConverter
++  fun stringToLocalDate(value: String?): LocalDate? = value?.let(LocalDate::parse)
++
++  @TypeConverter
++  fun dangerSignsToString(value: Set<DangerSign>): String =
++    value.joinToString(",") { it.name }
++
++  @TypeConverter
++  fun stringToDangerSigns(value: String): Set<DangerSign> =
++    if (value.isEmpty()) emptySet()
++    else value.split(",").map(DangerSign::valueOf).toSet()
++}
+diff --git a/app/src/main/java/com/example/ancapp/ui/PatientDetailScreen.kt b/app/src/main/java/com/example/ancapp/ui/PatientDetailScreen.kt
+new file mode 100644
+index 0000000..681e8a7
+--- /dev/null
++++ b/app/src/main/java/com/example/ancapp/ui/PatientDetailScreen.kt
+@@ -0,0 +1,136 @@
++package com.example.ancapp.ui
++
++import androidx.compose.foundation.layout.Arrangement
++import androidx.compose.foundation.layout.Column
++import androidx.compose.foundation.layout.PaddingValues
++import androidx.compose.foundation.layout.Row
++import androidx.compose.foundation.layout.Spacer
++import androidx.compose.foundation.layout.fillMaxSize
++import androidx.compose.foundation.layout.fillMaxWidth
++import androidx.compose.foundation.layout.height
++import androidx.compose.foundation.layout.padding
++import androidx.compose.foundation.lazy.LazyColumn
++import androidx.compose.foundation.lazy.items
++import androidx.compose.material.icons.Icons
++import androidx.compose.material.icons.automirrored.filled.ArrowBack
++import androidx.compose.material.icons.filled.Add
++import androidx.compose.material3.Card
++import androidx.compose.material3.ExperimentalMaterial3Api
++import androidx.compose.material3.ExtendedFloatingActionButton
++import androidx.compose.material3.Icon
++import androidx.compose.material3.IconButton
++import androidx.compose.material3.MaterialTheme
++import androidx.compose.material3.Scaffold
++import androidx.compose.material3.Text
++import androidx.compose.material3.TopAppBar
++import androidx.compose.runtime.Composable
++import androidx.compose.runtime.collectAsState
++import androidx.compose.runtime.getValue
++import androidx.compose.runtime.remember
++import androidx.compose.ui.Modifier
++import androidx.compose.ui.unit.dp
++import com.example.ancapp.AncViewModel
++import com.example.ancapp.data.Visit
++
++@OptIn(ExperimentalMaterial3Api::class)
++@Composable
++fun PatientDetailScreen(
++  viewModel: AncViewModel,
++  patientId: Long,
++  onBack: () -> Unit,
++  onRecordVisit: () -> Unit,
++) {
++  val patient by remember(patientId) { viewModel.patient(patientId) }
++    .collectAsState(initial = null)
++  val visits by remember(patientId) { viewModel.visits(patientId) }
++    .collectAsState(initial = emptyList())
++
++  Scaffold(
++    topBar = {
++      TopAppBar(
++        title = { Text(patient?.name ?: "") },
++        navigationIcon = {
++          IconButton(onClick = onBack) {
++            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
++          }
++        },
++      )
++    },
++    floatingActionButton = {
++      ExtendedFloatingActionButton(
++        onClick = onRecordVisit,
++        icon = { Icon(Icons.Default.Add, contentDescription = null) },
++        text = { Text("Record visit") },
++      )
++    },
++  ) { padding ->
++    LazyColumn(
++      modifier = Modifier.fillMaxSize().padding(padding),
++      contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 96.dp),
++      verticalArrangement = Arrangement.spacedBy(12.dp),
++    ) {
++      item {
++        patient?.let {
++          Text(
++            "Age ${it.ageYears()} · Due ${it.dueDate.format(dateFormat)} · " +
++              "${it.gestationalWeeks()} weeks pregnant",
++            style = MaterialTheme.typography.bodyMedium,
++            color = MaterialTheme.colorScheme.onSurfaceVariant,
++          )
++          Spacer(Modifier.height(8.dp))
++          Text("ANC visits", style = MaterialTheme.typography.titleMedium)
++        }
++      }
++      if (visits.isEmpty()) {
++        item {
++          Text(
++            "No visits recorded yet.",
++            style = MaterialTheme.typography.bodyMedium,
++            color = MaterialTheme.colorScheme.onSurfaceVariant,
++          )
++        }
++      }
++      items(visits, key = { it.id }) { visit -> VisitCard(visit) }
++    }
++  }
++}
++
++@Composable
++private fun VisitCard(visit: Visit) {
++  Card(modifier = Modifier.fillMaxWidth()) {
++    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
++      Row(
++        modifier = Modifier.fillMaxWidth(),
++        horizontalArrangement = Arrangement.SpaceBetween,
++      ) {
++        Text(visit.date.format(dateFormat), style = MaterialTheme.typography.titleSmall)
++        Text(
++          "${visit.gestationalWeeks} wks",
++          style = MaterialTheme.typography.titleSmall,
++          color = MaterialTheme.colorScheme.primary,
++        )
++      }
++      Text(
++        buildString {
++          append("Weight ${visit.weightKg} kg · BP ${visit.systolic}/${visit.diastolic}")
++          visit.hemoglobin?.let { append(" · Hb $it g/dL") }
++        },
++        style = MaterialTheme.typography.bodyMedium,
++      )
++      if (visit.dangerSigns.isNotEmpty()) {
++        Text(
++          "Danger signs: " + visit.dangerSigns.joinToString { it.label },
++          style = MaterialTheme.typography.bodyMedium,
++          color = MaterialTheme.colorScheme.error,
++        )
++      }
++      if (visit.notes.isNotBlank()) {
++        Text(
++          visit.notes,
++          style = MaterialTheme.typography.bodySmall,
++          color = MaterialTheme.colorScheme.onSurfaceVariant,
++        )
++      }
++    }
++  }
++}
+diff --git a/app/src/main/java/com/example/ancapp/ui/RegisterScreen.kt b/app/src/main/java/com/example/ancapp/ui/RegisterScreen.kt
+new file mode 100644
+index 0000000..6edb8b2
+--- /dev/null
++++ b/app/src/main/java/com/example/ancapp/ui/RegisterScreen.kt
+@@ -0,0 +1,72 @@
++package com.example.ancapp.ui
++
++import androidx.compose.foundation.layout.Arrangement
++import androidx.compose.foundation.layout.Column
++import androidx.compose.foundation.layout.PaddingValues
++import androidx.compose.foundation.layout.Row
++import androidx.compose.foundation.layout.fillMaxSize
++import androidx.compose.foundation.layout.fillMaxWidth
++import androidx.compose.foundation.layout.padding
++import androidx.compose.foundation.lazy.LazyColumn
++import androidx.compose.foundation.lazy.items
++import androidx.compose.material3.Card
++import androidx.compose.material3.ExperimentalMaterial3Api
++import androidx.compose.material3.MaterialTheme
++import androidx.compose.material3.Scaffold
++import androidx.compose.material3.Text
++import androidx.compose.material3.TopAppBar
++import androidx.compose.runtime.Composable
++import androidx.compose.runtime.collectAsState
++import androidx.compose.runtime.getValue
++import androidx.compose.runtime.remember
++import androidx.compose.ui.Alignment
++import androidx.compose.ui.Modifier
++import androidx.compose.ui.unit.dp
++import com.example.ancapp.AncViewModel
++import com.example.ancapp.data.Patient
++import java.time.format.DateTimeFormatter
++
++val dateFormat: DateTimeFormatter = DateTimeFormatter.ofPattern("d MMM yyyy")
++
++@OptIn(ExperimentalMaterial3Api::class)
++@Composable
++fun RegisterScreen(viewModel: AncViewModel, onPatientClick: (Long) -> Unit) {
++  val patients by remember { viewModel.patients }.collectAsState(initial = emptyList())
++
++  Scaffold(topBar = { TopAppBar(title = { Text("ANC Register") }) }) { padding ->
++    LazyColumn(
++      modifier = Modifier.fillMaxSize().padding(padding),
++      contentPadding = PaddingValues(16.dp),
++      verticalArrangement = Arrangement.spacedBy(12.dp),
++    ) {
++      items(patients, key = { it.id }) { patient ->
++        PatientCard(patient, onClick = { onPatientClick(patient.id) })
++      }
++    }
++  }
++}
++
++@Composable
++private fun PatientCard(patient: Patient, onClick: () -> Unit) {
++  Card(onClick = onClick, modifier = Modifier.fillMaxWidth()) {
++    Column(Modifier.padding(16.dp)) {
++      Row(
++        modifier = Modifier.fillMaxWidth(),
++        horizontalArrangement = Arrangement.SpaceBetween,
++        verticalAlignment = Alignment.CenterVertically,
++      ) {
++        Text(patient.name, style = MaterialTheme.typography.titleMedium)
++        Text(
++          "${patient.gestationalWeeks()} wks",
++          style = MaterialTheme.typography.titleMedium,
++          color = MaterialTheme.colorScheme.primary,
++        )
++      }
++      Text(
++        "Age ${patient.ageYears()} · Due ${patient.dueDate.format(dateFormat)}",
++        style = MaterialTheme.typography.bodyMedium,
++        color = MaterialTheme.colorScheme.onSurfaceVariant,
++      )
++    }
++  }
++}
+diff --git a/app/src/main/java/com/example/ancapp/ui/VisitFormScreen.kt b/app/src/main/java/com/example/ancapp/ui/VisitFormScreen.kt
+new file mode 100644
+index 0000000..a81ca65
+--- /dev/null
++++ b/app/src/main/java/com/example/ancapp/ui/VisitFormScreen.kt
+@@ -0,0 +1,227 @@
++package com.example.ancapp.ui
++
++import androidx.compose.foundation.layout.Arrangement
++import androidx.compose.foundation.layout.Column
++import androidx.compose.foundation.layout.Row
++import androidx.compose.foundation.layout.fillMaxSize
++import androidx.compose.foundation.layout.fillMaxWidth
++import androidx.compose.foundation.layout.padding
++import androidx.compose.foundation.rememberScrollState
++import androidx.compose.foundation.layout.FlowRow
++import androidx.compose.foundation.verticalScroll
++import androidx.compose.material.icons.Icons
++import androidx.compose.material.icons.automirrored.filled.ArrowBack
++import androidx.compose.material3.Button
++import androidx.compose.material3.DatePicker
++import androidx.compose.material3.DatePickerDialog
++import androidx.compose.material3.ExperimentalMaterial3Api
++import androidx.compose.material3.FilterChip
++import androidx.compose.material3.Icon
++import androidx.compose.material3.IconButton
++import androidx.compose.material3.MaterialTheme
++import androidx.compose.material3.OutlinedTextField
++import androidx.compose.material3.Scaffold
++import androidx.compose.material3.Text
++import androidx.compose.material3.TextButton
++import androidx.compose.material3.TopAppBar
++import androidx.compose.material3.rememberDatePickerState
++import androidx.compose.runtime.Composable
++import androidx.compose.runtime.collectAsState
++import androidx.compose.runtime.getValue
++import androidx.compose.runtime.mutableStateOf
++import androidx.compose.runtime.remember
++import androidx.compose.runtime.saveable.rememberSaveable
++import androidx.compose.runtime.setValue
++import androidx.compose.ui.Modifier
++import androidx.compose.ui.unit.dp
++import com.example.ancapp.AncViewModel
++import com.example.ancapp.data.DangerSign
++import com.example.ancapp.data.Visit
++import java.time.Instant
++import java.time.LocalDate
++import java.time.ZoneOffset
++
++@OptIn(ExperimentalMaterial3Api::class)
++@Composable
++fun VisitFormScreen(
++  viewModel: AncViewModel,
++  patientId: Long,
++  onBack: () -> Unit,
++) {
++  val patient by remember(patientId) { viewModel.patient(patientId) }
++    .collectAsState(initial = null)
++
++  var date by rememberSaveable { mutableStateOf(LocalDate.now().toString()) }
++  var weeks by rememberSaveable { mutableStateOf("") }
++  var weight by rememberSaveable { mutableStateOf("") }
++  var systolic by rememberSaveable { mutableStateOf("") }
++  var diastolic by rememberSaveable { mutableStateOf("") }
++  var hemoglobin by rememberSaveable { mutableStateOf("") }
++  var signs by rememberSaveable { mutableStateOf(setOf<String>()) }
++  var notes by rememberSaveable { mutableStateOf("") }
++  var weeksTouched by rememberSaveable { mutableStateOf(false) }
++  var error by remember { mutableStateOf<String?>(null) }
++  var showDatePicker by remember { mutableStateOf(false) }
++
++  // Prefill gestational age from the patient's due date until the nurse edits it.
++  val weeksValue =
++    if (weeksTouched) weeks
++    else patient?.gestationalWeeks()?.toString() ?: weeks
++
++  Scaffold(
++    topBar = {
++      TopAppBar(
++        title = { Text("New ANC visit") },
++        navigationIcon = {
++          IconButton(onClick = onBack) {
++            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
++          }
++        },
++      )
++    },
++  ) { padding ->
++    Column(
++      modifier = Modifier
++        .fillMaxSize()
++        .padding(padding)
++        .verticalScroll(rememberScrollState())
++        .padding(16.dp),
++      verticalArrangement = Arrangement.spacedBy(12.dp),
++    ) {
++      OutlinedTextField(
++        value = date,
++        onValueChange = {},
++        readOnly = true,
++        label = { Text("Visit date") },
++        trailingIcon = {
++          TextButton(onClick = { showDatePicker = true }) { Text("Change") }
++        },
++        modifier = Modifier.fillMaxWidth(),
++      )
++      OutlinedTextField(
++        value = weeksValue,
++        onValueChange = { weeksTouched = true; weeks = it },
++        label = { Text("Gestational age (weeks)") },
++        modifier = Modifier.fillMaxWidth(),
++      )
++      OutlinedTextField(
++        value = weight,
++        onValueChange = { weight = it },
++        label = { Text("Weight (kg)") },
++        modifier = Modifier.fillMaxWidth(),
++      )
++      Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
++        OutlinedTextField(
++          value = systolic,
++          onValueChange = { systolic = it },
++          label = { Text("Systolic (mmHg)") },
++          modifier = Modifier.weight(1f),
++        )
++        OutlinedTextField(
++          value = diastolic,
++          onValueChange = { diastolic = it },
++          label = { Text("Diastolic (mmHg)") },
++          modifier = Modifier.weight(1f),
++        )
++      }
++      OutlinedTextField(
++        value = hemoglobin,
++        onValueChange = { hemoglobin = it },
++        label = { Text("Hemoglobin (g/dL, optional)") },
++        modifier = Modifier.fillMaxWidth(),
++      )
++
++      Text("Danger signs", style = MaterialTheme.typography.titleSmall)
++      FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
++        FilterChip(
++          selected = signs.isEmpty(),
++          onClick = { signs = emptySet() },
++          label = { Text("None") },
++        )
++        DangerSign.entries.forEach { sign ->
++          FilterChip(
++            selected = sign.name in signs,
++            onClick = {
++              signs = if (sign.name in signs) signs - sign.name else signs + sign.name
++            },
++            label = { Text(sign.label) },
++          )
++        }
++      }
++
++      OutlinedTextField(
++        value = notes,
++        onValueChange = { notes = it },
++        label = { Text("Notes") },
++        minLines = 3,
++        modifier = Modifier.fillMaxWidth(),
++      )
++
++      error?.let {
++        Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
++      }
++
++      Button(
++        onClick = {
++          val weeksInt = weeksValue.trim().toIntOrNull()
++          val weightVal = weight.trim().toDoubleOrNull()
++          val sysInt = systolic.trim().toIntOrNull()
++          val diaInt = diastolic.trim().toIntOrNull()
++          val hbTrimmed = hemoglobin.trim()
++          val hbVal = if (hbTrimmed.isEmpty()) null else hbTrimmed.toDoubleOrNull()
++          error = when {
++            weeksInt == null || weeksInt !in 1..45 ->
++              "Enter a gestational age between 1 and 45 weeks."
++            weightVal == null || weightVal <= 0 -> "Enter a valid weight in kg."
++            sysInt == null || sysInt !in 50..260 -> "Enter a valid systolic pressure."
++            diaInt == null || diaInt !in 30..200 -> "Enter a valid diastolic pressure."
++            hbTrimmed.isNotEmpty() && hbVal == null -> "Hemoglobin must be a number."
++            else -> null
++          }
++          if (error == null) {
++            viewModel.addVisit(
++              Visit(
++                patientId = patientId,
++                date = LocalDate.parse(date),
++                gestationalWeeks = weeksInt!!,
++                weightKg = weightVal!!,
++                systolic = sysInt!!,
++                diastolic = diaInt!!,
++                hemoglobin = hbVal,
++                dangerSigns = signs.map(DangerSign::valueOf).toSet(),
++                notes = notes.trim(),
++              ),
++              onSaved = onBack,
++            )
++          }
++        },
++        modifier = Modifier.fillMaxWidth(),
++      ) {
++        Text("Save visit")
++      }
++    }
++  }
++
++  if (showDatePicker) {
++    val pickerState = rememberDatePickerState(
++      initialSelectedDateMillis = LocalDate.parse(date)
++        .atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
++    )
++    DatePickerDialog(
++      onDismissRequest = { showDatePicker = false },
++      confirmButton = {
++        TextButton(onClick = {
++          pickerState.selectedDateMillis?.let { millis ->
++            date = Instant.ofEpochMilli(millis).atZone(ZoneOffset.UTC).toLocalDate().toString()
++          }
++          showDatePicker = false
++        }) { Text("OK") }
++      },
++      dismissButton = {
++        TextButton(onClick = { showDatePicker = false }) { Text("Cancel") }
++      },
++    ) {
++      DatePicker(state = pickerState)
++    }
++  }
++}
+diff --git a/build.gradle.kts b/build.gradle.kts
+index 489603c..3c43260 100644
+--- a/build.gradle.kts
++++ b/build.gradle.kts
+@@ -2,4 +2,5 @@ plugins {
+   id("com.android.application") version "8.11.2" apply false
+   id("org.jetbrains.kotlin.android") version "2.3.21" apply false
+   id("org.jetbrains.kotlin.plugin.compose") version "2.3.21" apply false
++  id("com.google.devtools.ksp") version "2.3.11" apply false
+ }

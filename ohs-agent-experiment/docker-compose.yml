@@ -1,0 +1,13 @@
+services:
+  hapi:
+    image: hapiproject/hapi:latest
+    container_name: ohs-agent-experiment-hapi
+    ports:
+      - "8080:8080"
+    environment:
+      # Additive override on top of the image's default config.
+      # If the server fails to start or the seed load is rejected,
+      # comment this out and re-run `docker compose up -d`.
+      SPRING_CONFIG_ADDITIONAL_LOCATION: file:///data/hapi/extra.yaml
+    volumes:
+      - ./hapi-extra.yaml:/data/hapi/extra.yaml:ro

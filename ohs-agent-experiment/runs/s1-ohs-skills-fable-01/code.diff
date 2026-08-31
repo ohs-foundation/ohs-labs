@@ -1,0 +1,823 @@
+diff --git a/app/build.gradle.kts b/app/build.gradle.kts
+index 298c2c3..05e8077 100644
+--- a/app/build.gradle.kts
++++ b/app/build.gradle.kts
+@@ -19,14 +19,14 @@ android {
+   }
+ 
+   compileOptions {
+-    sourceCompatibility = JavaVersion.VERSION_17
+-    targetCompatibility = JavaVersion.VERSION_17
++    sourceCompatibility = JavaVersion.VERSION_21
++    targetCompatibility = JavaVersion.VERSION_21
+   }
+ 
+   buildFeatures { compose = true }
+ }
+ 
+-kotlin { compilerOptions { jvmTarget.set(JvmTarget.JVM_17) } }
++kotlin { compilerOptions { jvmTarget.set(JvmTarget.JVM_21) } }
+ 
+ dependencies {
+   implementation(platform("androidx.compose:compose-bom:2026.03.01"))
+@@ -38,4 +38,7 @@ dependencies {
+   implementation("dev.ohs.fhir:fhir-model:1.0.0-beta05")
+   implementation("dev.ohs.fhir:fhir-engine:2.0.0-alpha02")
+   implementation("dev.ohs.fhir:fhir-data-capture:2.0.0-alpha02")
++
++  implementation("androidx.work:work-runtime-ktx:2.8.1")
++  implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")
+ }
+diff --git a/app/src/main/AndroidManifest.xml b/app/src/main/AndroidManifest.xml
+index 40c6585..f34ea32 100644
+--- a/app/src/main/AndroidManifest.xml
++++ b/app/src/main/AndroidManifest.xml
+@@ -1,8 +1,12 @@
+ <?xml version="1.0" encoding="utf-8"?>
+ <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+ 
++    <uses-permission android:name="android.permission.INTERNET" />
++
+     <application
++        android:name=".AncApplication"
+         android:label="ANC App"
++        android:usesCleartextTraffic="true"
+         android:theme="@android:style/Theme.Material.Light.NoActionBar">
+         <activity
+             android:name=".MainActivity"
+diff --git a/app/src/main/java/com/example/ancapp/AncApplication.kt b/app/src/main/java/com/example/ancapp/AncApplication.kt
+new file mode 100644
+index 0000000..58090c4
+--- /dev/null
++++ b/app/src/main/java/com/example/ancapp/AncApplication.kt
+@@ -0,0 +1,20 @@
++package com.example.ancapp
++
++import android.app.Application
++import dev.ohs.fhir.datacapture.DataCapture
++import dev.ohs.fhir.engine.FhirEngineConfiguration
++import dev.ohs.fhir.engine.FhirEngineProvider
++import dev.ohs.fhir.engine.ServerConfiguration
++
++class AncApplication : Application() {
++  override fun onCreate() {
++    super.onCreate()
++    FhirEngineProvider.init(
++      FhirEngineConfiguration(
++        serverConfiguration = ServerConfiguration(baseUrl = "http://10.0.2.2:8080/fhir/"),
++      ),
++      this,
++    )
++    DataCapture.initialize(this)
++  }
++}
+diff --git a/app/src/main/java/com/example/ancapp/AncRepository.kt b/app/src/main/java/com/example/ancapp/AncRepository.kt
+new file mode 100644
+index 0000000..5aef5b5
+--- /dev/null
++++ b/app/src/main/java/com/example/ancapp/AncRepository.kt
+@@ -0,0 +1,390 @@
++package com.example.ancapp
++
++import android.content.Context
++import androidx.work.ExistingWorkPolicy
++import com.ionspin.kotlin.bignum.decimal.BigDecimal
++import dev.ohs.fhir.engine.FhirEngineProvider
++import dev.ohs.fhir.engine.get
++import dev.ohs.fhir.engine.search.ReferenceClientParam
++import dev.ohs.fhir.engine.search.Search
++import dev.ohs.fhir.engine.sync.CurrentSyncJobStatus
++import dev.ohs.fhir.engine.sync.Sync
++import dev.ohs.fhir.model.r4.Canonical
++import dev.ohs.fhir.model.r4.Code
++import dev.ohs.fhir.model.r4.CodeableConcept
++import dev.ohs.fhir.model.r4.Coding
++import dev.ohs.fhir.model.r4.DateTime
++import dev.ohs.fhir.model.r4.Decimal
++import dev.ohs.fhir.model.r4.Encounter
++import dev.ohs.fhir.model.r4.Enumeration
++import dev.ohs.fhir.model.r4.FhirDateTime
++import dev.ohs.fhir.model.r4.Observation
++import dev.ohs.fhir.model.r4.Patient
++import dev.ohs.fhir.model.r4.Period
++import dev.ohs.fhir.model.r4.Quantity
++import dev.ohs.fhir.model.r4.Questionnaire
++import dev.ohs.fhir.model.r4.QuestionnaireResponse
++import dev.ohs.fhir.model.r4.Reference
++import dev.ohs.fhir.model.r4.Resource
++import dev.ohs.fhir.model.r4.Uri
++import dev.ohs.fhir.model.r4.String as FhirString
++import dev.ohs.fhir.model.r4.terminologies.ResourceType
++import java.time.LocalDate
++import java.time.temporal.ChronoUnit
++import java.util.UUID
++import kotlinx.coroutines.CoroutineScope
++import kotlinx.coroutines.Dispatchers
++import kotlinx.coroutines.SupervisorJob
++import kotlinx.coroutines.flow.first
++import kotlinx.coroutines.launch
++import kotlinx.serialization.json.Json
++
++data class RegisterPatient(
++  val id: String,
++  val name: String,
++  val ageYears: Int?,
++  val dueDate: LocalDate?,
++  val gestationWeeks: Int?,
++)
++
++data class Visit(
++  val encounterId: String,
++  val date: LocalDate?,
++  val weightKg: String?,
++  val systolic: String?,
++  val diastolic: String?,
++  val hemoglobin: String?,
++  val gestationalAgeWeeks: String?,
++  val dangerSigns: List<String>,
++  val notes: String?,
++)
++
++private const val LOINC = "http://loinc.org"
++private const val UCUM = "http://unitsofmeasure.org"
++private const val EDD_CODE = "11778-8"
++private const val WEIGHT_CODE = "29463-7"
++private const val BP_PANEL_CODE = "85354-9"
++private const val BP_SYS_CODE = "8480-6"
++private const val BP_DIA_CODE = "8462-4"
++private const val HB_CODE = "718-7"
++private const val GA_CODE = "11884-4"
++private const val NOTES_CODE = "48767-8"
++private const val DANGER_SIGN_SYSTEM = "urn:example:anc-danger-signs"
++private const val QUESTIONNAIRE_ID = "anc-contact"
++private const val QUESTIONNAIRE_URL = "http://example.org/fhir/Questionnaire/anc-contact"
++
++class AncRepository(private val context: Context) {
++
++  private val engine get() = FhirEngineProvider.getInstance(context.applicationContext)
++  private val json = Json {
++    explicitNulls = false
++    encodeDefaults = false
++  }
++  private val backgroundScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
++
++  /** Runs one sync and waits for a terminal state. Returns true on success. */
++  suspend fun syncOnce(): Boolean =
++    try {
++      val terminal = Sync.oneTimeSync<AppSyncWorker>(context.applicationContext).first {
++        it is CurrentSyncJobStatus.Succeeded ||
++          it is CurrentSyncJobStatus.Failed ||
++          it is CurrentSyncJobStatus.Cancelled
++      }
++      terminal is CurrentSyncJobStatus.Succeeded
++    } catch (e: Exception) {
++      false
++    }
++
++  private fun requestSync() {
++    backgroundScope.launch {
++      try {
++        Sync.oneTimeSync<AppSyncWorker>(
++          context.applicationContext,
++          existingWorkPolicy = ExistingWorkPolicy.APPEND_OR_REPLACE,
++        ).first {
++          it is CurrentSyncJobStatus.Succeeded ||
++            it is CurrentSyncJobStatus.Failed ||
++            it is CurrentSyncJobStatus.Cancelled
++        }
++      } catch (_: Exception) {
++      }
++    }
++  }
++
++  suspend fun loadRegister(): List<RegisterPatient> {
++    val patients = engine.search<Patient>(Search(ResourceType.Patient)).map { it.resource }
++    val eddByPatient =
++      engine.search<Observation>(Search(ResourceType.Observation))
++        .map { it.resource }
++        .filter { obs -> obs.code.coding.any { it.code?.value == EDD_CODE } }
++        .groupBy { it.subject?.reference?.value?.substringAfter("Patient/") }
++        .mapValues { (_, list) ->
++          list
++            .maxByOrNull { it.effective?.asDateTime()?.value?.value?.toString().orEmpty() }
++            ?.value?.asDateTime()?.value?.value?.toString()
++            ?.let(::parseDate)
++        }
++    val today = LocalDate.now()
++    return patients
++      .mapNotNull { p ->
++        val id = p.id ?: return@mapNotNull null
++        val due = eddByPatient[id]
++        RegisterPatient(
++          id = id,
++          name = p.displayName(),
++          ageYears =
++            parseDate(p.birthDate?.value?.toString())?.let {
++              java.time.Period.between(it, today).years
++            },
++          dueDate = due,
++          gestationWeeks =
++            due?.let { ((280 - ChronoUnit.DAYS.between(today, it)) / 7).toInt() }
++              ?.coerceIn(0, 45),
++        )
++      }
++      .sortedWith(compareBy(nullsLast()) { it.dueDate })
++  }
++
++  suspend fun loadPatient(patientId: String): RegisterPatient? =
++    loadRegister().firstOrNull { it.id == patientId }
++
++  suspend fun loadVisits(patientId: String): List<Visit> {
++    val subject = "Patient/$patientId"
++    val encounters =
++      engine.search<Encounter>(
++        Search(ResourceType.Encounter).apply {
++          filter(ReferenceClientParam("subject"), { value = subject })
++        }
++      ).map { it.resource }
++    val observations =
++      engine.search<Observation>(
++        Search(ResourceType.Observation).apply {
++          filter(ReferenceClientParam("subject"), { value = subject })
++        }
++      ).map { it.resource }
++    val obsByEncounter =
++      observations.groupBy { it.encounter?.reference?.value?.substringAfter("Encounter/") }
++
++    return encounters
++      .mapNotNull { enc ->
++        val encId = enc.id ?: return@mapNotNull null
++        val obs = obsByEncounter[encId].orEmpty()
++        val bp = obs.firstOrNull { it.hasCode(BP_PANEL_CODE) || it.componentCode(BP_SYS_CODE) != null }
++        Visit(
++          encounterId = encId,
++          date = parseDate(enc.period?.start?.value?.toString()),
++          weightKg = obs.firstOrNull { it.hasCode(WEIGHT_CODE) }?.quantityString(),
++          systolic = bp?.componentCode(BP_SYS_CODE),
++          diastolic = bp?.componentCode(BP_DIA_CODE),
++          hemoglobin = obs.firstOrNull { it.hasCode(HB_CODE) }?.quantityString(),
++          gestationalAgeWeeks = obs.firstOrNull { it.hasCode(GA_CODE) }?.quantityString(),
++          dangerSigns =
++            obs
++              .filter { o ->
++                o.value?.asCodeableConcept()?.value?.coding?.any {
++                  it.system?.value == DANGER_SIGN_SYSTEM
++                } == true
++              }
++              .mapNotNull { o ->
++                val cc = o.value?.asCodeableConcept()?.value
++                cc?.coding?.firstOrNull()?.display?.value ?: cc?.text?.value
++              },
++          notes = obs.firstOrNull { it.hasCode(NOTES_CODE) }?.value?.asString()?.value?.value,
++        )
++      }
++      .sortedWith(compareByDescending(nullsLast()) { it.date })
++  }
++
++  suspend fun questionnaireJson(): String? =
++    try {
++      json.encodeToString(engine.get<Questionnaire>(QUESTIONNAIRE_ID))
++    } catch (e: Exception) {
++      null
++    }
++
++  /**
++   * Persists a completed ANC visit form: an Encounter, Observations extracted from
++   * the answers, and the QuestionnaireResponse itself — then queues an upload sync.
++   */
++  suspend fun saveVisit(patientId: String, response: QuestionnaireResponse) {
++    val answers = mutableMapOf<String, MutableList<QuestionnaireResponse.Item.Answer>>()
++    collectAnswers(response.item, answers)
++
++    val visitDate =
++      answers["visit-date"]?.firstOrNull()?.value?.asDate()?.value?.value?.toString()
++        ?: LocalDate.now().toString()
++    val encounterId = UUID.randomUUID().toString()
++    val patientRef = Reference(reference = FhirString(value = "Patient/$patientId"))
++    val encounterRef = Reference(reference = FhirString(value = "Encounter/$encounterId"))
++    val effective =
++      Observation.Effective.DateTime(DateTime(value = FhirDateTime.fromString(visitDate)))
++
++    fun observation(coding: Coding?, text: String, value: Observation.Value) =
++      Observation(
++        id = UUID.randomUUID().toString(),
++        status = Enumeration(value = Observation.ObservationStatus.Final),
++        code = CodeableConcept(
++          coding = listOfNotNull(coding),
++          text = FhirString(value = text),
++        ),
++        subject = patientRef,
++        encounter = encounterRef,
++        effective = effective,
++        value = value,
++      )
++
++    fun loinc(code: String, display: String) =
++      Coding(
++        system = Uri(value = LOINC),
++        code = Code(value = code),
++        display = FhirString(value = display),
++      )
++
++    fun quantity(value: BigDecimal, unit: String, ucumCode: String) =
++      Quantity(
++        value = Decimal(value = value),
++        unit = FhirString(value = unit),
++        system = Uri(value = UCUM),
++        code = Code(value = ucumCode),
++      )
++
++    val resources = mutableListOf<Resource>()
++
++    resources +=
++      Encounter(
++        id = encounterId,
++        status = Enumeration(value = Encounter.EncounterStatus.Finished),
++        `class` = Coding(
++          system = Uri(value = "http://terminology.hl7.org/CodeSystem/v3-ActCode"),
++          code = Code(value = "AMB"),
++          display = FhirString(value = "ambulatory"),
++        ),
++        type = listOf(CodeableConcept(text = FhirString(value = "Antenatal care contact"))),
++        subject = patientRef,
++        period = Period(
++          start = DateTime(value = FhirDateTime.fromString(visitDate)),
++          end = DateTime(value = FhirDateTime.fromString(visitDate)),
++        ),
++      )
++
++    answers["weight"]?.firstOrNull()?.value?.asDecimal()?.value?.value?.let { weight ->
++      resources +=
++        observation(
++          loinc(WEIGHT_CODE, "Body weight"),
++          "Body weight",
++          Observation.Value.Quantity(quantity(weight, "kg", "kg")),
++        )
++    }
++
++    val systolic = answers["bp-systolic"]?.firstOrNull()?.value?.asInteger()?.value?.value
++    val diastolic = answers["bp-diastolic"]?.firstOrNull()?.value?.asInteger()?.value?.value
++    if (systolic != null || diastolic != null) {
++      resources +=
++        Observation(
++          id = UUID.randomUUID().toString(),
++          status = Enumeration(value = Observation.ObservationStatus.Final),
++          code = CodeableConcept(
++            coding = listOf(loinc(BP_PANEL_CODE, "Blood pressure panel with all children optional")),
++            text = FhirString(value = "Blood pressure"),
++          ),
++          subject = patientRef,
++          encounter = encounterRef,
++          effective = effective,
++          component = listOfNotNull(
++            systolic?.let {
++              Observation.Component(
++                code = CodeableConcept(coding = listOf(loinc(BP_SYS_CODE, "Systolic blood pressure"))),
++                value = Observation.Component.Value.Quantity(
++                  quantity(BigDecimal.fromInt(it), "mmHg", "mm[Hg]")
++                ),
++              )
++            },
++            diastolic?.let {
++              Observation.Component(
++                code = CodeableConcept(coding = listOf(loinc(BP_DIA_CODE, "Diastolic blood pressure"))),
++                value = Observation.Component.Value.Quantity(
++                  quantity(BigDecimal.fromInt(it), "mmHg", "mm[Hg]")
++                ),
++              )
++            },
++          ),
++        )
++    }
++
++    answers["gestational-age"]?.firstOrNull()?.value?.asInteger()?.value?.value?.let { weeks ->
++      resources +=
++        observation(
++          loinc(GA_CODE, "Gestational age Estimated"),
++          "Gestational age",
++          Observation.Value.Quantity(quantity(BigDecimal.fromInt(weeks), "weeks", "wk")),
++        )
++    }
++
++    answers["danger-signs"].orEmpty()
++      .mapNotNull { it.value?.asCoding()?.value }
++      .forEach { coding ->
++        resources +=
++          observation(
++            null,
++            "Danger sign",
++            Observation.Value.CodeableConcept(
++              CodeableConcept(coding = listOf(coding), text = coding.display)
++            ),
++          )
++      }
++
++    answers["notes"]?.firstOrNull()?.value?.asString()?.value?.value
++      ?.takeIf { it.isNotBlank() }
++      ?.let { text ->
++        resources +=
++          observation(
++            loinc(NOTES_CODE, "Annotation comment"),
++            "Notes",
++            Observation.Value.String(FhirString(value = text)),
++          )
++      }
++
++    resources +=
++      response.toBuilder().apply {
++        id = UUID.randomUUID().toString()
++        status = Enumeration(value = QuestionnaireResponse.QuestionnaireResponseStatus.Completed)
++        subject = patientRef.toBuilder()
++        encounter = encounterRef.toBuilder()
++        questionnaire = Canonical(value = QUESTIONNAIRE_URL).toBuilder()
++        authored = DateTime(value = FhirDateTime.fromString(visitDate)).toBuilder()
++      }.build()
++
++    engine.create(*resources.toTypedArray())
++    requestSync()
++  }
++
++  private fun collectAnswers(
++    items: List<QuestionnaireResponse.Item>,
++    into: MutableMap<String, MutableList<QuestionnaireResponse.Item.Answer>>,
++  ) {
++    items.forEach { item ->
++      item.linkId.value?.let { into.getOrPut(it) { mutableListOf() }.addAll(item.answer) }
++      collectAnswers(item.item, into)
++      item.answer.forEach { collectAnswers(it.item, into) }
++    }
++  }
++}
++
++private fun parseDate(raw: kotlin.String?): LocalDate? =
++  raw?.take(10)?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
++
++private fun Patient.displayName(): kotlin.String {
++  val n = name.firstOrNull() ?: return "Unknown"
++  val parts = n.given.mapNotNull { it.value } + listOfNotNull(n.family?.value)
++  return parts.joinToString(" ").ifBlank { "Unknown" }
++}
++
++private fun Observation.hasCode(code: kotlin.String): Boolean =
++  this.code.coding.any { it.code?.value == code }
++
++private fun Observation.quantityString(): kotlin.String? =
++  value?.asQuantity()?.value?.value?.value?.toPlainString()
++
++private fun Observation.componentCode(code: kotlin.String): kotlin.String? =
++  component.firstOrNull { c -> c.code.coding.any { it.code?.value == code } }
++    ?.value?.asQuantity()?.value?.value?.value?.toPlainString()
+diff --git a/app/src/main/java/com/example/ancapp/AppSyncWorker.kt b/app/src/main/java/com/example/ancapp/AppSyncWorker.kt
+new file mode 100644
+index 0000000..9d52018
+--- /dev/null
++++ b/app/src/main/java/com/example/ancapp/AppSyncWorker.kt
+@@ -0,0 +1,55 @@
++package com.example.ancapp
++
++import android.content.Context
++import androidx.work.WorkerParameters
++import dev.ohs.fhir.engine.FhirEngineProvider
++import dev.ohs.fhir.engine.sync.AcceptLocalConflictResolver
++import dev.ohs.fhir.engine.sync.ConflictResolver
++import dev.ohs.fhir.engine.sync.DownloadWorkManager
++import dev.ohs.fhir.engine.sync.FhirSyncWorker
++import dev.ohs.fhir.engine.sync.download.ResourceParamsBasedDownloadWorkManager
++import dev.ohs.fhir.engine.sync.upload.HttpCreateMethod
++import dev.ohs.fhir.engine.sync.upload.HttpUpdateMethod
++import dev.ohs.fhir.engine.sync.upload.UploadStrategy
++import dev.ohs.fhir.model.r4.terminologies.ResourceType
++
++class AppSyncWorker(appContext: Context, params: WorkerParameters) :
++  FhirSyncWorker(appContext, params) {
++
++  override fun getFhirEngine() = FhirEngineProvider.getInstance(applicationContext)
++
++  override fun getDownloadWorkManager(): DownloadWorkManager =
++    ResourceParamsBasedDownloadWorkManager(
++      syncParams = mapOf(
++        ResourceType.Patient to emptyMap(),
++        ResourceType.Encounter to emptyMap(),
++        ResourceType.Observation to emptyMap(),
++        ResourceType.Questionnaire to emptyMap(),
++        ResourceType.QuestionnaireResponse to emptyMap(),
++      ),
++      context = PrefsTimestampContext(applicationContext),
++    )
++
++  override fun getConflictResolver(): ConflictResolver = AcceptLocalConflictResolver
++
++  override fun getUploadStrategy(): UploadStrategy =
++    UploadStrategy.forIndividualRequest(
++      methodForCreate = HttpCreateMethod.PUT,
++      methodForUpdate = HttpUpdateMethod.PATCH,
++      squash = true,
++    )
++}
++
++class PrefsTimestampContext(private val context: Context) :
++  ResourceParamsBasedDownloadWorkManager.TimestampContext {
++
++  private val prefs
++    get() = context.getSharedPreferences("sync_timestamps", Context.MODE_PRIVATE)
++
++  override suspend fun saveLastUpdatedTimestamp(resourceType: ResourceType, timestamp: String?) {
++    prefs.edit().putString(resourceType.name, timestamp).apply()
++  }
++
++  override suspend fun getLasUpdateTimestamp(resourceType: ResourceType): String? =
++    prefs.getString(resourceType.name, null)
++}
+diff --git a/app/src/main/java/com/example/ancapp/MainActivity.kt b/app/src/main/java/com/example/ancapp/MainActivity.kt
+index b5e554b..ddaa30c 100644
+--- a/app/src/main/java/com/example/ancapp/MainActivity.kt
++++ b/app/src/main/java/com/example/ancapp/MainActivity.kt
+@@ -2,14 +2,287 @@ package com.example.ancapp
+ 
+ import android.os.Bundle
+ import androidx.activity.ComponentActivity
++import androidx.activity.compose.BackHandler
+ import androidx.activity.compose.setContent
++import androidx.compose.foundation.clickable
++import androidx.compose.foundation.layout.Arrangement
++import androidx.compose.foundation.layout.Box
++import androidx.compose.foundation.layout.Column
++import androidx.compose.foundation.layout.Row
++import androidx.compose.foundation.layout.Spacer
++import androidx.compose.foundation.layout.fillMaxSize
++import androidx.compose.foundation.layout.fillMaxWidth
++import androidx.compose.foundation.layout.height
++import androidx.compose.foundation.layout.padding
++import androidx.compose.foundation.lazy.LazyColumn
++import androidx.compose.foundation.lazy.items
++import androidx.compose.material3.Button
++import androidx.compose.material3.Card
++import androidx.compose.material3.CircularProgressIndicator
++import androidx.compose.material3.HorizontalDivider
+ import androidx.compose.material3.MaterialTheme
+ import androidx.compose.material3.Surface
+ import androidx.compose.material3.Text
++import androidx.compose.material3.TextButton
++import androidx.compose.runtime.Composable
++import androidx.compose.runtime.getValue
++import androidx.compose.runtime.LaunchedEffect
++import androidx.compose.runtime.mutableStateOf
++import androidx.compose.runtime.remember
++import androidx.compose.runtime.rememberCoroutineScope
++import androidx.compose.runtime.setValue
++import androidx.compose.ui.Alignment
++import androidx.compose.ui.Modifier
++import androidx.compose.ui.platform.LocalContext
++import androidx.compose.ui.unit.dp
++import dev.ohs.fhir.datacapture.Questionnaire
++import java.time.LocalDate
++import java.time.format.DateTimeFormatter
++import kotlinx.coroutines.CancellationException
++import kotlinx.coroutines.launch
++
++private val dateFormat = DateTimeFormatter.ofPattern("d MMM yyyy")
++
++private fun LocalDate?.display(): String = this?.format(dateFormat) ?: "—"
++
++private sealed interface Screen {
++  data object Register : Screen
++  data class Detail(val patientId: String) : Screen
++  data class Form(val patientId: String) : Screen
++}
+ 
+ class MainActivity : ComponentActivity() {
+   override fun onCreate(savedInstanceState: Bundle?) {
+     super.onCreate(savedInstanceState)
+-    setContent { MaterialTheme { Surface { Text("Hello") } } }
++    setContent {
++      MaterialTheme {
++        Surface(modifier = Modifier.fillMaxSize()) { AncApp() }
++      }
++    }
++  }
++}
++
++@Composable
++private fun AncApp() {
++  val context = LocalContext.current
++  val repo = remember { AncRepository(context.applicationContext) }
++  var screen by remember { mutableStateOf<Screen>(Screen.Register) }
++  var initialSyncDone by remember { mutableStateOf(false) }
++
++  LaunchedEffect(Unit) {
++    repo.syncOnce()
++    initialSyncDone = true
++  }
++
++  when (val s = screen) {
++    is Screen.Register ->
++      RegisterScreen(repo, initialSyncDone, onOpenPatient = { screen = Screen.Detail(it) })
++    is Screen.Detail ->
++      PatientDetailScreen(
++        repo,
++        s.patientId,
++        onBack = { screen = Screen.Register },
++        onRecordVisit = { screen = Screen.Form(s.patientId) },
++      )
++    is Screen.Form ->
++      VisitFormScreen(repo, s.patientId, onClose = { screen = Screen.Detail(s.patientId) })
++  }
++}
++
++@Composable
++private fun RegisterScreen(
++  repo: AncRepository,
++  initialSyncDone: Boolean,
++  onOpenPatient: (String) -> Unit,
++) {
++  var patients by remember { mutableStateOf<List<RegisterPatient>?>(null) }
++
++  LaunchedEffect(initialSyncDone) {
++    val loaded = repo.loadRegister()
++    // Before the first sync finishes the local store may be empty; only show
++    // results early if something is already there.
++    if (initialSyncDone || loaded.isNotEmpty()) patients = loaded
++  }
++
++  Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
++    Text("ANC Register", style = MaterialTheme.typography.headlineSmall)
++    Text(
++      "Pregnant patients by due date",
++      style = MaterialTheme.typography.bodyMedium,
++      color = MaterialTheme.colorScheme.onSurfaceVariant,
++    )
++    Spacer(Modifier.height(16.dp))
++    when {
++      patients == null -> LoadingBox("Syncing with clinic server…")
++      patients!!.isEmpty() -> LoadingBox("No patients found.", showSpinner = false)
++      else ->
++        LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
++          items(patients!!, key = { it.id }) { p ->
++            Card(modifier = Modifier.fillMaxWidth().clickable { onOpenPatient(p.id) }) {
++              Column(Modifier.padding(16.dp)) {
++                Text(p.name, style = MaterialTheme.typography.titleMedium)
++                Spacer(Modifier.height(4.dp))
++                Text(
++                  "Age ${p.ageYears?.toString() ?: "—"} · " +
++                    "${p.gestationWeeks?.let { "$it weeks pregnant" } ?: "GA unknown"}",
++                  style = MaterialTheme.typography.bodyMedium,
++                )
++                Text(
++                  "Due ${p.dueDate.display()}",
++                  style = MaterialTheme.typography.bodyMedium,
++                  color = MaterialTheme.colorScheme.primary,
++                )
++              }
++            }
++          }
++        }
++    }
++  }
++}
++
++@Composable
++private fun PatientDetailScreen(
++  repo: AncRepository,
++  patientId: String,
++  onBack: () -> Unit,
++  onRecordVisit: () -> Unit,
++) {
++  var patient by remember { mutableStateOf<RegisterPatient?>(null) }
++  var visits by remember { mutableStateOf<List<Visit>?>(null) }
++
++  BackHandler(onBack = onBack)
++  LaunchedEffect(patientId) {
++    patient = repo.loadPatient(patientId)
++    visits = repo.loadVisits(patientId)
++  }
++
++  Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
++    TextButton(onClick = onBack) { Text("← Register") }
++    Text(patient?.name ?: "Loading…", style = MaterialTheme.typography.headlineSmall)
++    patient?.let { p ->
++      Text(
++        "Age ${p.ageYears?.toString() ?: "—"} · Due ${p.dueDate.display()} · " +
++          "${p.gestationWeeks?.let { "$it weeks" } ?: "GA unknown"}",
++        style = MaterialTheme.typography.bodyMedium,
++        color = MaterialTheme.colorScheme.onSurfaceVariant,
++      )
++    }
++    Spacer(Modifier.height(12.dp))
++    Button(onClick = onRecordVisit, modifier = Modifier.fillMaxWidth()) {
++      Text("Record new ANC visit")
++    }
++    Spacer(Modifier.height(16.dp))
++    Text("Past visits", style = MaterialTheme.typography.titleMedium)
++    Spacer(Modifier.height(8.dp))
++    when {
++      visits == null -> LoadingBox("Loading visits…")
++      visits!!.isEmpty() -> LoadingBox("No visits recorded yet.", showSpinner = false)
++      else ->
++        LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
++          items(visits!!, key = { it.encounterId }) { v -> VisitCard(v) }
++        }
++    }
++  }
++}
++
++@Composable
++private fun VisitCard(v: Visit) {
++  Card(modifier = Modifier.fillMaxWidth()) {
++    Column(Modifier.padding(16.dp)) {
++      Row(
++        modifier = Modifier.fillMaxWidth(),
++        horizontalArrangement = Arrangement.SpaceBetween,
++        verticalAlignment = Alignment.CenterVertically,
++      ) {
++        Text(v.date.display(), style = MaterialTheme.typography.titleSmall)
++        v.gestationalAgeWeeks?.let {
++          Text(
++            "$it wks GA",
++            style = MaterialTheme.typography.bodySmall,
++            color = MaterialTheme.colorScheme.onSurfaceVariant,
++          )
++        }
++      }
++      HorizontalDivider(Modifier.padding(vertical = 8.dp))
++      VisitFact("Weight", v.weightKg?.let { "$it kg" })
++      VisitFact(
++        "Blood pressure",
++        if (v.systolic != null || v.diastolic != null)
++          "${v.systolic ?: "—"}/${v.diastolic ?: "—"} mmHg"
++        else null,
++      )
++      VisitFact("Hemoglobin", v.hemoglobin?.let { "$it g/dL" })
++      if (v.dangerSigns.isNotEmpty()) VisitFact("Danger signs", v.dangerSigns.joinToString(", "))
++      v.notes?.let { VisitFact("Notes", it) }
++    }
++  }
++}
++
++@Composable
++private fun VisitFact(label: String, value: String?) {
++  Row(modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
++    Text(
++      label,
++      style = MaterialTheme.typography.bodyMedium,
++      color = MaterialTheme.colorScheme.onSurfaceVariant,
++      modifier = Modifier.fillMaxWidth(0.45f),
++    )
++    Text(value ?: "not recorded", style = MaterialTheme.typography.bodyMedium)
++  }
++}
++
++@Composable
++private fun VisitFormScreen(repo: AncRepository, patientId: String, onClose: () -> Unit) {
++  val scope = rememberCoroutineScope()
++  var questionnaireJson by remember { mutableStateOf<String?>(null) }
++  var loadFailed by remember { mutableStateOf(false) }
++  var saving by remember { mutableStateOf(false) }
++
++  BackHandler(onBack = onClose)
++  LaunchedEffect(Unit) {
++    val q = repo.questionnaireJson()
++    if (q == null) loadFailed = true else questionnaireJson = q
++  }
++
++  when {
++    saving -> LoadingBox("Saving visit…")
++    loadFailed ->
++      Column(Modifier.fillMaxSize().padding(16.dp)) {
++        Text("Visit form is not available yet — sync with the server and try again.")
++        Spacer(Modifier.height(8.dp))
++        TextButton(onClick = onClose) { Text("Back") }
++      }
++    questionnaireJson == null -> LoadingBox("Loading form…")
++    else ->
++      Questionnaire(
++        questionnaireJson = questionnaireJson!!,
++        onSubmit = { getResponse ->
++          scope.launch {
++            try {
++              val response = getResponse()
++              saving = true
++              repo.saveVisit(patientId, response)
++              onClose()
++            } catch (e: CancellationException) {
++              // Validation failed; the form is already showing per-question errors.
++              saving = false
++            }
++          }
++        },
++        onCancel = onClose,
++      )
++  }
++}
++
++@Composable
++private fun LoadingBox(message: String, showSpinner: Boolean = true) {
++  Box(modifier = Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
++    Column(horizontalAlignment = Alignment.CenterHorizontally) {
++      if (showSpinner) {
++        CircularProgressIndicator()
++        Spacer(Modifier.height(12.dp))
++      }
++      Text(message, style = MaterialTheme.typography.bodyMedium)
++    }
+   }
+ }

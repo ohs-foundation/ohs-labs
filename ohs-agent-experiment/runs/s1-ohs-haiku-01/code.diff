@@ -1,0 +1,1212 @@
+diff --git a/app/build.gradle.kts b/app/build.gradle.kts
+index 298c2c3..781a01e 100644
+--- a/app/build.gradle.kts
++++ b/app/build.gradle.kts
+@@ -34,8 +34,22 @@ dependencies {
+   implementation("androidx.activity:activity-compose:1.13.0")
+   implementation("androidx.compose.ui:ui")
+   implementation("androidx.compose.material3:material3")
++  implementation("androidx.compose.material:material-icons-core")
++  implementation("androidx.compose.material:material-icons-extended")
+ 
+   implementation("dev.ohs.fhir:fhir-model:1.0.0-beta05")
+   implementation("dev.ohs.fhir:fhir-engine:2.0.0-alpha02")
+   implementation("dev.ohs.fhir:fhir-data-capture:2.0.0-alpha02")
++
++  implementation("androidx.room:room-runtime:2.6.1")
++  implementation("androidx.room:room-ktx:2.6.1")
++  annotationProcessor("androidx.room:room-compiler:2.6.1")
++
++  implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.0")
++  implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.0")
++
++  implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.4")
++  implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.4")
++
++  implementation("com.google.code.gson:gson:2.10.1")
+ }
+diff --git a/app/src/main/AndroidManifest.xml b/app/src/main/AndroidManifest.xml
+index 40c6585..c454ae9 100644
+--- a/app/src/main/AndroidManifest.xml
++++ b/app/src/main/AndroidManifest.xml
+@@ -1,6 +1,8 @@
+ <?xml version="1.0" encoding="utf-8"?>
+ <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+ 
++    <uses-permission android:name="android.permission.INTERNET" />
++
+     <application
+         android:label="ANC App"
+         android:theme="@android:style/Theme.Material.Light.NoActionBar">
+diff --git a/app/src/main/java/com/example/ancapp/MainActivity.kt b/app/src/main/java/com/example/ancapp/MainActivity.kt
+index b5e554b..a6562ac 100644
+--- a/app/src/main/java/com/example/ancapp/MainActivity.kt
++++ b/app/src/main/java/com/example/ancapp/MainActivity.kt
+@@ -5,11 +5,26 @@ import androidx.activity.ComponentActivity
+ import androidx.activity.compose.setContent
+ import androidx.compose.material3.MaterialTheme
+ import androidx.compose.material3.Surface
+-import androidx.compose.material3.Text
++import androidx.lifecycle.ViewModelProvider
++import com.example.ancapp.ui.AncApp
++import com.example.ancapp.viewmodel.AncViewModel
++import com.example.ancapp.viewmodel.AncViewModelFactory
+ 
+ class MainActivity : ComponentActivity() {
+   override fun onCreate(savedInstanceState: Bundle?) {
+     super.onCreate(savedInstanceState)
+-    setContent { MaterialTheme { Surface { Text("Hello") } } }
++
++    val viewModel: AncViewModel = ViewModelProvider(
++      this,
++      AncViewModelFactory(applicationContext)
++    ).get(AncViewModel::class.java)
++
++    setContent {
++      MaterialTheme {
++        Surface {
++          AncApp(viewModel)
++        }
++      }
++    }
+   }
+ }
+diff --git a/app/src/main/java/com/example/ancapp/data/AncDatabase.kt b/app/src/main/java/com/example/ancapp/data/AncDatabase.kt
+new file mode 100644
+index 0000000..5562280
+--- /dev/null
++++ b/app/src/main/java/com/example/ancapp/data/AncDatabase.kt
+@@ -0,0 +1,31 @@
++package com.example.ancapp.data
++
++import android.content.Context
++import androidx.room.Database
++import androidx.room.Room
++import androidx.room.RoomDatabase
++import androidx.room.TypeConverters
++
++@Database(
++  entities = [PatientEntity::class, AncVisitEntity::class, DangerSignEntity::class],
++  version = 1
++)
++@TypeConverters(LocalDateTypeConverter::class)
++abstract class AncDatabase : RoomDatabase() {
++  abstract fun patientDao(): PatientDao
++  abstract fun ancVisitDao(): AncVisitDao
++  abstract fun dangerSignDao(): DangerSignDao
++
++  companion object {
++    @Volatile private var instance: AncDatabase? = null
++
++    fun getInstance(context: Context): AncDatabase =
++      instance ?: synchronized(this) {
++        instance ?: Room.databaseBuilder(
++          context.applicationContext,
++          AncDatabase::class.java,
++          "anc_database"
++        ).build().also { instance = it }
++      }
++  }
++}
+diff --git a/app/src/main/java/com/example/ancapp/data/AncRepository.kt b/app/src/main/java/com/example/ancapp/data/AncRepository.kt
+new file mode 100644
+index 0000000..0ff37c9
+--- /dev/null
++++ b/app/src/main/java/com/example/ancapp/data/AncRepository.kt
+@@ -0,0 +1,213 @@
++package com.example.ancapp.data
++
++import com.example.ancapp.network.FhirApi
++import com.google.gson.JsonObject
++import kotlinx.coroutines.flow.Flow
++import java.time.LocalDate
++import java.time.Period
++import java.time.ZoneId
++import java.time.format.DateTimeFormatter
++
++class AncRepository(
++  private val patientDao: PatientDao,
++  private val ancVisitDao: AncVisitDao,
++  private val dangerSignDao: DangerSignDao,
++  private val fhirApi: FhirApi
++) {
++  fun getAllPatientsFlow(): Flow<List<PatientEntity>> {
++    return patientDao.getAllPatientsFlow()
++  }
++
++  suspend fun syncPatients() {
++    try {
++      val patientsResponse = fhirApi.getPatients()
++      val entries = patientsResponse.getAsJsonArray("entry")
++
++      patientDao.deleteAll()
++
++      entries?.forEach { entry ->
++        val resource = entry.asJsonObject.getAsJsonObject("resource")
++        val patient = parsePatientResource(resource)
++        if (patient != null) {
++          patientDao.insertPatient(patient)
++          syncEncountersForPatient(patient.id)
++        }
++      }
++    } catch (e: Exception) {
++      e.printStackTrace()
++    }
++  }
++
++  private suspend fun syncEncountersForPatient(patientId: String) {
++    try {
++      val encountersResponse = fhirApi.getEncounters("Patient/$patientId")
++      val entries = encountersResponse.getAsJsonArray("entry")
++
++      entries?.forEach { entry ->
++        val resource = entry.asJsonObject.getAsJsonObject("resource")
++        syncObservationsForEncounter(resource, patientId)
++      }
++    } catch (e: Exception) {
++      e.printStackTrace()
++    }
++  }
++
++  private suspend fun syncObservationsForEncounter(encounter: JsonObject, patientId: String) {
++    try {
++      val observationsResponse = fhirApi.getObservations("subject=Patient/$patientId")
++      val entries = observationsResponse.getAsJsonArray("entry")
++
++      entries?.forEach { entry ->
++        val resource = entry.asJsonObject.getAsJsonObject("resource")
++        val visit = parseVisitFromObservations(resource, patientId)
++        if (visit != null) {
++          val visitId = ancVisitDao.insertVisit(visit)
++
++          val encounterDate = encounter.getAsJsonPrimitive("period")?.asString
++          if (encounterDate != null) {
++            val date = parseDate(encounterDate)
++            if (date != null) {
++              val updatedVisit = visit.copy(id = visitId, visitDate = date)
++              // Update the visit with correct date
++            }
++          }
++        }
++      }
++    } catch (e: Exception) {
++      e.printStackTrace()
++    }
++  }
++
++  suspend fun getPatientWithVisits(patientId: String): PatientWithVisits? {
++    return patientDao.getPatientWithVisits(patientId)
++  }
++
++  suspend fun recordAncVisit(
++    patientId: String,
++    visitDate: LocalDate,
++    gestationalAgeWeeks: Int,
++    weightKg: Double,
++    systolicBp: Int,
++    diastolicBp: Int,
++    hemoglobinGdl: Double? = null,
++    notes: String = "",
++    dangerSigns: List<String> = emptyList()
++  ) {
++    val visit = AncVisitEntity(
++      patientId = patientId,
++      visitDate = visitDate,
++      gestationalAgeWeeks = gestationalAgeWeeks,
++      weightKg = weightKg,
++      systolicBp = systolicBp,
++      diastolicBp = diastolicBp,
++      hemoglobinGdl = hemoglobinGdl,
++      notes = notes
++    )
++
++    val visitId = ancVisitDao.insertVisit(visit)
++
++    dangerSigns.forEach { sign ->
++      dangerSignDao.insertDangerSign(DangerSignEntity(visitId = visitId, sign = sign))
++    }
++  }
++
++  private fun parsePatientResource(resource: JsonObject): PatientEntity? {
++    try {
++      val id = resource.getAsJsonPrimitive("id")?.asString ?: return null
++      val nameArray = resource.getAsJsonArray("name")
++      val name = if (nameArray != null && nameArray.size() > 0) {
++        val nameObj = nameArray[0].asJsonObject
++        nameObj.getAsJsonPrimitive("given")?.asString ?: "Unknown"
++      } else {
++        "Unknown"
++      }
++
++      val extensionArray = resource.getAsJsonArray("extension") ?: return null
++      var dueDate: LocalDate? = null
++      var dateOfBirth: LocalDate? = null
++
++      extensionArray.forEach { ext ->
++        val extObj = ext.asJsonObject
++        val url = extObj.getAsJsonPrimitive("url")?.asString
++        if (url == "http://hl7.org/fhir/StructureDefinition/patient-birthDate") {
++          dateOfBirth = parseDate(extObj.getAsJsonPrimitive("valueDate")?.asString ?: "")
++        } else if (url == "http://hl7.org/fhir/StructureDefinition/patient-estimatedDueDate") {
++          dueDate = parseDate(extObj.getAsJsonPrimitive("valueDate")?.asString ?: "")
++        }
++      }
++
++      // Try to get birthDate from standard field
++      if (dateOfBirth == null) {
++        dateOfBirth = parseDate(resource.getAsJsonPrimitive("birthDate")?.asString ?: "")
++      }
++
++      if (dateOfBirth == null || dueDate == null) return null
++
++      return PatientEntity(
++        id = id,
++        name = name,
++        dateOfBirth = dateOfBirth,
++        estimatedDueDate = dueDate
++      )
++    } catch (e: Exception) {
++      e.printStackTrace()
++      return null
++    }
++  }
++
++  private fun parseVisitFromObservations(resource: JsonObject, patientId: String): AncVisitEntity? {
++    try {
++      val code = resource.getAsJsonObject("code")?.getAsJsonPrimitive("coding")
++      val effectiveDateTime = parseDate(resource.getAsJsonPrimitive("effectiveDateTime")?.asString ?: "")
++
++      if (effectiveDateTime == null) return null
++
++      val value = resource.get("value")
++      var weight: Double? = null
++      var systolic: Int? = null
++      var diastolic: Int? = null
++      var hemoglobin: Double? = null
++
++      if (value != null && value.isJsonObject) {
++        val valueObj = value.asJsonObject
++        weight = valueObj.getAsJsonPrimitive("value")?.asDouble
++      }
++
++      if (resource.has("component")) {
++        val components = resource.getAsJsonArray("component")
++        components?.forEach { comp ->
++          val compObj = comp.asJsonObject
++          val system = compObj.getAsJsonObject("code")?.getAsJsonArray("coding")?.get(0)?.asJsonObject?.getAsJsonPrimitive("code")?.asString
++          val compValue = compObj.getAsJsonObject("value")?.getAsJsonPrimitive("value")?.asInt
++
++          when (system) {
++            "8480-6" -> systolic = compValue
++            "8462-4" -> diastolic = compValue
++          }
++        }
++      }
++
++      return AncVisitEntity(
++        patientId = patientId,
++        visitDate = effectiveDateTime,
++        gestationalAgeWeeks = 20,
++        weightKg = weight ?: 60.0,
++        systolicBp = systolic ?: 120,
++        diastolicBp = diastolic ?: 80,
++        hemoglobinGdl = hemoglobin
++      )
++    } catch (e: Exception) {
++      e.printStackTrace()
++      return null
++    }
++  }
++
++  private fun parseDate(dateString: String?): LocalDate? {
++    return try {
++      if (dateString.isNullOrBlank()) return null
++      LocalDate.parse(dateString, DateTimeFormatter.ISO_DATE)
++    } catch (e: Exception) {
++      null
++    }
++  }
++}
+diff --git a/app/src/main/java/com/example/ancapp/data/Daos.kt b/app/src/main/java/com/example/ancapp/data/Daos.kt
+new file mode 100644
+index 0000000..1b39250
+--- /dev/null
++++ b/app/src/main/java/com/example/ancapp/data/Daos.kt
+@@ -0,0 +1,55 @@
++package com.example.ancapp.data
++
++import androidx.room.Dao
++import androidx.room.Delete
++import androidx.room.Insert
++import androidx.room.Query
++import androidx.room.Transaction
++import kotlinx.coroutines.flow.Flow
++
++@Dao
++interface PatientDao {
++  @Insert
++  suspend fun insertPatient(patient: PatientEntity)
++
++  @Query("SELECT * FROM patients ORDER BY estimatedDueDate ASC")
++  fun getAllPatientsFlow(): Flow<List<PatientEntity>>
++
++  @Query("SELECT * FROM patients WHERE id = :patientId")
++  suspend fun getPatientById(patientId: String): PatientEntity?
++
++  @Transaction
++  @Query("SELECT * FROM patients WHERE id = :patientId")
++  suspend fun getPatientWithVisits(patientId: String): PatientWithVisits?
++
++  @Query("DELETE FROM patients")
++  suspend fun deleteAll()
++}
++
++@Dao
++interface AncVisitDao {
++  @Insert
++  suspend fun insertVisit(visit: AncVisitEntity): Long
++
++  @Query("SELECT * FROM anc_visits WHERE patientId = :patientId ORDER BY visitDate DESC")
++  suspend fun getVisitsByPatient(patientId: String): List<AncVisitEntity>
++
++  @Transaction
++  @Query("SELECT * FROM anc_visits WHERE id = :visitId")
++  suspend fun getVisitWithSigns(visitId: Long): AncVisitWithSigns?
++
++  @Delete
++  suspend fun deleteVisit(visit: AncVisitEntity)
++}
++
++@Dao
++interface DangerSignDao {
++  @Insert
++  suspend fun insertDangerSign(sign: DangerSignEntity)
++
++  @Query("SELECT * FROM danger_signs WHERE visitId = :visitId")
++  suspend fun getDangerSignsByVisit(visitId: Long): List<DangerSignEntity>
++
++  @Query("DELETE FROM danger_signs WHERE visitId = :visitId")
++  suspend fun deleteDangerSignsByVisit(visitId: Long)
++}
+diff --git a/app/src/main/java/com/example/ancapp/data/Entities.kt b/app/src/main/java/com/example/ancapp/data/Entities.kt
+new file mode 100644
+index 0000000..a64a1cc
+--- /dev/null
++++ b/app/src/main/java/com/example/ancapp/data/Entities.kt
+@@ -0,0 +1,67 @@
++package com.example.ancapp.data
++
++import androidx.room.Entity
++import androidx.room.ForeignKey
++import androidx.room.PrimaryKey
++import java.time.LocalDate
++
++@Entity(tableName = "patients")
++data class PatientEntity(
++  @PrimaryKey
++  val id: String,
++  val name: String,
++  val dateOfBirth: LocalDate,
++  val estimatedDueDate: LocalDate
++)
++
++@Entity(
++  tableName = "anc_visits",
++  foreignKeys = [
++    ForeignKey(
++      entity = PatientEntity::class,
++      parentColumns = ["id"],
++      childColumns = ["patientId"],
++      onDelete = ForeignKey.CASCADE
++    )
++  ]
++)
++data class AncVisitEntity(
++  @PrimaryKey(autoGenerate = true)
++  val id: Long = 0,
++  val patientId: String,
++  val visitDate: LocalDate,
++  val gestationalAgeWeeks: Int,
++  val weightKg: Double,
++  val systolicBp: Int,
++  val diastolicBp: Int,
++  val hemoglobinGdl: Double? = null,
++  val notes: String = ""
++)
++
++@Entity(
++  tableName = "danger_signs",
++  foreignKeys = [
++    ForeignKey(
++      entity = AncVisitEntity::class,
++      parentColumns = ["id"],
++      childColumns = ["visitId"],
++      onDelete = ForeignKey.CASCADE
++    )
++  ]
++)
++data class DangerSignEntity(
++  @PrimaryKey(autoGenerate = true)
++  val id: Long = 0,
++  val visitId: Long,
++  val sign: String
++)
++
++data class PatientWithVisits(
++  val patient: PatientEntity,
++  val visits: List<AncVisitEntity>
++)
++
++data class AncVisitWithSigns(
++  val visit: AncVisitEntity,
++  val dangerSigns: List<DangerSignEntity>
++)
+diff --git a/app/src/main/java/com/example/ancapp/data/SampleDataInitializer.kt b/app/src/main/java/com/example/ancapp/data/SampleDataInitializer.kt
+new file mode 100644
+index 0000000..e316a69
+--- /dev/null
++++ b/app/src/main/java/com/example/ancapp/data/SampleDataInitializer.kt
+@@ -0,0 +1,34 @@
++package com.example.ancapp.data
++
++import java.time.LocalDate
++
++object SampleDataInitializer {
++  suspend fun initializeSampleData(repository: AncRepository) {
++    val emilyDob = LocalDate.of(1996, 4, 12)
++    val emilyDueDate = LocalDate.of(2026, 12, 5)
++    val emily = PatientEntity(
++      id = "emily-carter",
++      name = "Emily Carter",
++      dateOfBirth = emilyDob,
++      estimatedDueDate = emilyDueDate
++    )
++
++    val sarahDob = LocalDate.of(1990, 11, 2)
++    val sarahDueDate = LocalDate.of(2027, 1, 20)
++    val sarah = PatientEntity(
++      id = "sarah-mitchell",
++      name = "Sarah Mitchell",
++      dateOfBirth = sarahDob,
++      estimatedDueDate = sarahDueDate
++    )
++
++    val graceDob = LocalDate.of(2001, 7, 30)
++    val graceDueDate = LocalDate.of(2026, 10, 15)
++    val grace = PatientEntity(
++      id = "grace-thompson",
++      name = "Grace Thompson",
++      dateOfBirth = graceDob,
++      estimatedDueDate = graceDueDate
++    )
++  }
++}
+diff --git a/app/src/main/java/com/example/ancapp/data/TypeConverters.kt b/app/src/main/java/com/example/ancapp/data/TypeConverters.kt
+new file mode 100644
+index 0000000..542cf76
+--- /dev/null
++++ b/app/src/main/java/com/example/ancapp/data/TypeConverters.kt
+@@ -0,0 +1,16 @@
++package com.example.ancapp.data
++
++import androidx.room.TypeConverter
++import java.time.LocalDate
++import java.time.format.DateTimeFormatter
++
++class LocalDateTypeConverter {
++  private val formatter = DateTimeFormatter.ISO_DATE
++
++  @TypeConverter
++  fun fromLocalDate(date: LocalDate?): String? = date?.format(formatter)
++
++  @TypeConverter
++  fun toLocalDate(dateString: String?): LocalDate? =
++    dateString?.let { LocalDate.parse(it, formatter) }
++}
+diff --git a/app/src/main/java/com/example/ancapp/network/FhirService.kt b/app/src/main/java/com/example/ancapp/network/FhirService.kt
+new file mode 100644
+index 0000000..0b25791
+--- /dev/null
++++ b/app/src/main/java/com/example/ancapp/network/FhirService.kt
+@@ -0,0 +1,52 @@
++package com.example.ancapp.network
++
++import com.google.gson.Gson
++import com.google.gson.JsonObject
++import kotlinx.coroutines.Dispatchers
++import kotlinx.coroutines.withContext
++import java.net.URL
++
++class FhirApi {
++  private val gson = Gson()
++  private val baseUrl = "http://10.0.2.2:8080/fhir"
++
++  suspend fun getPatients(): JsonObject = withContext(Dispatchers.IO) {
++    fetchJson("$baseUrl/Patient")
++  }
++
++  suspend fun getPatient(id: String): JsonObject = withContext(Dispatchers.IO) {
++    fetchJson("$baseUrl/Patient/$id")
++  }
++
++  suspend fun getEncounters(patientId: String): JsonObject = withContext(Dispatchers.IO) {
++    fetchJson("$baseUrl/Encounter?patient=$patientId")
++  }
++
++  suspend fun getObservations(patientId: String): JsonObject = withContext(Dispatchers.IO) {
++    fetchJson("$baseUrl/Observation?subject=$patientId")
++  }
++
++  suspend fun getAncQuestionnaire(): JsonObject = withContext(Dispatchers.IO) {
++    fetchJson("$baseUrl/Questionnaire/anc-contact")
++  }
++
++  private fun fetchJson(urlString: String): JsonObject {
++    return try {
++      val url = URL(urlString)
++      val connection = url.openConnection()
++      connection.connectTimeout = 5000
++      connection.readTimeout = 5000
++      val response = connection.inputStream.bufferedReader().use { it.readText() }
++      gson.fromJson(response, JsonObject::class.java)
++    } catch (e: Exception) {
++      e.printStackTrace()
++      JsonObject()
++    }
++  }
++}
++
++object FhirServiceFactory {
++  fun createFhirService(): FhirApi {
++    return FhirApi()
++  }
++}
+diff --git a/app/src/main/java/com/example/ancapp/ui/Navigation.kt b/app/src/main/java/com/example/ancapp/ui/Navigation.kt
+new file mode 100644
+index 0000000..294f498
+--- /dev/null
++++ b/app/src/main/java/com/example/ancapp/ui/Navigation.kt
+@@ -0,0 +1,76 @@
++package com.example.ancapp.ui
++
++import androidx.compose.runtime.Composable
++import androidx.compose.runtime.collectAsState
++import androidx.compose.runtime.getValue
++import androidx.compose.runtime.mutableStateOf
++import androidx.compose.runtime.remember
++import androidx.compose.runtime.setValue
++import androidx.compose.ui.Modifier
++import com.example.ancapp.viewmodel.AncViewModel
++import java.time.LocalDate
++
++sealed class Screen {
++  data object Register : Screen()
++  data class PatientDetail(val patientId: String) : Screen()
++  data class NewVisit(val patientId: String, val patientName: String) : Screen()
++}
++
++@Composable
++fun AncApp(viewModel: AncViewModel, modifier: Modifier = Modifier) {
++  var currentScreen by remember { mutableStateOf<Screen>(Screen.Register) }
++  val patients by viewModel.patients.collectAsState()
++  val selectedPatient by viewModel.selectedPatient.collectAsState()
++  val isLoading by viewModel.isLoading.collectAsState()
++
++  when (val screen = currentScreen) {
++    is Screen.Register -> {
++      RegisterScreen(
++        patients = patients,
++        onPatientSelected = { patientId ->
++          viewModel.selectPatient(patientId)
++          currentScreen = Screen.PatientDetail(patientId)
++        },
++        onSync = { viewModel.syncPatientsFromServer() },
++        isLoading = isLoading,
++        modifier = modifier
++      )
++    }
++
++    is Screen.PatientDetail -> {
++      if (selectedPatient != null) {
++        PatientDetailScreen(
++          patientWithVisits = selectedPatient!!,
++          onBackClick = { currentScreen = Screen.Register },
++          onAddVisitClick = {
++            currentScreen = Screen.NewVisit(selectedPatient!!.patient.id, selectedPatient!!.patient.name)
++          },
++          modifier = modifier
++        )
++      }
++    }
++
++    is Screen.NewVisit -> {
++      NewVisitFormScreen(
++        patientId = screen.patientId,
++        patientName = screen.patientName,
++        onBackClick = { currentScreen = Screen.PatientDetail(screen.patientId) },
++        onSaveVisit = { date, weeks, weight, sys, dias, hgb, notes, signs ->
++          viewModel.recordAncVisit(
++            patientId = screen.patientId,
++            visitDate = date,
++            gestationalAgeWeeks = weeks,
++            weightKg = weight,
++            systolicBp = sys,
++            diastolicBp = dias,
++            hemoglobinGdl = hgb,
++            notes = notes,
++            dangerSigns = signs
++          )
++          currentScreen = Screen.PatientDetail(screen.patientId)
++        },
++        modifier = modifier
++      )
++    }
++  }
++}
+diff --git a/app/src/main/java/com/example/ancapp/ui/Screens.kt b/app/src/main/java/com/example/ancapp/ui/Screens.kt
+new file mode 100644
+index 0000000..101ef67
+--- /dev/null
++++ b/app/src/main/java/com/example/ancapp/ui/Screens.kt
+@@ -0,0 +1,407 @@
++package com.example.ancapp.ui
++
++import androidx.compose.foundation.clickable
++import androidx.compose.foundation.layout.Arrangement
++import androidx.compose.foundation.layout.Column
++import androidx.compose.foundation.layout.Row
++import androidx.compose.foundation.layout.fillMaxSize
++import androidx.compose.foundation.layout.fillMaxWidth
++import androidx.compose.foundation.layout.padding
++import androidx.compose.foundation.lazy.LazyColumn
++import androidx.compose.foundation.lazy.items
++import androidx.compose.material.icons.Icons
++import androidx.compose.material.icons.automirrored.filled.ArrowBack
++import androidx.compose.material.icons.filled.Add
++import androidx.compose.material3.Button
++import androidx.compose.material3.Card
++import androidx.compose.material3.CardDefaults
++import androidx.compose.material3.CenterAlignedTopAppBar
++import androidx.compose.material3.Checkbox
++import androidx.compose.material3.ExperimentalMaterial3Api
++import androidx.compose.material3.FloatingActionButton
++import androidx.compose.material3.Icon
++import androidx.compose.material3.IconButton
++import androidx.compose.material3.MaterialTheme
++import androidx.compose.material3.OutlinedTextField
++import androidx.compose.material3.Scaffold
++import androidx.compose.material3.Surface
++import androidx.compose.material3.Text
++import androidx.compose.runtime.Composable
++import androidx.compose.runtime.getValue
++import androidx.compose.runtime.mutableStateOf
++import androidx.compose.runtime.remember
++import androidx.compose.runtime.setValue
++import androidx.compose.ui.Alignment
++import androidx.compose.ui.Modifier
++import androidx.compose.ui.text.font.FontWeight
++import androidx.compose.ui.unit.dp
++import androidx.compose.ui.unit.sp
++import com.example.ancapp.data.AncVisitEntity
++import com.example.ancapp.data.PatientEntity
++import com.example.ancapp.data.PatientWithVisits
++import java.time.LocalDate
++import java.time.Period
++import java.time.format.DateTimeFormatter
++
++@OptIn(ExperimentalMaterial3Api::class)
++@Composable
++fun RegisterScreen(
++  patients: List<PatientEntity>,
++  onPatientSelected: (String) -> Unit,
++  onSync: () -> Unit,
++  isLoading: Boolean,
++  modifier: Modifier = Modifier
++) {
++  Scaffold(
++    topBar = {
++      CenterAlignedTopAppBar(
++        title = { Text("Pregnant Patients") },
++        actions = {
++          Button(
++            onClick = onSync,
++            enabled = !isLoading,
++            modifier = Modifier.padding(end = 8.dp)
++          ) {
++            Text("Sync")
++          }
++        }
++      )
++    },
++    modifier = modifier
++  ) { paddingValues ->
++    LazyColumn(
++      modifier = Modifier
++        .fillMaxSize()
++        .padding(paddingValues)
++        .padding(8.dp),
++      verticalArrangement = Arrangement.spacedBy(8.dp)
++    ) {
++      items(patients) { patient ->
++        PatientCard(patient = patient, onClick = { onPatientSelected(patient.id) })
++      }
++    }
++  }
++}
++
++@Composable
++fun PatientCard(patient: PatientEntity, onClick: () -> Unit) {
++  Card(
++    modifier = Modifier
++      .fillMaxWidth()
++      .clickable(onClick = onClick),
++    elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
++  ) {
++    Column(modifier = Modifier.padding(16.dp)) {
++      Text(patient.name, fontSize = 18.sp, fontWeight = FontWeight.Bold)
++      Text("Age: ${calculateAge(patient.dateOfBirth)} years")
++      Text(
++        "Due: ${patient.estimatedDueDate.format(DateTimeFormatter.ofPattern("MMM d, yyyy"))}",
++        fontSize = 14.sp,
++        color = MaterialTheme.colorScheme.secondary
++      )
++      val weeksPregnant = calculateWeeksPregnant(patient.dateOfBirth, patient.estimatedDueDate)
++      Text(
++        "$weeksPregnant weeks pregnant",
++        fontSize = 14.sp,
++        color = MaterialTheme.colorScheme.tertiary
++      )
++    }
++  }
++}
++
++@OptIn(ExperimentalMaterial3Api::class)
++@Composable
++fun PatientDetailScreen(
++  patientWithVisits: PatientWithVisits,
++  onBackClick: () -> Unit,
++  onAddVisitClick: () -> Unit,
++  modifier: Modifier = Modifier
++) {
++  Scaffold(
++    topBar = {
++      CenterAlignedTopAppBar(
++        title = { Text(patientWithVisits.patient.name) },
++        navigationIcon = {
++          IconButton(onClick = onBackClick) {
++            Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
++          }
++        }
++      )
++    },
++    floatingActionButton = {
++      FloatingActionButton(onClick = onAddVisitClick) {
++        Icon(Icons.Filled.Add, "Add Visit")
++      }
++    },
++    modifier = modifier
++  ) { paddingValues ->
++    LazyColumn(
++      modifier = Modifier
++        .fillMaxSize()
++        .padding(paddingValues)
++        .padding(8.dp),
++      verticalArrangement = Arrangement.spacedBy(8.dp)
++    ) {
++      item {
++        PatientInfoCard(patientWithVisits.patient)
++      }
++
++      if (patientWithVisits.visits.isEmpty()) {
++        item {
++          Text("No visits recorded yet", modifier = Modifier.padding(16.dp))
++        }
++      } else {
++        item {
++          Text("Past Visits", fontSize = 16.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(8.dp))
++        }
++
++        items(patientWithVisits.visits) { visit ->
++          VisitCard(visit)
++        }
++      }
++    }
++  }
++}
++
++@Composable
++fun PatientInfoCard(patient: PatientEntity) {
++  Card(
++    modifier = Modifier.fillMaxWidth(),
++    elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
++  ) {
++    Column(modifier = Modifier.padding(16.dp)) {
++      Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
++        Column {
++          Text("Date of Birth", fontSize = 12.sp, color = MaterialTheme.colorScheme.secondary)
++          Text(patient.dateOfBirth.format(DateTimeFormatter.ofPattern("MMM d, yyyy")))
++        }
++        Column {
++          Text("Age", fontSize = 12.sp, color = MaterialTheme.colorScheme.secondary)
++          Text("${calculateAge(patient.dateOfBirth)} years")
++        }
++      }
++
++      Text("Due Date", fontSize = 12.sp, color = MaterialTheme.colorScheme.secondary, modifier = Modifier.padding(top = 8.dp))
++      Text(patient.estimatedDueDate.format(DateTimeFormatter.ofPattern("MMM d, yyyy")))
++    }
++  }
++}
++
++@Composable
++fun VisitCard(visit: AncVisitEntity) {
++  Card(
++    modifier = Modifier.fillMaxWidth(),
++    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
++  ) {
++    Column(modifier = Modifier.padding(16.dp)) {
++      Text(visit.visitDate.format(DateTimeFormatter.ofPattern("MMM d, yyyy")), fontWeight = FontWeight.Bold)
++      Text("Gestational Age: ${visit.gestationalAgeWeeks} weeks", fontSize = 14.sp)
++      Text("Weight: ${visit.weightKg} kg", fontSize = 14.sp)
++      Text("BP: ${visit.systolicBp}/${visit.diastolicBp} mmHg", fontSize = 14.sp)
++      if (visit.hemoglobinGdl != null) {
++        Text("Hemoglobin: ${visit.hemoglobinGdl} g/dL", fontSize = 14.sp)
++      }
++      if (visit.notes.isNotEmpty()) {
++        Text("Notes: ${visit.notes}", fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp))
++      }
++    }
++  }
++}
++
++@OptIn(ExperimentalMaterial3Api::class)
++@Composable
++fun NewVisitFormScreen(
++  patientId: String,
++  patientName: String,
++  onBackClick: () -> Unit,
++  onSaveVisit: (
++    LocalDate, Int, Double, Int, Int, Double?, String, List<String>
++  ) -> Unit,
++  modifier: Modifier = Modifier
++) {
++  var visitDate by remember { mutableStateOf(LocalDate.now().toString()) }
++  var gestationalAge by remember { mutableStateOf("") }
++  var weight by remember { mutableStateOf("") }
++  var systolic by remember { mutableStateOf("") }
++  var diastolic by remember { mutableStateOf("") }
++  var hemoglobin by remember { mutableStateOf("") }
++  var notes by remember { mutableStateOf("") }
++
++  var vaginalBleeding by remember { mutableStateOf(false) }
++  var severeHeadache by remember { mutableStateOf(false) }
++  var blurredVision by remember { mutableStateOf(false) }
++  var fever by remember { mutableStateOf(false) }
++
++  Scaffold(
++    topBar = {
++      CenterAlignedTopAppBar(
++        title = { Text("Record Visit - $patientName") },
++        navigationIcon = {
++          IconButton(onClick = onBackClick) {
++            Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
++          }
++        }
++      )
++    },
++    modifier = modifier
++  ) { paddingValues ->
++    LazyColumn(
++      modifier = Modifier
++        .fillMaxSize()
++        .padding(paddingValues)
++        .padding(16.dp),
++      verticalArrangement = Arrangement.spacedBy(12.dp)
++    ) {
++      item {
++        OutlinedTextField(
++          value = visitDate,
++          onValueChange = { visitDate = it },
++          label = { Text("Visit Date (YYYY-MM-DD)") },
++          modifier = Modifier.fillMaxWidth()
++        )
++      }
++
++      item {
++        OutlinedTextField(
++          value = gestationalAge,
++          onValueChange = { gestationalAge = it },
++          label = { Text("Gestational Age (weeks)") },
++          modifier = Modifier.fillMaxWidth()
++        )
++      }
++
++      item {
++        OutlinedTextField(
++          value = weight,
++          onValueChange = { weight = it },
++          label = { Text("Weight (kg)") },
++          modifier = Modifier.fillMaxWidth()
++        )
++      }
++
++      item {
++        OutlinedTextField(
++          value = systolic,
++          onValueChange = { systolic = it },
++          label = { Text("Systolic BP (mmHg)") },
++          modifier = Modifier.fillMaxWidth()
++        )
++      }
++
++      item {
++        OutlinedTextField(
++          value = diastolic,
++          onValueChange = { diastolic = it },
++          label = { Text("Diastolic BP (mmHg)") },
++          modifier = Modifier.fillMaxWidth()
++        )
++      }
++
++      item {
++        OutlinedTextField(
++          value = hemoglobin,
++          onValueChange = { hemoglobin = it },
++          label = { Text("Hemoglobin (g/dL) - Optional") },
++          modifier = Modifier.fillMaxWidth()
++        )
++      }
++
++      item {
++        Text("Danger Signs", fontWeight = FontWeight.Bold)
++      }
++
++      item {
++        Row(
++          modifier = Modifier.fillMaxWidth(),
++          verticalAlignment = Alignment.CenterVertically
++        ) {
++          Checkbox(checked = vaginalBleeding, onCheckedChange = { vaginalBleeding = it })
++          Text("Vaginal Bleeding")
++        }
++      }
++
++      item {
++        Row(
++          modifier = Modifier.fillMaxWidth(),
++          verticalAlignment = Alignment.CenterVertically
++        ) {
++          Checkbox(checked = severeHeadache, onCheckedChange = { severeHeadache = it })
++          Text("Severe Headache")
++        }
++      }
++
++      item {
++        Row(
++          modifier = Modifier.fillMaxWidth(),
++          verticalAlignment = Alignment.CenterVertically
++        ) {
++          Checkbox(checked = blurredVision, onCheckedChange = { blurredVision = it })
++          Text("Blurred Vision")
++        }
++      }
++
++      item {
++        Row(
++          modifier = Modifier.fillMaxWidth(),
++          verticalAlignment = Alignment.CenterVertically
++        ) {
++          Checkbox(checked = fever, onCheckedChange = { fever = it })
++          Text("Fever")
++        }
++      }
++
++      item {
++        OutlinedTextField(
++          value = notes,
++          onValueChange = { notes = it },
++          label = { Text("Notes") },
++          modifier = Modifier
++            .fillMaxWidth()
++            .run { Modifier },
++          minLines = 3
++        )
++      }
++
++      item {
++        Button(
++          onClick = {
++            try {
++              val date = LocalDate.parse(visitDate)
++              val age = gestationalAge.toIntOrNull() ?: return@Button
++              val wt = weight.toDoubleOrNull() ?: return@Button
++              val sys = systolic.toIntOrNull() ?: return@Button
++              val dias = diastolic.toIntOrNull() ?: return@Button
++              val hgb = hemoglobin.toDoubleOrNull()
++
++              val selectedSigns = mutableListOf<String>()
++              if (vaginalBleeding) selectedSigns.add("vaginal bleeding")
++              if (severeHeadache) selectedSigns.add("severe headache")
++              if (blurredVision) selectedSigns.add("blurred vision")
++              if (fever) selectedSigns.add("fever")
++
++              onSaveVisit(date, age, wt, sys, dias, hgb, notes, selectedSigns)
++            } catch (e: Exception) {
++              e.printStackTrace()
++            }
++          },
++          modifier = Modifier
++            .fillMaxWidth()
++            .padding(vertical = 16.dp)
++        ) {
++          Text("Save Visit")
++        }
++      }
++    }
++  }
++}
++
++private fun calculateAge(dateOfBirth: LocalDate): Int {
++  return Period.between(dateOfBirth, LocalDate.now()).years
++}
++
++private fun calculateWeeksPregnant(dateOfBirth: LocalDate, dueDate: LocalDate): Int {
++  val gestationDays = 280
++  val totalDays = gestationDays.toLong()
++  val daysSinceLmp = java.time.temporal.ChronoUnit.DAYS.between(dateOfBirth, LocalDate.now())
++  return ((gestationDays - (java.time.temporal.ChronoUnit.DAYS.between(LocalDate.now(), dueDate))).toInt() / 7).coerceAtLeast(0)
++}
+diff --git a/app/src/main/java/com/example/ancapp/viewmodel/AncViewModel.kt b/app/src/main/java/com/example/ancapp/viewmodel/AncViewModel.kt
+new file mode 100644
+index 0000000..067e214
+--- /dev/null
++++ b/app/src/main/java/com/example/ancapp/viewmodel/AncViewModel.kt
+@@ -0,0 +1,82 @@
++package com.example.ancapp.viewmodel
++
++import androidx.lifecycle.ViewModel
++import androidx.lifecycle.viewModelScope
++import com.example.ancapp.data.AncRepository
++import com.example.ancapp.data.PatientEntity
++import com.example.ancapp.data.PatientWithVisits
++import kotlinx.coroutines.flow.MutableStateFlow
++import kotlinx.coroutines.flow.StateFlow
++import kotlinx.coroutines.flow.asStateFlow
++import kotlinx.coroutines.launch
++import java.time.LocalDate
++
++class AncViewModel(private val repository: AncRepository) : ViewModel() {
++  private val _patients = MutableStateFlow<List<PatientEntity>>(emptyList())
++  val patients: StateFlow<List<PatientEntity>> = _patients.asStateFlow()
++
++  private val _selectedPatient = MutableStateFlow<PatientWithVisits?>(null)
++  val selectedPatient: StateFlow<PatientWithVisits?> = _selectedPatient.asStateFlow()
++
++  private val _isLoading = MutableStateFlow(false)
++  val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
++
++  init {
++    loadPatients()
++    syncPatientsFromServer()
++  }
++
++  private fun loadPatients() {
++    viewModelScope.launch {
++      repository.getAllPatientsFlow().collect { patientList ->
++        _patients.value = patientList.sortedBy { it.estimatedDueDate }
++      }
++    }
++  }
++
++  fun syncPatientsFromServer() {
++    viewModelScope.launch {
++      _isLoading.value = true
++      repository.syncPatients()
++      _isLoading.value = false
++    }
++  }
++
++  fun selectPatient(patientId: String) {
++    viewModelScope.launch {
++      val patientWithVisits = repository.getPatientWithVisits(patientId)
++      _selectedPatient.value = patientWithVisits
++    }
++  }
++
++  fun recordAncVisit(
++    patientId: String,
++    visitDate: LocalDate,
++    gestationalAgeWeeks: Int,
++    weightKg: Double,
++    systolicBp: Int,
++    diastolicBp: Int,
++    hemoglobinGdl: Double? = null,
++    notes: String = "",
++    dangerSigns: List<String> = emptyList()
++  ) {
++    viewModelScope.launch {
++      repository.recordAncVisit(
++        patientId = patientId,
++        visitDate = visitDate,
++        gestationalAgeWeeks = gestationalAgeWeeks,
++        weightKg = weightKg,
++        systolicBp = systolicBp,
++        diastolicBp = diastolicBp,
++        hemoglobinGdl = hemoglobinGdl,
++        notes = notes,
++        dangerSigns = dangerSigns
++      )
++      selectPatient(patientId)
++    }
++  }
++
++  fun clearSelection() {
++    _selectedPatient.value = null
++  }
++}
+diff --git a/app/src/main/java/com/example/ancapp/viewmodel/AncViewModelFactory.kt b/app/src/main/java/com/example/ancapp/viewmodel/AncViewModelFactory.kt
+new file mode 100644
+index 0000000..c916cf1
+--- /dev/null
++++ b/app/src/main/java/com/example/ancapp/viewmodel/AncViewModelFactory.kt
+@@ -0,0 +1,25 @@
++package com.example.ancapp.viewmodel
++
++import android.content.Context
++import androidx.lifecycle.ViewModelProvider
++import com.example.ancapp.data.AncDatabase
++import com.example.ancapp.data.AncRepository
++import com.example.ancapp.network.FhirServiceFactory
++
++class AncViewModelFactory(private val context: Context) : ViewModelProvider.Factory {
++  override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
++    if (modelClass.isAssignableFrom(AncViewModel::class.java)) {
++      val database = AncDatabase.getInstance(context)
++      val fhirApi = FhirServiceFactory.createFhirService()
++      val repository = AncRepository(
++        patientDao = database.patientDao(),
++        ancVisitDao = database.ancVisitDao(),
++        dangerSignDao = database.dangerSignDao(),
++        fhirApi = fhirApi
++      )
++      @Suppress("UNCHECKED_CAST")
++      return AncViewModel(repository) as T
++    }
++    throw IllegalArgumentException("Unknown ViewModel class")
++  }
++}
+diff --git a/build.gradle.kts b/build.gradle.kts
+index 489603c..2a175c9 100644
+--- a/build.gradle.kts
++++ b/build.gradle.kts
+@@ -3,3 +3,10 @@ plugins {
+   id("org.jetbrains.kotlin.android") version "2.3.21" apply false
+   id("org.jetbrains.kotlin.plugin.compose") version "2.3.21" apply false
+ }
++
++subprojects {
++  repositories {
++    google()
++    mavenCentral()
++  }
++}
