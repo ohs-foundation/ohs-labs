@@ -1,0 +1,30 @@
+{
+  "run_id": "s1-cold-fable-01",
+  "scenario": "s1-build",
+  "condition": "cold",
+  "model": "claude-fable-5",
+  "replicate": 1,
+  "date": "2026-08-23",
+  "harness": "claude-code",
+  "scaffold_repo": "anc-build-a-cold",
+  "baseline_commit": "ce135fd",
+  "session_id": "67c84fa7-158e-4a91-9f81-47d93c340784",
+  "wall_minutes": 29,
+  "user_turns": 1,
+  "corrective_turns": 0,
+  "tool_calls": 45,
+  "build_failures_self_fixed": 2,
+  "runtime_crashes_self_fixed": 0,
+  "server_validation_incidents": 0,
+  "tokens": {
+    "input": 164,
+    "output": 90089,
+    "cache_read": 4459546,
+    "cache_write": 251203
+  },
+  "cost_usd_api_rates": 13.0,
+  "kotlin_loc_added": 657,
+  "verified_working": true,
+  "round_trip_pass": true,
+  "notes": "Stack chosen by agent: Compose + Navigation + Room. Invented private schema (danger signs comma-joined). Data device-local only."
+}

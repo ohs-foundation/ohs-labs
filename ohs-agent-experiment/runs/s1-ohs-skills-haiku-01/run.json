@@ -1,0 +1,32 @@
+{
+  "run_id": "s1-ohs-skills-haiku-01",
+  "scenario": "s1-build",
+  "condition": "ohs-skills",
+  "model": "claude-haiku-4-5-20251001",
+  "replicate": 1,
+  "date": "2026-08-26",
+  "harness": "claude-code-headless",
+  "scaffold_repo": "templates/ohs-skills",
+  "baseline_commit": "24e8485",
+  "session_id": "d90c6f50-7f44-49e5-b378-5d2766782e94",
+  "wall_minutes": 12.0,
+  "user_turns": 1,
+  "corrective_turns": 0,
+  "tool_calls": 80,
+  "assistant_text_blocks": 14,
+  "tool_errors": 1,
+  "build_failures_self_fixed": 10,
+  "server_validation_incidents": 0,
+  "tokens": {
+    "input": 1413,
+    "output": 95670,
+    "cache_read": 11991396,
+    "cache_write": 194884
+  },
+  "cost_usd_api_rates": 1.92,
+  "diff_lines_added": 1049,
+  "smoke_check": "pass",
+  "verified_working": false,
+  "round_trip_pass": false,
+  "notes": "agent_exit=0 | WALK FAIL: sync never triggered - FhirRepository.syncData() has no callers; register permanently empty (confirmed on campaign smoke screenshot and manual walk 2026-08-26)."
+}

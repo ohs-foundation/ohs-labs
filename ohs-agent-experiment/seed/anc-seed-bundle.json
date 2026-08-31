@@ -1,0 +1,475 @@
+{
+  "resourceType": "Bundle",
+  "type": "transaction",
+  "entry": [
+    {
+      "fullUrl": "http://example.org/fhir/Patient/anc-patient-1",
+      "resource": {
+        "resourceType": "Patient",
+        "id": "anc-patient-1",
+        "identifier": [{ "system": "urn:example:anc-register", "value": "ANC-0001" }],
+        "active": true,
+        "name": [{ "family": "Carter", "given": ["Emily"] }],
+        "gender": "female",
+        "birthDate": "1996-04-12",
+        "telecom": [{ "system": "phone", "value": "+254700111222" }]
+      },
+      "request": { "method": "PUT", "url": "Patient/anc-patient-1" }
+    },
+    {
+      "fullUrl": "http://example.org/fhir/Encounter/anc-enc-1",
+      "resource": {
+        "resourceType": "Encounter",
+        "id": "anc-enc-1",
+        "status": "finished",
+        "class": {
+          "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+          "code": "AMB",
+          "display": "ambulatory"
+        },
+        "type": [{ "text": "Antenatal care contact" }],
+        "subject": { "reference": "Patient/anc-patient-1" },
+        "period": { "start": "2026-08-10", "end": "2026-08-10" }
+      },
+      "request": { "method": "PUT", "url": "Encounter/anc-enc-1" }
+    },
+    {
+      "fullUrl": "http://example.org/fhir/Observation/anc-obs-edd-1",
+      "resource": {
+        "resourceType": "Observation",
+        "id": "anc-obs-edd-1",
+        "status": "final",
+        "code": {
+          "coding": [{ "system": "http://loinc.org", "code": "11778-8", "display": "Delivery date Estimated" }],
+          "text": "Estimated due date"
+        },
+        "subject": { "reference": "Patient/anc-patient-1" },
+        "encounter": { "reference": "Encounter/anc-enc-1" },
+        "effectiveDateTime": "2026-08-10",
+        "valueDateTime": "2026-12-05"
+      },
+      "request": { "method": "PUT", "url": "Observation/anc-obs-edd-1" }
+    },
+    {
+      "fullUrl": "http://example.org/fhir/Observation/anc-obs-bp-1",
+      "resource": {
+        "resourceType": "Observation",
+        "id": "anc-obs-bp-1",
+        "status": "final",
+        "category": [{
+          "coding": [{
+            "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+            "code": "vital-signs",
+            "display": "Vital Signs"
+          }]
+        }],
+        "code": {
+          "coding": [{ "system": "http://loinc.org", "code": "85354-9", "display": "Blood pressure panel with all children optional" }],
+          "text": "Blood pressure"
+        },
+        "subject": { "reference": "Patient/anc-patient-1" },
+        "encounter": { "reference": "Encounter/anc-enc-1" },
+        "effectiveDateTime": "2026-08-10",
+        "component": [
+          {
+            "code": {
+              "coding": [{ "system": "http://loinc.org", "code": "8480-6", "display": "Systolic blood pressure" }]
+            },
+            "valueQuantity": { "value": 118, "unit": "mmHg", "system": "http://unitsofmeasure.org", "code": "mm[Hg]" }
+          },
+          {
+            "code": {
+              "coding": [{ "system": "http://loinc.org", "code": "8462-4", "display": "Diastolic blood pressure" }]
+            },
+            "valueQuantity": { "value": 76, "unit": "mmHg", "system": "http://unitsofmeasure.org", "code": "mm[Hg]" }
+          }
+        ]
+      },
+      "request": { "method": "PUT", "url": "Observation/anc-obs-bp-1" }
+    },
+    {
+      "fullUrl": "http://example.org/fhir/Observation/anc-obs-weight-1",
+      "resource": {
+        "resourceType": "Observation",
+        "id": "anc-obs-weight-1",
+        "status": "final",
+        "category": [{
+          "coding": [{
+            "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+            "code": "vital-signs",
+            "display": "Vital Signs"
+          }]
+        }],
+        "code": {
+          "coding": [{ "system": "http://loinc.org", "code": "29463-7", "display": "Body weight" }],
+          "text": "Body weight"
+        },
+        "subject": { "reference": "Patient/anc-patient-1" },
+        "encounter": { "reference": "Encounter/anc-enc-1" },
+        "effectiveDateTime": "2026-08-10",
+        "valueQuantity": { "value": 68.5, "unit": "kg", "system": "http://unitsofmeasure.org", "code": "kg" }
+      },
+      "request": { "method": "PUT", "url": "Observation/anc-obs-weight-1" }
+    },
+    {
+      "fullUrl": "http://example.org/fhir/Observation/anc-obs-hb-1",
+      "resource": {
+        "resourceType": "Observation",
+        "id": "anc-obs-hb-1",
+        "status": "final",
+        "category": [{
+          "coding": [{
+            "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+            "code": "laboratory",
+            "display": "Laboratory"
+          }]
+        }],
+        "code": {
+          "coding": [{ "system": "http://loinc.org", "code": "718-7", "display": "Hemoglobin [Mass/volume] in Blood" }],
+          "text": "Hemoglobin"
+        },
+        "subject": { "reference": "Patient/anc-patient-1" },
+        "encounter": { "reference": "Encounter/anc-enc-1" },
+        "effectiveDateTime": "2026-08-10",
+        "valueQuantity": { "value": 11.8, "unit": "g/dL", "system": "http://unitsofmeasure.org", "code": "g/dL" }
+      },
+      "request": { "method": "PUT", "url": "Observation/anc-obs-hb-1" }
+    },
+    {
+      "fullUrl": "http://example.org/fhir/Patient/anc-patient-2",
+      "resource": {
+        "resourceType": "Patient",
+        "id": "anc-patient-2",
+        "identifier": [{ "system": "urn:example:anc-register", "value": "ANC-0002" }],
+        "active": true,
+        "name": [{ "family": "Mitchell", "given": ["Sarah"] }],
+        "gender": "female",
+        "birthDate": "1990-11-02",
+        "telecom": [{ "system": "phone", "value": "+254700333444" }]
+      },
+      "request": { "method": "PUT", "url": "Patient/anc-patient-2" }
+    },
+    {
+      "fullUrl": "http://example.org/fhir/Encounter/anc-enc-2",
+      "resource": {
+        "resourceType": "Encounter",
+        "id": "anc-enc-2",
+        "status": "finished",
+        "class": {
+          "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+          "code": "AMB",
+          "display": "ambulatory"
+        },
+        "type": [{ "text": "Antenatal care contact" }],
+        "subject": { "reference": "Patient/anc-patient-2" },
+        "period": { "start": "2026-08-12", "end": "2026-08-12" }
+      },
+      "request": { "method": "PUT", "url": "Encounter/anc-enc-2" }
+    },
+    {
+      "fullUrl": "http://example.org/fhir/Observation/anc-obs-edd-2",
+      "resource": {
+        "resourceType": "Observation",
+        "id": "anc-obs-edd-2",
+        "status": "final",
+        "code": {
+          "coding": [{ "system": "http://loinc.org", "code": "11778-8", "display": "Delivery date Estimated" }],
+          "text": "Estimated due date"
+        },
+        "subject": { "reference": "Patient/anc-patient-2" },
+        "encounter": { "reference": "Encounter/anc-enc-2" },
+        "effectiveDateTime": "2026-08-12",
+        "valueDateTime": "2027-01-20"
+      },
+      "request": { "method": "PUT", "url": "Observation/anc-obs-edd-2" }
+    },
+    {
+      "fullUrl": "http://example.org/fhir/Observation/anc-obs-bp-2",
+      "resource": {
+        "resourceType": "Observation",
+        "id": "anc-obs-bp-2",
+        "status": "final",
+        "category": [{
+          "coding": [{
+            "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+            "code": "vital-signs",
+            "display": "Vital Signs"
+          }]
+        }],
+        "code": {
+          "coding": [{ "system": "http://loinc.org", "code": "85354-9", "display": "Blood pressure panel with all children optional" }],
+          "text": "Blood pressure"
+        },
+        "subject": { "reference": "Patient/anc-patient-2" },
+        "encounter": { "reference": "Encounter/anc-enc-2" },
+        "effectiveDateTime": "2026-08-12",
+        "component": [
+          {
+            "code": {
+              "coding": [{ "system": "http://loinc.org", "code": "8480-6", "display": "Systolic blood pressure" }]
+            },
+            "valueQuantity": { "value": 110, "unit": "mmHg", "system": "http://unitsofmeasure.org", "code": "mm[Hg]" }
+          },
+          {
+            "code": {
+              "coding": [{ "system": "http://loinc.org", "code": "8462-4", "display": "Diastolic blood pressure" }]
+            },
+            "valueQuantity": { "value": 70, "unit": "mmHg", "system": "http://unitsofmeasure.org", "code": "mm[Hg]" }
+          }
+        ]
+      },
+      "request": { "method": "PUT", "url": "Observation/anc-obs-bp-2" }
+    },
+    {
+      "fullUrl": "http://example.org/fhir/Observation/anc-obs-weight-2",
+      "resource": {
+        "resourceType": "Observation",
+        "id": "anc-obs-weight-2",
+        "status": "final",
+        "category": [{
+          "coding": [{
+            "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+            "code": "vital-signs",
+            "display": "Vital Signs"
+          }]
+        }],
+        "code": {
+          "coding": [{ "system": "http://loinc.org", "code": "29463-7", "display": "Body weight" }],
+          "text": "Body weight"
+        },
+        "subject": { "reference": "Patient/anc-patient-2" },
+        "encounter": { "reference": "Encounter/anc-enc-2" },
+        "effectiveDateTime": "2026-08-12",
+        "valueQuantity": { "value": 61.2, "unit": "kg", "system": "http://unitsofmeasure.org", "code": "kg" }
+      },
+      "request": { "method": "PUT", "url": "Observation/anc-obs-weight-2" }
+    },
+    {
+      "fullUrl": "http://example.org/fhir/Observation/anc-obs-hb-2",
+      "resource": {
+        "resourceType": "Observation",
+        "id": "anc-obs-hb-2",
+        "status": "final",
+        "category": [{
+          "coding": [{
+            "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+            "code": "laboratory",
+            "display": "Laboratory"
+          }]
+        }],
+        "code": {
+          "coding": [{ "system": "http://loinc.org", "code": "718-7", "display": "Hemoglobin [Mass/volume] in Blood" }],
+          "text": "Hemoglobin"
+        },
+        "subject": { "reference": "Patient/anc-patient-2" },
+        "encounter": { "reference": "Encounter/anc-enc-2" },
+        "effectiveDateTime": "2026-08-12",
+        "valueQuantity": { "value": 12.4, "unit": "g/dL", "system": "http://unitsofmeasure.org", "code": "g/dL" }
+      },
+      "request": { "method": "PUT", "url": "Observation/anc-obs-hb-2" }
+    },
+    {
+      "fullUrl": "http://example.org/fhir/Patient/anc-patient-3",
+      "resource": {
+        "resourceType": "Patient",
+        "id": "anc-patient-3",
+        "identifier": [{ "system": "urn:example:anc-register", "value": "ANC-0003" }],
+        "active": true,
+        "name": [{ "family": "Thompson", "given": ["Grace"] }],
+        "gender": "female",
+        "birthDate": "2001-07-30",
+        "telecom": [{ "system": "phone", "value": "+254700555666" }]
+      },
+      "request": { "method": "PUT", "url": "Patient/anc-patient-3" }
+    },
+    {
+      "fullUrl": "http://example.org/fhir/Encounter/anc-enc-3",
+      "resource": {
+        "resourceType": "Encounter",
+        "id": "anc-enc-3",
+        "status": "finished",
+        "class": {
+          "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+          "code": "AMB",
+          "display": "ambulatory"
+        },
+        "type": [{ "text": "Antenatal care contact" }],
+        "subject": { "reference": "Patient/anc-patient-3" },
+        "period": { "start": "2026-08-05", "end": "2026-08-05" }
+      },
+      "request": { "method": "PUT", "url": "Encounter/anc-enc-3" }
+    },
+    {
+      "fullUrl": "http://example.org/fhir/Observation/anc-obs-edd-3",
+      "resource": {
+        "resourceType": "Observation",
+        "id": "anc-obs-edd-3",
+        "status": "final",
+        "code": {
+          "coding": [{ "system": "http://loinc.org", "code": "11778-8", "display": "Delivery date Estimated" }],
+          "text": "Estimated due date"
+        },
+        "subject": { "reference": "Patient/anc-patient-3" },
+        "encounter": { "reference": "Encounter/anc-enc-3" },
+        "effectiveDateTime": "2026-08-05",
+        "valueDateTime": "2026-10-15"
+      },
+      "request": { "method": "PUT", "url": "Observation/anc-obs-edd-3" }
+    },
+    {
+      "fullUrl": "http://example.org/fhir/Observation/anc-obs-bp-3",
+      "resource": {
+        "resourceType": "Observation",
+        "id": "anc-obs-bp-3",
+        "status": "final",
+        "category": [{
+          "coding": [{
+            "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+            "code": "vital-signs",
+            "display": "Vital Signs"
+          }]
+        }],
+        "code": {
+          "coding": [{ "system": "http://loinc.org", "code": "85354-9", "display": "Blood pressure panel with all children optional" }],
+          "text": "Blood pressure"
+        },
+        "subject": { "reference": "Patient/anc-patient-3" },
+        "encounter": { "reference": "Encounter/anc-enc-3" },
+        "effectiveDateTime": "2026-08-05",
+        "component": [
+          {
+            "code": {
+              "coding": [{ "system": "http://loinc.org", "code": "8480-6", "display": "Systolic blood pressure" }]
+            },
+            "valueQuantity": { "value": 128, "unit": "mmHg", "system": "http://unitsofmeasure.org", "code": "mm[Hg]" }
+          },
+          {
+            "code": {
+              "coding": [{ "system": "http://loinc.org", "code": "8462-4", "display": "Diastolic blood pressure" }]
+            },
+            "valueQuantity": { "value": 84, "unit": "mmHg", "system": "http://unitsofmeasure.org", "code": "mm[Hg]" }
+          }
+        ]
+      },
+      "request": { "method": "PUT", "url": "Observation/anc-obs-bp-3" }
+    },
+    {
+      "fullUrl": "http://example.org/fhir/Observation/anc-obs-weight-3",
+      "resource": {
+        "resourceType": "Observation",
+        "id": "anc-obs-weight-3",
+        "status": "final",
+        "category": [{
+          "coding": [{
+            "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+            "code": "vital-signs",
+            "display": "Vital Signs"
+          }]
+        }],
+        "code": {
+          "coding": [{ "system": "http://loinc.org", "code": "29463-7", "display": "Body weight" }],
+          "text": "Body weight"
+        },
+        "subject": { "reference": "Patient/anc-patient-3" },
+        "encounter": { "reference": "Encounter/anc-enc-3" },
+        "effectiveDateTime": "2026-08-05",
+        "valueQuantity": { "value": 72.0, "unit": "kg", "system": "http://unitsofmeasure.org", "code": "kg" }
+      },
+      "request": { "method": "PUT", "url": "Observation/anc-obs-weight-3" }
+    },
+    {
+      "fullUrl": "http://example.org/fhir/Observation/anc-obs-hb-3",
+      "resource": {
+        "resourceType": "Observation",
+        "id": "anc-obs-hb-3",
+        "status": "final",
+        "category": [{
+          "coding": [{
+            "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+            "code": "laboratory",
+            "display": "Laboratory"
+          }]
+        }],
+        "code": {
+          "coding": [{ "system": "http://loinc.org", "code": "718-7", "display": "Hemoglobin [Mass/volume] in Blood" }],
+          "text": "Hemoglobin"
+        },
+        "subject": { "reference": "Patient/anc-patient-3" },
+        "encounter": { "reference": "Encounter/anc-enc-3" },
+        "effectiveDateTime": "2026-08-05",
+        "valueQuantity": { "value": 10.2, "unit": "g/dL", "system": "http://unitsofmeasure.org", "code": "g/dL" }
+      },
+      "request": { "method": "PUT", "url": "Observation/anc-obs-hb-3" }
+    },
+    {
+      "fullUrl": "http://example.org/fhir/Questionnaire/anc-contact",
+      "resource": {
+        "resourceType": "Questionnaire",
+        "id": "anc-contact",
+        "url": "http://example.org/fhir/Questionnaire/anc-contact",
+        "version": "0.1.0",
+        "name": "AncContact",
+        "title": "ANC Contact Visit",
+        "status": "active",
+        "subjectType": ["Patient"],
+        "item": [
+          {
+            "linkId": "visit-date",
+            "text": "Visit date",
+            "type": "date",
+            "required": true
+          },
+          {
+            "linkId": "gestational-age",
+            "text": "Gestational age (weeks)",
+            "type": "integer"
+          },
+          {
+            "linkId": "vitals",
+            "text": "Vital signs",
+            "type": "group",
+            "item": [
+              {
+                "linkId": "weight",
+                "text": "Weight (kg)",
+                "type": "decimal",
+                "code": [{ "system": "http://loinc.org", "code": "29463-7", "display": "Body weight" }]
+              },
+              {
+                "linkId": "bp-systolic",
+                "text": "Systolic blood pressure (mmHg)",
+                "type": "integer",
+                "code": [{ "system": "http://loinc.org", "code": "8480-6", "display": "Systolic blood pressure" }]
+              },
+              {
+                "linkId": "bp-diastolic",
+                "text": "Diastolic blood pressure (mmHg)",
+                "type": "integer",
+                "code": [{ "system": "http://loinc.org", "code": "8462-4", "display": "Diastolic blood pressure" }]
+              }
+            ]
+          },
+          {
+            "linkId": "danger-signs",
+            "text": "Danger signs present",
+            "type": "choice",
+            "repeats": true,
+            "answerOption": [
+              { "valueCoding": { "system": "urn:example:anc-danger-signs", "code": "none", "display": "None" } },
+              { "valueCoding": { "system": "urn:example:anc-danger-signs", "code": "vaginal-bleeding", "display": "Vaginal bleeding" } },
+              { "valueCoding": { "system": "urn:example:anc-danger-signs", "code": "severe-headache", "display": "Severe headache" } },
+              { "valueCoding": { "system": "urn:example:anc-danger-signs", "code": "blurred-vision", "display": "Blurred vision" } },
+              { "valueCoding": { "system": "urn:example:anc-danger-signs", "code": "fever", "display": "Fever" } }
+            ]
+          },
+          {
+            "linkId": "notes",
+            "text": "Notes",
+            "type": "text"
+          }
+        ]
+      },
+      "request": { "method": "PUT", "url": "Questionnaire/anc-contact" }
+    }
+  ]
+}

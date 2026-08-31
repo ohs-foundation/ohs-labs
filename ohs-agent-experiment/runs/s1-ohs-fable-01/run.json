@@ -1,0 +1,30 @@
+{
+  "run_id": "s1-ohs-fable-01",
+  "scenario": "s1-build",
+  "condition": "ohs",
+  "model": "claude-fable-5",
+  "replicate": 1,
+  "date": "2026-08-24",
+  "harness": "claude-code",
+  "scaffold_repo": "anc-build-b-foundations",
+  "baseline_commit": "e414d2f",
+  "session_id": "ff1e3161-db8d-48f2-89d6-71a42506d12e",
+  "wall_minutes": 33,
+  "user_turns": 1,
+  "corrective_turns": 0,
+  "tool_calls": 122,
+  "build_failures_self_fixed": 1,
+  "runtime_crashes_self_fixed": 1,
+  "server_validation_incidents": 1,
+  "tokens": {
+    "input": 454,
+    "output": 250660,
+    "cache_read": 37340021,
+    "cache_write": 709486
+  },
+  "cost_usd_api_rates": 61.0,
+  "kotlin_loc_added": 946,
+  "verified_working": true,
+  "round_trip_pass": true,
+  "notes": "Self-corrected off HAPI 422 OperationOutcome (fhir-engine fullUrl bug; switched to individual PUT upload). ~10 min SDK archaeology (javap/sources). Data on server as Encounter + Observations + QuestionnaireResponse; form rendered from server Questionnaire."
+}

@@ -1,0 +1,32 @@
+{
+  "run_id": "s1-cold-fable-02",
+  "scenario": "s1-build",
+  "condition": "cold",
+  "model": "claude-fable-5",
+  "replicate": 2,
+  "date": "2026-08-26",
+  "harness": "claude-code-headless",
+  "scaffold_repo": "templates/cold",
+  "baseline_commit": "003b718",
+  "session_id": "5ec93c95-8b18-47b6-a23d-71a7e1c025ee",
+  "wall_minutes": 9.0,
+  "user_turns": 1,
+  "corrective_turns": 0,
+  "tool_calls": 42,
+  "assistant_text_blocks": 18,
+  "tool_errors": 0,
+  "build_failures_self_fixed": 2,
+  "server_validation_incidents": 0,
+  "tokens": {
+    "input": 158,
+    "output": 87048,
+    "cache_read": 3753490,
+    "cache_write": 168896
+  },
+  "cost_usd_api_rates": 10.22,
+  "diff_lines_added": 804,
+  "smoke_check": "pass",
+  "verified_working": null,
+  "round_trip_pass": null,
+  "notes": "agent_exit=0"
+}

@@ -1,0 +1,42 @@
+# Campaign manifest: <condition> <model> <replicate>
+# Grid: {cold, ohs, ohs-skills} x {fable, sonnet, haiku}, N=3.
+# fable cold/ohs replicate 01 were the manual runs (already in runs/), so
+# those cells start at 02 here.
+#
+# --- Sweep 1: every cell once (early signal on every claim) ---
+cold       haiku  01
+ohs        haiku  01
+ohs-skills haiku  01
+cold       sonnet 01
+ohs        sonnet 01
+ohs-skills sonnet 01
+cold       opus   01
+ohs        opus   01
+ohs-skills opus   01
+ohs-skills fable  01
+cold       fable  02
+ohs        fable  02
+#
+# --- Sweeps 2-3: remaining replicates, interleaved ---
+cold       haiku  02
+ohs        haiku  02
+ohs-skills haiku  02
+cold       sonnet 02
+ohs        sonnet 02
+ohs-skills sonnet 02
+cold       opus   02
+ohs        opus   02
+ohs-skills opus   02
+ohs-skills fable  02
+cold       fable  03
+ohs        fable  03
+cold       haiku  03
+ohs        haiku  03
+ohs-skills haiku  03
+cold       sonnet 03
+ohs        sonnet 03
+ohs-skills sonnet 03
+cold       opus   03
+ohs        opus   03
+ohs-skills opus   03
+ohs-skills fable  03
