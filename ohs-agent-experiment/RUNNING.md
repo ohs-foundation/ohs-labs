@@ -1,152 +1,220 @@
-# Running the experiment, start to finish
+# Running the experiment
 
-Every step from a fresh machine sitting to a scored run, including where
-each artifact (`transcript.jsonl`, `transcript.md`, `run.json`,
-`code.diff`) comes from. Two paths: the **harness** (automated, used for
-the eval grid) and the **manual** path (interactive sessions, used for
-the original two-build experiment) — the artifacts are identical either
-way.
+Every step from a fresh machine to a scored run. Covers both agents
+(Claude and Gemini) and explains where each artifact comes from.
 
-## 0. Prerequisites (once per machine)
+## 1. One-time machine setup
 
-- **Docker via colima** with standalone `docker-compose` (the
-  `docker compose` plugin is not installed here):
-  `brew install colima docker docker-compose`
-- **Android SDK** at `~/Library/Android/sdk` with an AVD (Pixel 4 XL),
-  and JDK 21 on the PATH.
-- **Claude Code** logged in. Note for scripts: `claude` is a zsh alias
-  on this machine; scripts must call the real binary at
-  `~/.local/bin/claude` (runner.sh does).
-- **Templates** in `harness/templates/` — pristine scaffold repos, one
-  per condition. If missing, recreate: clone the baseline commit of
-  `../../anc-build-a-cold` (cold) or `../../anc-build-b-foundations` (ohs)
-  into the template dir, strip `.git`, re-init, commit once; for
-  `ohs-skills`, copy `skills/{kotlin-fhir,kotlin-fhir-engine,kotlin-fhir-data-capture}`
-  into the template's `.claude/skills/` and commit.
-- **One-time fairness prep**: run a throwaway `./gradlew :app:assembleDebug`
-  in each template so the shared Gradle cache is warm for every run,
-  and check `~/.claude/CLAUDE.md` contains nothing that could coach the
-  runs (must be empty or neutral; it's constant across cells either way).
+**Docker.** Install colima and standalone docker-compose with
+`brew install colima docker docker-compose`. The `docker compose`
+plugin form is not used here.
 
-## 1. Per-sitting startup
+**Android.** SDK at `~/Library/Android/sdk` (or set `ANDROID_HOME`)
+with an AVD such as Pixel 4 XL. JDK 21 on the PATH.
 
-```bash
-colima start
-~/Library/Android/sdk/emulator/emulator -avd Pixel_4_XL &   # wait for home screen
-~/Library/Android/sdk/platform-tools/adb get-state          # must print "device"
-caffeinate -is &                                             # keep the machine awake
-```
+**Claude Code.** Log in once. Scripts call the real binary at
+`~/.local/bin/claude` because `claude` is only a shell alias.
 
-The harness resets and reseeds HAPI itself before every run; no manual
-server prep needed. (For anything else, `docker-compose up -d &&
-./load-seed.sh` from the project root brings the server up seeded.)
+**Gemini CLI** (only for gemini runs). Install with
+`npm i -g @google/gemini-cli`, then authenticate by setting
+`GEMINI_API_KEY` or configuring an auth method in
+`~/.gemini/settings.json`.
 
-## 2. Run — harness path (the eval grid)
+**Templates.** The pristine starting projects live in
+`harness/templates/` and are not tracked in git. Build them once from
+the committed sources
 
 ```bash
 cd harness
-./runner.sh <condition> <model> <replicate>   # one run, e.g. ./runner.sh ohs opus 02
-./campaign.sh                                  # or walk manifest.txt (skips completed runs)
+./setup-templates.sh
 ```
 
-Conditions `cold | ohs | ohs-skills`; models `haiku | sonnet | opus | fable`.
+There are four. `cold` and `ohs` are shared by both agents. The skills
+template is per agent, `ohs-skills-claude` and `ohs-skills-gemini`.
 
-What one run does, in order (all automated by `runner.sh`):
-
-1. **Preflight**: refuses to start if `runs/<run_id>` exists, no
-   emulator, no API connectivity, `work/` isn't empty, or a Claude
-   project dir already exists for the work path (context-cleanliness
-   assertions).
-2. **Fresh scaffold**: clones the condition's template into
-   `harness/work/<run_id>/` — a never-used path, so the agent gets an
-   empty Claude project (no session, no memory) — and writes
-   `local.properties`.
-3. **Server reset**: `docker-compose down && up -d` + `load-seed.sh`
-   (verified counts: 3 patients / 3 encounters / 12 observations /
-   1 questionnaire). Runs for cold too, so the environment is constant.
-4. **Device reset**: uninstalls every `com.example.*` package; aborts
-   if anything survives.
-5. **Agent run**: pipes the condition's prompt (everything below the
-   `---` in `build-a-prompt.md` or `build-b-prompt.md`, verbatim) into
-   headless Claude Code with the chosen model, permissions bypassed,
-   60-minute wall-clock cap.
-6. **Environment-fault gate**: a run with zero tool calls, or one cut
-   off by the subscription usage limit, is discarded and halts the
-   campaign — those are not data. Agent failures (broken app within
-   caps) are kept; they ARE data.
-7. **Smoke check**: `assembleDebug`, install, launch, screenshot to
-   `runs/<run_id>/launch.png`. Smoke pass means "launches", nothing
-   more — it has been fooled by broken apps twice.
-8. **Artifact export** (the four files, into `runs/<run_id>/`):
-   - `code.diff` — the run's work is committed in the work clone, then
-     `git diff <baseline> HEAD` captures everything the agent changed.
-   - `transcript.jsonl` — copied from the run's Claude project dir
-     (`~/.claude/projects/<dashed-work-path>/`, newest `.jsonl`).
-   - `transcript.md` — rendered FROM the jsonl by `extract.py`
-     (headless runs can't `/export`).
-   - `run.json` — filled by `extract.py`: wall clock, turns, tool
-     calls, build failures, `OperationOutcome` incidents, token sums,
-     cost at the model's API rates, diff size. `verified_working` and
-     `round_trip_pass` stay null for the human walk.
-   Plus one row appended to `results.csv`. A run folder missing any of
-   the four is incomplete — fix before the next run.
-9. **Teardown**: work dir moved to `harness/archive/<run_id>` (so the
-   next agent can't find a previous solution on disk), device swept
-   again.
-
-## 3. Run — manual path (interactive session)
-
-For runs driven by hand (original docs/protocol.md Part A experiment, scenario
-sessions):
-
-1. Fresh scaffold dir, seeded server, clean device — same as above,
-   by hand.
-2. `cd <scaffold> && claude`, paste the prompt verbatim, drive per the
-   operator rules in `docs/protocol.md` (product-owner answers only, errors
-   pasted verbatim).
-3. Export the artifacts:
+**Cache warming.** Run one throwaway build in `templates/cold` and one
+in `templates/ohs` so the shared Gradle cache is equally warm for every
+measured run
 
 ```bash
-RUN=runs/<run_id>; mkdir -p $RUN
-# transcript.md - from inside the session before closing:
+(cd templates/cold && ./gradlew -q :app:assembleDebug)
+(cd templates/ohs && ./gradlew -q :app:assembleDebug)
+```
+
+**Instruction file audit.** `~/.claude/CLAUDE.md` and
+`~/.gemini/GEMINI.md` are injected into every session of their agent.
+Both must be empty or absent so no run gets coached. The runner also
+refuses to start a gemini run while a non-empty `~/.gemini/GEMINI.md`
+exists.
+
+## 2. Every sitting
+
+```bash
+colima start
+~/Library/Android/sdk/emulator/emulator -avd Pixel_4_XL &
+~/Library/Android/sdk/platform-tools/adb get-state   # must print "device"
+caffeinate -is &                                     # keep the machine awake
+```
+
+The harness resets and reseeds the HAPI server before every run, so no
+manual server preparation is needed. To bring the server up for
+anything else, run `docker-compose up -d && ./load-seed.sh` from the
+project root.
+
+## 3. Supported models
+
+| Agent | Model argument | Notes |
+|---|---|---|
+| claude | `fable` | claude-fable-5, $10/$50 per MTok |
+| claude | `opus` | claude-opus-5, $5/$25 |
+| claude | `sonnet` | claude-sonnet-5, $2/$10 |
+| claude | `haiku` | claude-haiku-4-5-20251001, $1/$5 |
+| gemini | `gemini-3.7-flash` | current workhorse, $0.75/$3.75 intro until 2027 then $1.50/$7.50 |
+| gemini | `gemini-3.6-flash` | same intro pricing schedule |
+| gemini | `gemini-3-flash` | $0.50/$3 |
+| gemini | `gemini-3.1-pro` | $2/$12 |
+| gemini | `gemini-2.5-pro` | $1.25/$10, previous generation |
+| gemini | `gemini-2.5-flash` | $0.30/$2.50 |
+
+Claude accepts only the four shortcuts. Gemini accepts any name that
+starts with `gemini`, passed through raw. The six listed have pricing
+wired in `GEMINI_RATES` inside `harness/extract-gemini.py`. Any other
+name still runs but reports a null cost until a rate is added there.
+Prices gathered 2026-09-01, spot-check before quoting externally.
+
+## 4. Run with the harness
+
+One run
+
+```bash
+cd harness
+./runner.sh <agent> <model> <condition> <replicate>
+./runner.sh claude opus ohs 02                # example
+./runner.sh gemini gemini-3.7-flash cold 01   # example
+```
+
+A whole grid. One manifest per agent, always named explicitly
+
+```bash
+./campaign.sh manifest-claude.txt
+./campaign.sh manifest-gemini.txt
+```
+
+Conditions are `cold` (empty project), `ohs` (OHS libraries plus
+server), and `ohs-skills` (ohs plus the agent docs). The campaign skips
+runs that already exist, so it resumes cleanly after any interruption.
+
+### What one run does
+
+1. **Preflight.** Refuses to start if the run already exists, no
+   emulator is connected, the agent API is unreachable, the work area
+   is not empty, or leftover agent state exists for the work path.
+2. **Fresh scaffold.** Clones the right template (picked from condition
+   plus agent) into a never-used folder. A new folder means the agent
+   starts with no session history and no memory.
+3. **Server reset.** Recreates and reseeds HAPI, for cold runs too, so
+   the environment is constant.
+4. **Device reset.** Uninstalls every `com.example.*` package and
+   verifies the device is clean.
+5. **Agent run.** Pipes the condition prompt (the text below the `---`
+   in `build-a-prompt.md` or `build-b-prompt.md`, verbatim) into the
+   agent headless, permissions auto-approved, capped at 60 minutes.
+6. **Fault gate.** A run with zero tool calls, or one cut off by a
+   usage or quota limit, is an environment fault. It is discarded and
+   the campaign halts. An agent that finishes with a broken app is
+   kept, because that is data.
+7. **Smoke check.** Builds, installs, launches, screenshots to
+   `launch.png`. A pass means the app launches and nothing more. This
+   check has been fooled by broken apps twice.
+8. **Artifact export.** Four files land in `runs/<run_id>/` plus one
+   results row. A folder missing any of the four is incomplete.
+
+   | File | Where it comes from |
+   |---|---|
+   | `transcript.jsonl` | Claude runs copy the session file from `~/.claude/projects/<work-path>/`. Gemini runs capture the CLI stream-json stdout directly. |
+   | `transcript.md` | Rendered from the jsonl by the agent's extractor, `extract-claude.py` or `extract-gemini.py`. |
+   | `run.json` | Filled by the extractor. Wall clock, tool calls, build failures, server rejections, tokens, and cost at the model's rates. The two walk verdicts stay null until section 6. |
+   | `code.diff` | The work folder is committed, then diffed against the template baseline. |
+
+9. **Teardown.** The work folder is archived away so the next agent
+   cannot find a previous solution, and the device is swept again. For
+   gemini, any global memory the agent saved is quarantined into the
+   run folder as `global-memory-left-by-agent.md`.
+
+### First gemini run only
+
+Run one probe and eyeball it before trusting gemini metrics
+
+```bash
+./runner.sh gemini gemini-3.7-flash cold 99
+```
+
+Open the probe's `transcript.jsonl` and check its `run.json` looks
+sane. The stream format was verified against gemini-cli v0.57.0, and a
+newer CLI could change it. Delete the probe folder and its
+`results.csv` row afterward.
+
+## 5. Run manually (interactive session)
+
+For hand-driven runs such as the original two-build experiment.
+
+1. Prepare a fresh scaffold folder, seeded server, and clean device by
+   hand, as in the harness steps above.
+2. Start the agent in the scaffold folder, paste the prompt verbatim,
+   and follow the operator rules in `docs/protocol.md`. Answer product
+   questions only and paste errors verbatim.
+3. Export the artifacts
+
+```bash
+RUN=runs/<run_id>
+mkdir -p $RUN
+# transcript.md  (from inside the session, before closing)
 #   /export ../ohs-labs/ohs-agent-experiment/runs/<run_id>/transcript.md
-# transcript.jsonl - newest session file for that project dir:
-cp "$(ls -t ~/.claude/projects/<dashed-scaffold-path>/*.jsonl | head -1)" $RUN/transcript.jsonl
-# code.diff - from the scaffold repo:
+# transcript.jsonl
+cp "$(ls -t ~/.claude/projects/<work-path>/*.jsonl | head -1)" $RUN/transcript.jsonl
+# code.diff
 git -C <scaffold> add -A && git -C <scaffold> commit -m "<run_id> result"
 git -C <scaffold> diff <baseline-commit> HEAD > $RUN/code.diff
-# run.json + results.csv row (also re-renders transcript.md if you skipped /export):
-python3 harness/extract.py --jsonl $RUN/transcript.jsonl --run-dir $RUN \
+# run.json and the results row
+python3 harness/extract-claude.py --jsonl $RUN/transcript.jsonl --run-dir $RUN \
   --run-id <run_id> --condition <cond> --model <model> --replicate <n> \
   --results results.csv
 ```
 
-## 4. After the run: the human walk (mandatory)
+## 6. The human walk (mandatory, per run)
 
-For every run, install the built APK (in
-`harness/archive/<run_id>/app/build/outputs/apk/debug/`), launch it,
-and check: register shows the three patients (for ohs conditions this
-proves sync), record a visit, force-stop and relaunch (visit survives),
-and for ohs conditions confirm the visit reached HAPI
-(`http://localhost:8080/fhir/QuestionnaireResponse?_sort=-_lastUpdated`).
-Then record the verdict in `runs/<run_id>/run.json`
-(`verified_working`, `round_trip_pass`, one-line `notes` for anything
-interesting) and mirror it into that run's `results.csv` row.
+Install the built APK from
+`harness/archive/<run_id>/app/build/outputs/apk/debug/` and use the
+app. Check four things.
 
-## 5. Interruptions and cleanup
+1. The register shows the three patients. For ohs runs this proves
+   sync works.
+2. A new visit can be recorded.
+3. The visit survives a force-stop and relaunch.
+4. For ohs runs, the visit reached the server. Check
+   `http://localhost:8080/fhir/QuestionnaireResponse?_sort=-_lastUpdated`
 
-- **Usage limit / network**: the campaign halts itself with a message;
-  rerun `./campaign.sh` after the limit resets — completed runs are
-  skipped automatically.
-- **A junk run slipped through**: delete `runs/<id>`,
-  `harness/archive/<id>`, `harness/logs/<id>.log`, the
-  `~/.claude/projects/<dashed>` dir, and its `results.csv` row; the
-  campaign will redo it.
-- `results.csv` is derived — if in doubt, regenerate it from the
-  `run.json` files.
+Record `verified_working` and `round_trip_pass` in the run's
+`run.json`, mirror them into its `results.csv` row, and add a one-line
+note for anything interesting. This step exists because two broken apps
+passed every automated check.
 
-## 6. Reading the results
+## 7. When things go wrong
 
-`results.csv` is one row per run; `results/grid.md` holds the current
-grid and takeaways; each `runs/<id>/transcript.md` is the quotable
-record and `transcript.jsonl` the parseable one.
+**Usage or quota limit.** The campaign halts itself with a clear
+message. Rerun `./campaign.sh <manifest>` after the limit resets and it
+continues where it stopped.
+
+**A junk run got collected.** Delete `runs/<id>`,
+`harness/archive/<id>`, `harness/logs/<id>.log`, the leftover agent
+state for the work path, and the run's `results.csv` row. The campaign
+will redo it.
+
+**results.csv looks wrong.** It is derived data. Regenerate it from
+the `run.json` files, which are the source of truth.
+
+## 8. Reading the results
+
+`results.csv` has one row per run. `results/grid.md` holds the current
+grid and takeaways. Each run's `transcript.md` is the readable record
+and `transcript.jsonl` the parseable one.

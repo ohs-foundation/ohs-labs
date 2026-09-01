@@ -1,6 +1,8 @@
 # Sweep 1 Results — build scenario, one run per cell
 
-As of 2026-08-26. Status is from the on-emulator walk (launch + register
+As of 2026-08-26. All runs below used the Claude Code agent harness
+(`run.json.harness` records this per run; Gemini rows would appear in
+the same table when run). Status is from the on-emulator walk (launch + register
 showing data; full visit-recording walk still pending for the non-fable
 cells). Cost is at each model's API rates; tokens are output tokens
 (cache traffic excluded — see runs/<id>/run.json for full token detail).

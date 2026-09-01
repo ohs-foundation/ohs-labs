@@ -1,80 +1,144 @@
 # Harness design
 
-Why the run automation is shaped the way it is: the grid, the per-run
-cleanliness contract, and the failure policy. The step-by-step of what a
-run actually does lives in `../RUNNING.md`; the protocol it implements is
+Why the run automation is shaped the way it is. The step-by-step of what
+a run does lives in `../RUNNING.md`. The protocol it implements is
 `protocol.md` Part B.
 
-## The grid
+## 1. The grid
 
-Skills only make sense on the OHS build, so the grid is 12 cells:
+Skills only make sense on the OHS build, so the grid has 12 cells.
 
 | | fable | opus | sonnet | haiku |
 |---|---|---|---|---|
-| **cold** (scratch) | x | x | x | x |
-| **ohs** (Foundations) | x | x | x | x |
-| **ohs-skills** (Foundations + `skills/`) | x | x | x | x |
+| cold (scratch) | x | x | x | x |
+| ohs (OHS libraries) | x | x | x | x |
+| ohs-skills (libraries plus agent docs) | x | x | x | x |
 
-Replicates: **N=3 per cell** (stretch: 5 for the cells that decide claims —
-haiku rows and the ohs vs ohs-skills fable pair). Run order: **one full
-sweep of all 9 cells first** (early signal on every claim), then the
-remaining replicates interleaved, not cell-by-cell (spreads time-of-day and
-flakiness evenly).
+Three replicates per cell, five for the cells that decide claims (the
+haiku rows and the fable ohs versus ohs-skills pair). Run order matters.
+One full sweep of every cell first for early signal on every claim, then
+the remaining replicates interleaved rather than cell by cell, which
+spreads time-of-day effects and flakiness evenly.
 
+## 2. Multi-agent design
 
-## Cleanliness contract (the heart of this)
+Claude and Gemini are implemented. Others follow the same pattern (see
+section 6). The rule throughout is that the agent is an attribute of a
+run, never a folder hierarchy, and never a default.
 
-Every run must start with zero trace of any previous run, across five kinds
-of state:
+1. One `runs/` tree, one `results.csv`, one grid. A run's model segment
+   already implies its agent (`opus` is Claude, `gemini-3.7-flash` is
+   Gemini, no overlap) and `run.json` records the harness explicitly.
+2. The agent is the explicit first argument of every run
+   (`./runner.sh claude opus ohs 02`). There is no default agent, no
+   default manifest, and no file named as if one agent were the normal
+   case. Each agent has its own extractor (`extract-claude.py`,
+   `extract-gemini.py`) and its own campaign manifest
+   (`manifest-claude.txt`, `manifest-gemini.txt`).
+3. Shared templates carry no agent instruction files at all.
+   Agent-specific instruction files live only inside that agent's own
+   skills template. One template never carries two agents' files,
+   because each agent could discover the other's.
 
-| State | Contamination risk | How it's cleaned | Verified by |
+## 3. Scaffold templates
+
+Four bare repos, cloned per run, built from the committed sources in
+`harness/template-src/` by `harness/setup-templates.sh` (idempotent,
+run once after cloning the repo).
+
+| Template | Contents |
+|---|---|
+| `cold` | empty scaffold, agent picks its own stack |
+| `ohs` | scaffold with the three OHS libraries declared |
+| `ohs-skills-claude` | ohs plus `skills/` as `.claude/skills/` |
+| `ohs-skills-gemini` | ohs plus the same skills as one `GEMINI.md` |
+
+The runner picks the template from condition plus agent. The
+`ohs-skills` condition selects `ohs-skills-claude` or
+`ohs-skills-gemini` by agent.
+
+## 4. Cleanliness contract
+
+Every run must start with zero trace of any previous run. Six kinds of
+state, each with its cleaner and its check.
+
+| State | Risk | Cleaned by | Checked by |
 |---|---|---|---|
-| **Agent context** | resumed session, project auto-memory, session history | **fresh directory per run** (`work/<run_id>/`, cloned from the condition's baseline): a new path means a new Claude Code project — empty session history, empty memory | runner asserts `~/.claude/projects/<dashed-path>/` doesn't pre-exist |
-| **Agent instructions** | user-level `~/.claude/CLAUDE.md`, global settings | audit once before the campaign: no user-level CLAUDE.md content that could coach the runs; global config is then *constant across all cells*, so comparisons stay valid | manual check, noted in campaign log |
-| **Server state** | previous run's uploaded resources, watermarks | `docker-compose down` (destroys in-container H2) then `up -d` + `load-seed.sh` before **every** run, including cold runs (constant environment) | seed script's resource-count check (3/3/12/1) |
-| **App/device state** | installed APKs, on-device databases, sync work queues | uninstall sweep: `adb shell pm list packages com.example | ...uninstall`; if a run installed anything unexpected, cold-boot the AVD with `-wipe-data` | runner asserts no `com.example.*` packages before start |
-| **Build caches** | first run pays dependency downloads, later runs don't (skews wall-clock and possibly turns) | keep Gradle caches **warm for everyone**: before the campaign, run one throwaway `assembleDebug` per scaffold flavor; caches are then uniformly warm — a constant, not a variable | throwaway builds logged in campaign log |
+| Agent session and memory | resumed session, project memory, history | fresh directory per run, cloned from the template. A new path means a new project for either agent, with empty history and memory | runner asserts no prior agent state exists for the work path |
+| Global instruction files | `~/.claude/CLAUDE.md` and `~/.gemini/GEMINI.md` are injected into every session of their agent | audit before a campaign that both are empty or absent | manual audit, plus the runner refuses a gemini run while a non-empty `~/.gemini/GEMINI.md` exists |
+| Server | previous run's uploaded resources and sync watermarks | container destroyed, recreated, and reseeded before every run, cold runs included, so the environment is constant | seed script verifies resource counts |
+| Device | installed APKs, on-device databases, queued sync work | uninstall sweep of every `com.example.*` package before and after each run | runner asserts the device is clean before starting |
+| Build caches | the first run would pay dependency downloads that later runs skip | warm the shared Gradle cache once per template before any measured run, so cache state is a constant for everyone | throwaway warm builds done during setup |
+| Filesystem neighbors | with permissions bypassed an agent could list its way into a previous run's folder and find a finished solution | each run's work folder is archived away at teardown | runner asserts the work area holds only the current run |
 
-The fresh-directory-per-run rule does the heaviest lifting: it kills session
-resume, auto-memory bleed, and stale git state in one move, and makes the
-scheme parallel-safe later if we ever want it.
+Two agent-specific channels deserve their own mention.
 
-One more filesystem rule: **no interesting siblings.** With
-bypassPermissions an agent could `ls ..` into a previous run's work dir and
-find a finished solution. So after collection, each run's work dir is moved
-out of `work/` (archived beside its `runs/` folder or deleted); the runner
-asserts `work/` contains only the current run before starting. The model
-itself carries nothing between sessions - there is no server-side memory of
-past conversations - so with the directory channels closed, the only
-knowledge injection anywhere in the grid is the deliberate one: the skills
-files in the ohs-skills cells.
+**Gemini global memory.** Gemini's save_memory tool writes to the
+global `~/.gemini/GEMINI.md`, which every later session auto loads. A
+run could leave notes for the next run. The runner refuses to start a
+gemini run while that file exists non-empty, and at teardown it
+quarantines anything an agent wrote into the run's folder as
+`global-memory-left-by-agent.md`. Kept as evidence, never fed forward.
 
-## Scaffold templates
+**Instruction files above the work dirs.** Both agents auto load their
+instruction files from ancestor directories too. So no `CLAUDE.md` or
+`GEMINI.md` may exist anywhere in the repo above `harness/work/`. They
+may exist only inside an agent's own skills template.
 
-Three bare repos, cloned per run:
+The models themselves carry nothing between sessions. There is no
+server-side memory of past conversations for either agent. With the
+channels above closed, the only knowledge injection anywhere in the
+grid is the deliberate one, the skills files in the ohs-skills cells.
 
-- `templates/cold/` = current `anc-build-a-cold` baseline (`ce135fd`)
-- `templates/ohs/` = current `anc-build-b-foundations` baseline (`e414d2f`)
-- `templates/ohs-skills/` = ohs baseline + `.claude/skills/{kotlin-fhir,kotlin-fhir-engine,kotlin-fhir-data-capture}/` copied from `ohs-agent-experiment/skills/`, committed as its own baseline
+## 5. Failure policy
 
-## Per-run sequence
+A run that fails for environment reasons (docker down, emulator dead,
+network out, API auth, usage or quota limit) is a harness fault. It is
+discarded, never counted, and the campaign halts so faults cannot pile
+up junk. A run where the agent itself fails to produce a working app
+within the caps is data. Keep it, mark `verified_working` false, and
+count its cost against the cell.
 
-Implemented in `harness/runner.sh`; the nine-step anatomy (preflight
-assertions, scaffold clone, server and device resets, capped headless
-agent run, environment-fault gate, smoke check, four-artifact export,
-teardown) is documented in `../RUNNING.md` section 2.
+Two things stay manual on purpose.
 
-## What stays manual
+1. The verified-working walk per run, because agents invent different
+   UIs every run and automated walks over unknown UIs are not worth it
+   at this scale. Broken apps have passed every automated check twice.
+2. A one-line judgment note in `run.json` about the run's interesting
+   moments, written after skimming the transcript tail.
 
-- The 2-minute verified-working walk per run (batched; automating UI walks
-  over agent-invented UIs isn't worth it at N=27).
-- Judgment calls in `run.json.notes` (what the run's interesting moments
-  were) — skim the transcript tail, one sentence.
+## 6. Adding a new agent
 
-## Failure policy
+The layout is designed so a new agent (say Qwen) is additive. Nothing
+about existing agents, runs, or results changes. Two halves.
 
-A run that errors out (harness fault: docker down, emulator dead) is
-discarded and re-run — harness faults are not data. A run where the *agent*
-fails (doesn't produce a working app within caps) is data: keep it, mark
-`verified_working: false`, count its cost. The distinction is recorded in
-`run.json.notes`.
+The mechanical half, a few hours of work.
+
+1. `runner.sh` gains a branch in the agent case. Binary resolution,
+   model name rule, the agent's API endpoint for the connectivity
+   preflight, the headless invocation (prompt in, tools auto approved,
+   transcript captured), and where the transcript comes from.
+2. `extract-<agent>.py` parses that transcript into the same `run.json`
+   fields and the same `results.csv` row shape, with a rates table for
+   cost. Copy the closest existing extractor and adjust.
+3. `setup-templates.sh` gains an `ohs-skills-<agent>` template that
+   packages the same three skills as whatever file the agent auto
+   loads. The skills themselves are plain markdown and never change.
+4. A `manifest-<agent>.txt` campaign file.
+5. Docs. The supported models table and prerequisites in `RUNNING.md`,
+   and the template list here.
+
+The investigation half, where the real care goes.
+
+6. The isolation audit cannot be copied, only re-earned per agent.
+   Discover where the agent persists sessions, whether it has a memory
+   feature and where it writes (gemini's global memory leak was found
+   only by looking), which global instruction files it auto loads (add
+   them to the rules in section 4), and what its quota and error
+   messages look like for the fault gate.
+7. One probe run with the transcript eyeballed before trusting any
+   metrics, the same ritual every agent went through.
+
+What never changes. The `runs/` structure, the `results.csv` shape,
+the prompts, the conditions, the grid logic, and every other agent's
+code paths. A new agent's runs are just new rows in the same table.
