@@ -1,38 +1,42 @@
-# Experiment Protocol
+# Experiment protocol
 
-Two parts. **Part A** is the original two-build experiment (2026-08-23/24,
-reported in `../results/experiment-1.md`). **Part B** extends it into the
-model-by-condition evaluation grid (ongoing, reported in
-`../results/grid.md`). Part A's spec, prompts, and operator rules are the
-shared foundation Part B builds on.
+Two parts. Part A is the original two-build experiment (run 2026-08-23
+and 24, reported in `../results/experiment-1.md`). Part B extends it
+into the model by condition evaluation grid (ongoing, reported in
+`../results/grid.md`). Part A's spec, prompts, and operator rules are
+the shared foundation Part B builds on.
 
-## Part A — the original two-build experiment
+The quoted blocks below are the exact texts pasted into agent sessions.
+They are data, not prose, and must never be reworded.
 
-One spec, two agent builds, same rules. This document is the fixed part of the
-experiment: everything in it applies identically to both runs unless a section
-is explicitly marked "Build A only" / "Build B only".
+---
 
-## Ground rules (both builds)
+## Part A. The original two-build experiment
 
-- Same agent product and same model for both runs, stated in the writeup.
-- Fresh session, empty Android project (only build B starts with the extra
-  dependencies listed in its addendum).
-- The spec below is pasted verbatim as the opening prompt, followed by the
-  build's addendum.
-- Turn budget: 40 user turns per build. Stop there regardless of state.
-- The operator (you) behaves like a product owner, not a FHIR expert:
-  - Answer clarifying questions about *what the app should do*.
-  - Never volunteer modeling advice, field names, API names, or standards
-    knowledge in either build.
-  - Paste build errors, runtime crashes, and server error responses back
-    verbatim when the agent asks or when a run fails.
-- If a defect in the prep (seed data, Questionnaire, server config) blocks the
-  agent, fix the prep, note it in the transcript, and don't count those turns
-  against either build.
-- Save the full transcript of each session. The transcripts are the primary
-  artifact of the experiment.
+One spec, two agent builds, same rules.
 
-## The spec (paste verbatim in both builds)
+### A1. Ground rules (both builds)
+
+1. Same agent product and same model for both runs, stated in the
+   writeup.
+2. Fresh session, empty Android project. Only build B starts with the
+   extra dependencies listed in its addendum.
+3. The spec is pasted verbatim as the opening prompt, followed by the
+   build's addendum.
+4. Turn budget of 40 user turns per build. Stop there regardless of
+   state.
+5. The operator behaves like a product owner, not a FHIR expert.
+   Answer clarifying questions about what the app should do. Never
+   volunteer modeling advice, field names, API names, or standards
+   knowledge. Paste build errors, crashes, and server error responses
+   back verbatim.
+6. If a defect in the prep (seed data, Questionnaire, server config)
+   blocks the agent, fix the prep, note it in the transcript, and do
+   not count those turns against either build.
+7. Save the full transcript of each session. The transcripts are the
+   primary artifact.
+
+### A2. The spec (pasted verbatim in both builds)
 
 > Build an Android app for nurses at a small clinic to track antenatal care
 > (ANC) visits.
@@ -59,22 +63,21 @@ is explicitly marked "Build A only" / "Build B only".
 > | Sarah Mitchell | 1990-11-02 | 2027-01-20 | 2026-08-12 | 61.2 kg | 110/70 | 12.4 g/dL |
 > | Grace Thompson | 2001-07-30 | 2026-10-15 | 2026-08-05 | 72.0 kg | 128/84 | 10.2 g/dL |
 
-## Build A addendum ("cold")
+### A3. Build A addendum (cold)
 
-Append to the opening prompt:
+Appended to the opening prompt.
 
 > Use whatever architecture, libraries, data model, and storage you think are
 > best. The three existing patients above should be present in the app as
 > starting data.
 
-Nothing else. No FHIR server, no FHIR libraries, no hints. If the agent
-chooses FHIR on its own, let it — note it in the writeup.
+Nothing else. No FHIR server, no FHIR libraries, no hints. If the
+agent chooses FHIR on its own, let it and note it in the writeup.
 
-## Build B addendum ("FHIR Foundations")
+### A4. Build B addendum (OHS)
 
-The project starts with these dependencies already declared: `kotlin-fhir`
-(R4 model classes), Android FHIR Engine, Android FHIR Data Capture (SDC).
-Append to the opening prompt:
+The project starts with kotlin-fhir (R4 model classes), FHIR Engine,
+and Data Capture already declared. Appended to the opening prompt.
 
 > A FHIR R4 server (HAPI) is running at `http://10.0.2.2:8080/fhir` (Android
 > emulator's address for the host machine; no auth). It already contains the
@@ -85,201 +88,201 @@ Append to the opening prompt:
 > classpath. Use the server as the source of truth and the Questionnaire for
 > the visit form.
 
-When the server rejects a write, paste the `OperationOutcome` body back to
-the agent verbatim.
+When the server rejects a write, paste the `OperationOutcome` body back
+to the agent verbatim.
 
-## What to measure (from the transcripts and final code)
+### A5. What to measure
+
+From the transcripts and the final code.
 
 | Metric | How counted |
 |---|---|
-| Corrective turns | User turns whose only purpose is fixing something the agent got wrong (compile error, crash, wrong behavior, rejected write) |
-| Hallucinated APIs | Distinct references to methods/classes/endpoints that don't exist |
-| Schema drift | Invented field names, types, or structures that diverge from the spec's data or (build B) from FHIR; renames of the same concept across files |
-| Self-corrections from validation | (Build B) times a server `OperationOutcome` led the agent to a correct fix without user help |
-| Round-trip success | Does a saved visit reappear correctly after app restart? |
-| Size | Lines of hand-written code (exclude generated/boilerplate), file count |
-| Wall-clock and turns | Total turns and rough time to first working build |
+| Corrective turns | user turns whose only purpose is fixing something the agent got wrong (compile error, crash, wrong behavior, rejected write) |
+| Hallucinated APIs | distinct references to methods, classes, or endpoints that do not exist |
+| Schema drift | invented field names, types, or structures that diverge from the spec's data or (build B) from FHIR, and renames of the same concept across files |
+| Self-corrections from validation | build B only. Times a server `OperationOutcome` led the agent to a correct fix without user help |
+| Round-trip success | does a saved visit reappear correctly after app restart |
+| Size | lines of hand-written code excluding generated boilerplate, and file count |
+| Wall clock and turns | total turns and rough time to first working build |
 
-## Non-goals (per the PoC doc)
+### A6. Non-goals
 
 No MCP server, no App Shell artifact, no offline story beyond what FHIR
 Engine does by default, no skills package, no fhir-gateway, no auth.
 
-## Caveat for the writeup
+### A7. Caveat for the writeup
 
-This is an n-of-1 qualitative comparison, same as the Health Samurai article.
-Report it as suggestive evidence, not proof, and report the prep cost
-(server + seed + Questionnaire, roughly 3–4 days) as the cost side of the
-trade — the rails aren't free, they're reusable.
-
+This is an n-of-1 qualitative comparison, the same as the Health
+Samurai article. Report it as suggestive evidence, not proof. Report
+the prep cost (server, seed, Questionnaire, roughly 3 to 4 days) as the
+cost side of the trade. The rails are not free, they are reusable.
 
 ---
 
-## Part B — the evaluation grid and demonstrations
+## Part B. The evaluation grid and demonstrations
 
-Extends Part A. Two parts with different jobs:
+Extends Part A. Two halves with different jobs.
 
-- **Part 1 — Measured.** Things that vary run to run (agent behavior):
-  build cost/time, and whether cheaper models can do the job. These get
-  repetitions, because run-to-run luck is a possible explanation that
-  repetition rules out.
-- **Part 2 — Demonstrated.** Things that are properties of the
-  architecture, identical on every run: form updates, getting data out,
-  bad records. These are not metrics — they are *why the same agent
-  effort produces more value on the OHS build*. Each runs **once**, to
-  put a concrete number and screen recording on it (and to verify the
-  OHS side actually delivers what we claim), then feeds the demo video.
+**Measured** covers things that vary run to run because they are agent
+behavior. Build cost, time, and whether cheaper models can do the job.
+These get repetitions, because run-to-run luck is a possible
+explanation that only repetition rules out.
 
-Rules carry over from Part A: fresh agent session per run, prompts
-pasted verbatim, operator answers product questions only, errors pasted
-verbatim. Every run gets a folder under `runs/` named
-`s<scenario>-<condition>-<model>-<replicate>` (see `runs/README.md`) holding
-transcript, `run.json`, and `code.diff`, plus one row appended to
-`results.csv`. Screen-record every session — recordings feed the demo
+**Demonstrated** covers things that are properties of the architecture
+and identical on every run. Form updates, getting data out, bad
+records. These are not metrics. They are why the same agent effort
+produces more value on the OHS build. Each runs once, to put a real
+number and a screen recording on it, and to verify the OHS side
+actually delivers before it goes on camera. The footage feeds the demo
 (`demo.md`).
 
----
+Shared rules carry over from Part A. Fresh agent session per run,
+prompts pasted verbatim, operator answers product questions only,
+errors pasted verbatim. Every run gets a folder under `runs/` (see
+`runs/README.md`) holding the four artifacts, plus one row in
+`results.csv`.
 
-### Part 1 — Measured (repeated runs)
+### B1. Measured. Build cost and time
 
-### 1a. Build cost and time
+The original experiment repeated. Same spec prompt, fresh scaffold,
+freshly reseeded server, capped headless run.
 
-The original experiment, repeated: same spec prompt, fresh scaffold and
-freshly reseeded HAPI per run, auto-accept, turn/token cap.
+The first pair (2026-08-23 and 24, claude-fable-5) came out
 
-First run (2026-08-23/24, claude-fable-5):
-
-| | Scratch (cold) | OHS (Foundations) |
+| | Cold | OHS |
 |---|---|---|
 | Human effort | 1 prompt, 0 interventions | 1 prompt, 0 interventions |
-| Wall clock | ~29 min | ~33 min |
-| Compute cost (API rates) | ~$13 | ~$60 |
+| Wall clock | about 29 min | about 33 min |
+| Compute cost at API rates | about $13 | about $60 |
 | Verified working | yes | yes |
 
-Open question repetition answers: is the ~$47 gap stable, and does its
-composition hold (first run: only ~$8 of it was code-writing; the rest
-was cache reads from the agent reverse-engineering the undocumented SDK —
-i.e. the per-build price of having no skills package)?
+The open question repetition answers is whether the cost gap is stable
+and whether its composition holds. In the first pair only about $8 of
+the gap was code writing. The rest was the agent reverse-engineering
+the undocumented SDK, which is the per-build price of having no skills
+package.
 
-Per-run metrics: verified-working (compiles, installs, walks the three
-screens, visit survives restart), corrective turns, wall clock, tokens →
-dollars at that model's rates, self-corrections, hallucinated APIs.
+Per-run metrics are the Part A metrics plus tokens converted to dollars
+at that model's rates.
 
-### 1b. Model matrix
+### B2. Measured. Model matrix
 
-Hypothesis: the OHS libraries substitute for model capability — a cheaper
-model succeeds with the rails (types constrain it, the server corrects it)
-but struggles cold (nothing catches its mistakes).
+Hypothesis. The OHS libraries substitute for model capability. A
+cheaper model succeeds with the rails, because types constrain it and
+the server corrects it, but struggles cold where nothing catches its
+mistakes.
 
-Grid: {cold, foundations} × {haiku, sonnet, fable}. Rates (input/output
-per MTok; cache read = 0.1× input): Haiku 4.5 $1/$5 · Sonnet 5 $2/$10 ·
-Fable 5 $10/$50. The fable cells are done (first run above).
+The grid is section 1 of `harness.md`. Conditions cold, ohs, and
+ohs-skills against Haiku, Sonnet, Opus, and Fable. Sweep 1 (one run per
+cell) is complete, see `../results/grid.md`.
 
-Headline metric: **cheapest model that reliably ships the app, per
-condition** — and cost per *successful* build (failed runs charged to the
-condition). If rails let Haiku do what cold requires Fable for, that's up
-to ~10× off the model bill, attributable to the toolkit.
+The headline metric is the cheapest model that reliably ships the app,
+per condition, and cost per successful build with failed runs charged
+to their cell. If rails let Haiku do what cold requires Fable for, that
+is up to 10x off the model bill, attributable to the toolkit.
 
-Success/failure per cell is noisy at n=1 — the claim shape is
-"4/5 with rails vs 1/5 cold", which needs n≥5 per cell (phase 2).
+Success or failure per cell is noisy at one run. The claim shape is
+"4 of 5 with rails versus 1 of 5 cold", which needs five replicates
+per cell.
 
-Fairness: same Claude Code harness, same prompts, same effort settings,
-model switched via `claude --model` only; note model + settings per run.
+Fairness. Within any compared set of cells, same agent harness, same
+prompts, same settings. Only the model varies, and for cross-agent rows
+the explicitly recorded agent. Note model, agent, and settings per run.
 
----
+**Cross-agent extension.** The same grid can run on a different agent
+stack (implemented for Gemini CLI, agent always explicit per run, raw
+Gemini model names, rates in `harness/extract-gemini.py`). Report those
+rows as a different agent plus model stack, not a pure model
+comparison. Switching agent changes the model and the harness driving
+it at once, and some metrics map only approximately. There are no
+cache-token economics for Gemini, and corrective turns are zero for
+all headless runs by construction.
 
-### Part 2 — Demonstrated (one run each)
+### B3. Demonstrated. Updating the form
 
-Not metrics. The outcome cannot vary between runs — it is decided by the
-architecture. One run each serves three purposes: put a real number on the
-contrast, **verify the OHS side actually delivers the claim** before we
-put it on camera, and produce the demo footage.
-
-### 2a. Updating the form ("the ministry changed the ANC form")
-
-Prompt (verbatim, both builds):
+The scenario is that the ministry changed the ANC form. Prompt,
+verbatim, both builds.
 
 > The ministry of health has updated the standard ANC visit form: it now
 > includes a "Fetal heart rate (bpm)" numeric field, recorded at every
 > visit. Update the app so nurses can record it and see it in the visit
 > history.
 
-Expected: OHS = server-side Questionnaire edit, no app release; scratch =
-schema + form + detail-screen code changes, rebuild, redeploy to every
-phone. Record: wall clock each side, and whether an app release was
-required.
+Expected shape. OHS is a server-side Questionnaire edit with no app
+release. Scratch is schema, form, and detail-screen code changes plus a
+rebuild and a redeploy to every phone. Record wall clock on each side
+and whether an app release was required.
 
-⚠ Unverified claim to test here: that the OHS app picks up the edited
-Questionnaire without a release (sync/caching behavior of FHIR Engine).
-If it doesn't, that's a toolkit finding — better found here than in the
-demo.
+An unverified claim gets tested here, namely that the OHS app picks up
+the edited Questionnaire without a release. That depends on the sync
+and caching behavior of FHIR Engine. If it does not hold, that is a
+toolkit finding, better found here than in the demo.
 
-### 2b. Getting the data out ("the district office needs a report")
+### B4. Demonstrated. Getting the data out
 
-Prompt (verbatim, both builds):
+The scenario is that the district office needs a report. Prompt,
+verbatim, both builds.
 
 > The district health office needs a weekly summary: for the last 7 days,
 > each patient who reported any danger sign, with the sign(s), the visit
 > date, and their blood pressure that visit. Produce it as a CSV the office
 > can open — generated outside the app (they don't have the phone).
 
-Expected: OHS = the data is already synced to HAPI in a standard format —
-one query. Scratch = no server; the data only exists on the device, so
-it's get-the-file-off-the-phone plus a translator for the app's homemade
-format — and even adding a server wouldn't close the gap: it would speak
-that same private format, validate nothing, and need hand-built
-device-to-server sync. Record: wall clock, lines of integration code.
+Expected shape. On OHS the data is already synced to the server in a
+standard format, so the report is one query. On scratch there is no
+server. The data only exists on the device, so it takes getting the
+file off the phone plus a translator for the app's homemade format.
+Even adding a server would not close the gap. It would speak the same
+private format, validate nothing, and need hand-built sync. Record wall
+clock and lines of integration code.
 
-**"Isn't this unfair — the scratch build was never asked for an export?"**
-Correct, and it could be asked — the agent will happily build an export, a
-server, validation, sync. But each is then custom software we own and
-maintain alone, in a format only this app speaks, and every future
-consumer of the data needs another custom integration against it. Follow
+A fair objection, answered. The scratch build was never asked for an
+export, and the agent would happily build an export, a server,
+validation, and sync if asked. But each one is then custom software we
+own and maintain alone, in a format only this app speaks, and every
+future consumer of the data needs another custom integration. Follow
 that to its end and you are hand-building a private, worse FHIR. The
-demonstration isn't "scratch can't" — it's "on OHS it's already there,
-standard, and maintained by someone else."
+demonstration is not that scratch cannot. It is that on OHS it is
+already there, standard, and maintained by someone else.
 
-### 2c. Bad records ("is the data safe from silent corruption?")
+### B5. Demonstrated. Bad records
 
-No agent — the operator writes one bad visit record through each build's
-storage path: invalid status code (`"finaled"`) + impossible date
-(`"2026-13-45"`).
+No agent involved. The operator writes one bad visit record through
+each build's storage path, with an invalid status code (`"finaled"`)
+and an impossible date (`"2026-13-45"`).
 
-**Verified 2026-08-25:** HAPI rejects it instantly, one precise error per
-problem. SQLite accepts the equivalent row silently. Remaining step:
-insert the bad row into build A, re-run 2b's report, show it poisoning
-the district numbers — on camera.
+Verified 2026-08-25. HAPI rejects it instantly with one precise error
+per problem. The scratch build's database has no rules that could
+reject it. The remaining step is to insert the bad row into the scratch
+app, re-run the B4 report, and show it poisoning the district numbers
+on camera.
 
-**Known limit (also verified):** clinically absurd values pass — a
-systolic BP of −40 in a structurally valid observation was accepted.
-Base FHIR validation checks structure and codes, not clinical ranges;
-ranges live in profiles (the IG layer), out of scope for this PoC.
-Report honestly; it is the concrete motivation for the profile/IG work.
-Optional extension: one small ANC profile with min/max on BP, showing
-the −40 caught too — "app is the IG" in a single StructureDefinition.
+A known limit, also verified. Clinically absurd values pass. A systolic
+blood pressure of minus 40 in a structurally valid record was accepted,
+because base FHIR validation checks structure and codes, not clinical
+ranges. Ranges live in profiles, the IG layer, out of scope here.
+Report it honestly. It is the concrete motivation for the profile and
+IG work. An optional extension is one small ANC profile with min and
+max on blood pressure, showing the minus 40 caught too.
 
----
+### B6. Headline outputs
 
-### The headline outputs
+From the measured half, after repetitions
 
-**From Part 1** (after repetitions):
-
-| | Scratch | OHS |
+| | Cold | OHS |
 |---|---|---|
-| Cost / time to working app (mean ± spread) | … | … |
-| Cheapest model that reliably ships it | … | … |
+| Cost and time to working app, mean and spread | ... | ... |
+| Cheapest model that reliably ships it | ... | ... |
 
-**From Part 2** (once, on camera): same agent effort, more valuable
-output — form updates without releases, data already standard on a
-server, bad records stopped at the door.
+From the demonstrated half, once and on camera. Same agent effort,
+more valuable output. Form updates without releases, data already
+standard on a server, bad records stopped at the door.
 
-### Phases
+### B7. Status
 
-- **Phase 1 (this week):** Part 2 runs (one each) + the four new model
-  cells (haiku/sonnet × cold/foundations) once each. Everything
-  screen-recorded; demo cut from the footage per `demo.md`.
-- **Phase 2:** headless runner repeats Part 1 to n≥5 per cell (fresh
-  scaffold + HAPI reset per run; automated scoring: functional walk,
-  interop checks, transcript metrics). Later adds a third condition —
-  Foundations + skills package — whose predicted effect is the OHS build
-  cost dropping toward the scratch build's.
+1. Phase 1 is done (2026-08-26). Sweep 1 covered every cell once, with
+   results and takeaways in `../results/grid.md`. The demonstrations
+   (B3 to B5, screen-recorded, demo cut per `demo.md`) are still
+   pending.
+2. Phase 2 runs the replicates to at least three per cell, five for
+   the deciding cells, via the per-agent campaign manifests.

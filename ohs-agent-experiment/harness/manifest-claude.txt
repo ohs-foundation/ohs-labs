@@ -1,0 +1,43 @@
+# Claude campaign manifest: <agent> <model> <condition> <replicate>
+# Grid: {cold, ohs, ohs-skills} x {fable, opus, sonnet, haiku} with agent
+# claude, N=3. Gemini runs live in manifest-gemini.txt.
+# fable cold/ohs replicate 01 were the manual runs (already in runs/), so
+# those cells start at 02 here.
+#
+# --- Sweep 1: every cell once (early signal on every claim) ---
+claude haiku  cold       01
+claude haiku  ohs        01
+claude haiku  ohs-skills 01
+claude sonnet cold       01
+claude sonnet ohs        01
+claude sonnet ohs-skills 01
+claude opus   cold       01
+claude opus   ohs        01
+claude opus   ohs-skills 01
+claude fable  ohs-skills 01
+claude fable  cold       02
+claude fable  ohs        02
+#
+# --- Sweeps 2-3: remaining replicates, interleaved ---
+claude haiku  cold       02
+claude haiku  ohs        02
+claude haiku  ohs-skills 02
+claude sonnet cold       02
+claude sonnet ohs        02
+claude sonnet ohs-skills 02
+claude opus   cold       02
+claude opus   ohs        02
+claude opus   ohs-skills 02
+claude fable  ohs-skills 02
+claude fable  cold       03
+claude fable  ohs        03
+claude haiku  cold       03
+claude haiku  ohs        03
+claude haiku  ohs-skills 03
+claude sonnet cold       03
+claude sonnet ohs        03
+claude sonnet ohs-skills 03
+claude opus   cold       03
+claude opus   ohs        03
+claude opus   ohs-skills 03
+claude fable  ohs-skills 03

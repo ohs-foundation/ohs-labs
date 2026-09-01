@@ -6,12 +6,15 @@ One folder per run: `s<scenario>-<condition>-<model>-<replicate>`.
   record (Part 2 demonstrations, one replicate only).
 - **condition**: `cold` (scratch), `ohs` (Foundations libraries), `ohs-skills`
   (Foundations + `ohs-agent-experiment/skills/` in `.claude/skills/`).
-- **model**: `fable`, `sonnet`, `haiku` (add e.g. `gemini` for cross-agent runs).
+- **model**: `fable`, `opus`, `sonnet`, `haiku` (Claude); cross-agent runs use that agent's model names (e.g. `gemini-pro`) - the model segment implies the agent, and `run.json.harness` records it explicitly. No per-agent subfolders: one runs/ tree, one results.csv.
 - **replicate**: two digits, `01` up.
 
-Each folder holds: `transcript.jsonl` (required), `transcript.md` (export,
-optional), `run.json` (metadata + metrics), `code.diff` (vs the scaffold's
-baseline commit), `recording.mov` (if captured).
+Each folder holds: `transcript.jsonl` (required), `transcript.md`,
+`run.json` (metadata + metrics), `code.diff` (vs the scaffold's baseline
+commit), `launch.png` / `recording.mov` (if captured), and for gemini
+runs possibly `global-memory-left-by-agent.md` (quarantined global
+memory the agent tried to save - kept as evidence, never fed to later
+runs).
 
 `../results.csv` carries one row per run and is the only file analysis
 reads. After a run: copy the session jsonl in, fill `run.json`, append the

@@ -1,0 +1,17 @@
+# Gemini campaign manifest: <agent> <model> <condition> <replicate>
+# Grid: {cold, ohs, ohs-skills} x {gemini-3.7-flash} with agent gemini, N=3.
+# Prerequisites (see RUNNING.md): gemini CLI installed + authenticated,
+# ~/.gemini/GEMINI.md absent, one probe run eyeballed first.
+#
+# --- Sweep 1: every cell once ---
+gemini gemini-3.7-flash cold       01
+gemini gemini-3.7-flash ohs        01
+gemini gemini-3.7-flash ohs-skills 01
+#
+# --- Sweeps 2-3: replicates ---
+gemini gemini-3.7-flash cold       02
+gemini gemini-3.7-flash ohs        02
+gemini gemini-3.7-flash ohs-skills 02
+gemini gemini-3.7-flash cold       03
+gemini gemini-3.7-flash ohs        03
+gemini gemini-3.7-flash ohs-skills 03

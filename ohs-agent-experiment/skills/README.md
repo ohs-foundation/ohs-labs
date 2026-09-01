@@ -17,9 +17,10 @@ what keeps the skills-condition retest honest (the agent must still design
 the app) and what makes these shippable with the toolkit afterward.
 
 Plain markdown with skill frontmatter: drops into a Claude Code project as
-`.claude/skills/<name>/SKILL.md`, and is equally readable pasted into any
-other agent's context (Gemini CLI etc.) - part of the retest is checking
-they help a non-Claude agent too.
+`.claude/skills/<name>/SKILL.md`, and for Gemini the same three files are
+packaged (frontmatter stripped, concatenated) as a single `GEMINI.md` by
+`harness/setup-templates.sh` into the `ohs-skills-gemini` template - part
+of the retest is checking they help a non-Claude agent too.
 
 ## Using in the retest (skills condition)
 

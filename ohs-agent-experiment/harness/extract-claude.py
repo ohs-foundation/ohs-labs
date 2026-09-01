@@ -3,7 +3,7 @@
 jsonl, fills run.json with metrics, appends the results.csv row.
 
 Usage:
-  extract.py --jsonl PATH --run-dir runs/<run_id> --run-id ID \
+  extract-claude.py --jsonl PATH --run-dir runs/<run_id> --run-id ID \
              --scenario s1-build --condition cold|ohs|ohs-skills \
              --model fable|sonnet|haiku --replicate N \
              --scaffold-repo NAME --baseline COMMIT \
@@ -72,6 +72,8 @@ def main():
     ap.add_argument("--smoke", default="skip", choices=["pass", "fail", "skip"])
     ap.add_argument("--results", default="")
     ap.add_argument("--notes", default="")
+    ap.add_argument("--wall-minutes", type=float, default=None,
+                    help="fallback wall clock from the runner; session timestamps win")
     args = ap.parse_args()
 
     events = parse(args.jsonl)
@@ -139,7 +141,7 @@ def main():
                         if "OperationOutcome" in s:
                             op_outcomes += 1
 
-    wall_minutes = None
+    wall_minutes = args.wall_minutes
     if ts:
         try:
             t0 = datetime.fromisoformat(min(ts).replace("Z", "+00:00"))
