@@ -20,6 +20,10 @@ with an AVD such as Pixel 4 XL. JDK 21 on the PATH.
 `GEMINI_API_KEY` or configuring an auth method in
 `~/.gemini/settings.json`.
 
+**Ripgrep.** Install `ripgrep` (e.g., `brew install ripgrep` on macOS). Although not strictly required, having it installed allows the agent CLI to execute extremely fast codebase searches during the runs instead of falling back to standard grep.
+
+**Git.** The harness automatically handles Git environment setups. It exports a neutral Git author and committer identity (`OHS Agent <agent@example.com>`) and forces built-in diffs (`--no-ext-diff`) to bypass local sandbox and git config restrictions seamlessly.
+
 **Templates.** The pristine starting projects live in
 `harness/templates/` and are not tracked in git. Build them once from
 the committed sources

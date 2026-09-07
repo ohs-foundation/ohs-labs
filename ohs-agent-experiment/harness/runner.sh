@@ -7,6 +7,12 @@
 # Artifacts land in ../runs/s1-<condition>-<model>-<replicate>/ and results.csv.
 set -euo pipefail
 
+# Export agent-neutral Git identity for automated commits
+export GIT_AUTHOR_NAME="OHS Agent"
+export GIT_AUTHOR_EMAIL="agent@example.com"
+export GIT_COMMITTER_NAME="OHS Agent"
+export GIT_COMMITTER_EMAIL="agent@example.com"
+
 if [ "$#" -ne 4 ]; then
   echo "usage: runner.sh <agent> <model> <condition> <replicate>   e.g.: runner.sh claude opus ohs 02"
   exit 2
@@ -22,7 +28,7 @@ RUN_ID="s1-${COND}-${MODEL}-${REP}"
 WORK="$H/work/$RUN_ID"
 RUN_DIR="$POC/runs/$RUN_ID"
 LOG="$H/logs/$RUN_ID.log"
-SDK="${ANDROID_HOME:-/Users/fikrimilano/Library/Android/sdk}"
+SDK="${ANDROID_HOME:-$HOME/Library/Android/sdk}"
 export PATH="$PATH:$SDK/platform-tools"
 # 'claude' is a zsh alias on this machine - scripts must use the real binary.
 CLAUDE_BIN="$HOME/.local/bin/claude"
@@ -165,7 +171,7 @@ log "smoke: $SMOKE"
 # ---- collect the four artifacts ------------------------------------------
 git -C "$WORK" add -A
 git -C "$WORK" commit -q -m "$RUN_ID result" --allow-empty
-git -C "$WORK" diff "$BASELINE" HEAD > "$RUN_DIR/code.diff"
+git -C "$WORK" diff --no-ext-diff "$BASELINE" HEAD > "$RUN_DIR/code.diff"
 
 if [ "$AGENT" = "claude" ]; then
   PROJ="$HOME/.claude/projects/$DASHED"
