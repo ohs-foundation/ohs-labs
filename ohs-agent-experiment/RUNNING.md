@@ -36,6 +36,17 @@ cd harness
 There are four. `cold` and `ohs` are shared by both agents. The skills
 template is per agent, `ohs-skills-claude` and `ohs-skills-gemini`.
 
+**After editing any skill** in `skills/`, rebuild the two skills templates
+so the runner picks it up (editing `skills/` alone does not reach a run):
+
+```bash
+cd harness
+./refresh-skills-templates.sh
+```
+
+That is a skill/treatment change, so bump `skills/README.md` and do not
+pool the new ohs-skills runs with older ones.
+
 **Cache warming.** Run one throwaway build in `templates/cold` and one
 in `templates/ohs` so the shared Gradle cache is equally warm for every
 measured run
