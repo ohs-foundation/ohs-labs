@@ -30,8 +30,9 @@ import sys
 # applied. Gathered 2026-09-01 from public price guides; spot-check against
 # ai.google.dev/pricing before quoting externally.
 GEMINI_RATES = {
-    # current generation (checked 2026-09-01); 3.7/3.6-flash are
+    # current generation (checked 2026-09-01); 3.8/3.7/3.6-flash are
     # introductory rates through 2026-12-31, then 1.50/7.50
+    "gemini-3.8-flash": (0.75, 3.75),
     "gemini-3.7-flash": (0.75, 3.75),
     "gemini-3.6-flash": (0.75, 3.75),
     "gemini-3-flash": (0.50, 3.0),
