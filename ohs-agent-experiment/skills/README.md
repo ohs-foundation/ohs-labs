@@ -63,3 +63,21 @@ versioned here and runs are only comparable within a version.
   subclasses, and the FhirEngine CRUD signatures). ohs-skills runs from
   this date use v2 and should not be pooled with v1 runs when comparing
   cells.
+
+- **v2.2** (2026-09-08). kotlin-fhir-data-capture skill expanded and
+  source-verified against the *published* 2.0.0-alpha02 commit (the
+  version bump commit, not the last commit in the alpha02 window - a
+  later refactor within that window replaced the DataCapture singleton
+  with LocalDataCaptureConfig, which ships in alpha03; verifying against
+  the wrong commit would have wrongly deleted the correct
+  DataCapture.initialize guidance). Adds: the full Questionnaire
+  composable signature (questionnaireResponseJson prefill/edit, launch
+  context, QuestionnaireConfig, matchers), QuestionnaireConfig fields,
+  the DataCaptureConfig.Provider mechanism, TemplateExtractionEngine
+  (built-in extraction, requires template extensions or it throws), and
+  a prominent write-up of the stale-form-state trap (the form reuses its
+  view-model keyed by questionnaire JSON in the current
+  ViewModelStoreOwner, so a reopened form shows the previous answers
+  until the owner is destroyed; fix by scoping the form to a popped nav
+  destination). Confirmed correct and kept: DataCapture.initialize is
+  the right init for alpha02, and its exact not-initialized error.
