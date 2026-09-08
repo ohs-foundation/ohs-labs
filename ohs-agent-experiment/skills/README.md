@@ -81,3 +81,14 @@ versioned here and runs are only comparable within a version.
   until the owner is destroyed; fix by scoping the form to a popped nav
   destination). Confirmed correct and kept: DataCapture.initialize is
   the right init for alpha02, and its exact not-initialized error.
+
+- **v2.3** (2026-09-08). kotlin-fhir (model) skill: added a verified
+  value[x] unwrap example after diagnosing a real run failure. A Gemini
+  ohs-skills build showed every estimated due date as "N/A" because it
+  stringified the DateTime *element* (asDateTime()?.value?.toString())
+  instead of unwrapping to the primitive (asDateTime()?.value?.value).
+  Everything upstream (sync, the token search on code, subject linking,
+  the stored valueDateTime) was verified correct against the on-device
+  DB and the beta05 model source; the bug was purely the choice-type
+  unwrap depth. The skill now spells out the two-hop rule (variant ->
+  element -> primitive) and the silent-null failure of stopping early.

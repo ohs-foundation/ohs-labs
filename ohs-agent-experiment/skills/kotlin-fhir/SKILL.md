@@ -73,6 +73,29 @@ answer.value?.asInteger()?.value?.value
 answer.value?.asCoding()?.value
 ```
 
+**Unwrap all the way to the primitive - this is the most common mistake.**
+`asX()` returns the choice *variant*; the variant's `.value` is the FHIR
+*element*; the element's `.value` is the primitive you actually want. That
+is two `.value` hops after `asX()` for a datetime, not one:
+
+```kotlin
+// Observation with a valueDateTime, e.g. an estimated due date:
+val edd: String? =
+  observation.value           // Observation.Value?
+    ?.asDateTime()            // Observation.Value.DateTime?   (the variant)
+    ?.value                   // dev.ohs.fhir.model.r4.DateTime?  (the ELEMENT, not the date)
+    ?.value                   // FhirDateTime?                  (the primitive)
+    ?.toString()              // "2026-12-05"
+val dueDate = edd?.let { LocalDate.parse(it.substringBefore("T")) }
+```
+
+Stopping one hop early - `asDateTime()?.value?.toString()` - stringifies
+the element object, not the date, so a later `LocalDate.parse` fails and
+you silently get null. The same two-hop rule applies to `effective[x]`
+(`observation.effective?.asDateTime()?.value?.value`) and to reading a
+Quantity's number (`asQuantity()?.value?.value?.value` - three hops,
+because Quantity.value is a Decimal element wrapping an ionspin BigDecimal).
+
 ## Building common structures
 
 ```kotlin
