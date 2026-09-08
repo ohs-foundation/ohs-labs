@@ -12,21 +12,32 @@ Kotlin Multiplatform; on Android it is a regular dependency.
 implementation("dev.ohs.fhir:fhir-model:1.0.0-beta05")   // Maven Central
 ```
 
-Artifacts are compiled for JVM 21: set the app module's `jvmTarget` to 21.
+The model's Android artifact targets JVM 1.8, so this library alone
+imposes no `jvmTarget` requirement. (An app that also uses the OHS FHIR
+*engine* does need `jvmTarget = 21` for that dependency - see the engine
+skill - so in the full stack you set 21, but not because of the model.)
 
 ## Core rules
 
 1. **Resources are immutable data classes** constructed with named arguments.
    R4 classes live in `dev.ohs.fhir.model.r4`.
-2. **Every FHIR primitive is a wrapper class**, not a Kotlin primitive:
-   `FhirString`, `Code`, `Uri`, `Canonical`, `DateTime`, `Decimal`,
-   `Boolean`, `Integer`. You always write `FhirString(value = "...")`, never
-   a bare string. The FHIR string type is named `String`, which collides
-   with Kotlin's - alias it on import:
+2. **Every FHIR primitive is a wrapper class**, not a Kotlin primitive.
+   The full set: `String`, `Code`, `Uri`, `Canonical`, `Date`, `DateTime`,
+   `Instant`, `Decimal`, `Boolean`, `Integer`, `PositiveInt`, `UnsignedInt`,
+   `Id`, `Markdown`. You always write `FhirString(value = "...")`, never a
+   bare string. The FHIR string type is named `String`, which collides with
+   Kotlin's - alias it on import:
 
    ```kotlin
    import dev.ohs.fhir.model.r4.String as FhirString
    ```
+
+   Many fields typed `String?` in the source are this FHIR String, read
+   with `.value` - e.g. `Reference.reference` and `HumanName.family`. Not
+   all, though: a resource's own `id` is a real `kotlin.String` (those
+   files import `kotlin.String` explicitly), so `patient.id` needs no
+   unwrap. When unsure, the rule of thumb is that content fields are FHIR
+   String and the `id` is plain.
 3. **Reading values means unwrapping layer by layer.** Each wrapper exposes
    `.value`. A quantity's number is three levels deep:
 
@@ -95,6 +106,39 @@ you silently get null. The same two-hop rule applies to `effective[x]`
 (`observation.effective?.asDateTime()?.value?.value`) and to reading a
 Quantity's number (`asQuantity()?.value?.value?.value` - three hops,
 because Quantity.value is a Decimal element wrapping an ionspin BigDecimal).
+
+`FhirDateTime` is itself a sealed type with partial-date variants
+(`Year`, `YearMonth`, `Date`, `DateTime`); each renders correctly via
+`toString()`, so the `toString()` + `substringBefore("T")` approach above
+is safe for full dates. If you must handle partial dates, match the
+variant (`when (val d = fhirDateTime) { is FhirDateTime.DateTime -> ...;
+is FhirDateTime.Date -> ... }`) instead of string-parsing.
+
+## Reading common fields
+
+Every read ends in `.value` to leave FHIR-wrapper land. The frequently
+needed ones:
+
+```kotlin
+// human name
+val name = patient.name.firstOrNull()
+val full = listOfNotNull(
+  name?.given?.mapNotNull { it.value }?.joinToString(" "),
+  name?.family?.value,
+).joinToString(" ")
+
+// a reference's target id: reference.value is "Patient/anc-patient-1"
+val patientId = observation.subject?.reference?.value?.substringAfter("/")
+
+// a birthDate (Date element -> FhirDate -> toString), same two-hop unwrap
+val dob = patient.birthDate?.value?.toString()   // "1996-04-12"
+
+// a coding's code / a CodeableConcept's first code
+val loinc = observation.code.coding.firstOrNull { it.system?.value == "http://loinc.org" }?.code?.value
+```
+
+Matching an observation by code is done in memory on `code.coding` as
+above, or with the engine's typed token search (see the engine skill).
 
 ## Building common structures
 

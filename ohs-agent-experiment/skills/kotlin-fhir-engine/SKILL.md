@@ -16,7 +16,7 @@ implementation("androidx.work:work-runtime-ktx:2.8.1")
 implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")
 ```
 
-Artifacts are compiled for JVM 21: set the app module's `jvmTarget` to 21.
+The engine is built with a JDK 21 toolchain and requires the consuming app to set `jvmTarget = 21` (the reference ANC app had to bump from 17 to 21 for this dependency). This is the OHS library that drives the app-wide 21 requirement.
 
 ## Initialization (once, in Application.onCreate)
 

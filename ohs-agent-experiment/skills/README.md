@@ -92,3 +92,17 @@ versioned here and runs are only comparable within a version.
   DB and the beta05 model source; the bug was purely the choice-type
   unwrap depth. The skill now spells out the two-hop rule (variant ->
   element -> primitive) and the silent-null failure of stopping early.
+
+- **v2.4** (2026-09-08). kotlin-fhir (model) skill expanded and
+  adversarially verified against v1.0.0-beta05: completed the primitive
+  wrapper list, added a "reading common fields" section (human name,
+  reference target id, birthDate, coding code - all using the unwrap
+  rule), and noted FhirDateTime is a sealed type with partial-date
+  variants. Verification also corrected a jvmTarget claim that was wrong
+  in all three skills: the model Android artifact targets JVM 1.8 and
+  data-capture targets JVM 11 - neither needs jvmTarget 21. The FHIR
+  *engine* (JDK 21 toolchain) is what actually requires the app to set
+  jvmTarget 21, so all three skills now state their own target and point
+  at the engine as the driver. Also softened an over-broad claim that
+  every unqualified String field is the FHIR String (a resource id is
+  kotlin.String).

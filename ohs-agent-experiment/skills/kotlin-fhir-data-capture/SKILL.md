@@ -14,7 +14,7 @@ change the form, change the Questionnaire resource.
 implementation("dev.ohs.fhir:fhir-data-capture:2.0.0-alpha02")   // Maven Central
 ```
 
-Artifacts are compiled for JVM 21: set the app module's `jvmTarget` to 21.
+The data-capture Android artifact targets JVM 11, so it needs at least `jvmTarget = 11`. In the full OHS stack you set `jvmTarget = 21` because the FHIR engine requires it (see the engine skill).
 
 > Version note: at 2.0.0-alpha02 the library is initialized with
 > `DataCapture.initialize(context)` (below). A later refactor (alpha03+)
