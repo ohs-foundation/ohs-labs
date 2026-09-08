@@ -278,6 +278,21 @@ From the demonstrated half, once and on camera. Same agent effort,
 more valuable output. Form updates without releases, data already
 standard on a server, bad records stopped at the door.
 
+### Campaign generations
+
+The prompt and harness have changed in ways that make runs from different
+periods non-comparable. Tag each run's generation (stamped in
+`run.json.notes`) and never pool across generations.
+
+- **gen-1** (sweep 1, 2026-08): original prompts; fixed-8s smoke check.
+- **gen-2** (2026-09): the prompt now instructs the agent to build and run
+  the app and fix errors before finishing (identical text in both the cold
+  and OHS prompts, so it does not bias the comparison), and verification is
+  the deeper `verify.sh` (waits for sync, crash detection, local-DB patient
+  count). Expect a higher working rate; that is the intended effect of the
+  self-verify instruction, not a skills effect - keep gen-2 skills-on vs
+  skills-off comparisons within gen-2.
+
 ### B7. Status
 
 1. Phase 1 is done (2026-08-26). Sweep 1 covered every cell once, with

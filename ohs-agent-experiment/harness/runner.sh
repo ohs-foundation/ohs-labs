@@ -68,8 +68,12 @@ log "=== $RUN_ID (model $MODEL_ID) ==="
 adb get-state >/dev/null 2>&1 || fail "no emulator/device connected"
 API_CODE="$(curl -s -m 10 -o /dev/null -w '%{http_code}' "$API_HOST" || echo 000)"
 [ "$API_CODE" = "000" ] && fail "no connectivity to $API_HOST (DNS/network)"
+# self-heal orphans an interrupted run leaves behind (never "interesting siblings"):
+rm -f "$H/work/".prompt-*.txt 2>/dev/null || true          # stale prompt files
+find "$H/work" -mindepth 1 -maxdepth 1 -type d -empty -exec rm -rf {} + 2>/dev/null || true
+# a genuinely non-empty leftover work dir is still a hard fault (could hide a prior solution)
 LEFTOVER="$(ls "$H/work" 2>/dev/null | grep -v "^$RUN_ID\$" || true)"
-[ -n "$LEFTOVER" ] && fail "work/ not empty (no-interesting-siblings rule): $LEFTOVER"
+[ -n "$LEFTOVER" ] && fail "work/ not empty (no-interesting-siblings rule): $LEFTOVER - inspect harness/work/, then remove it if it is a leftover from an interrupted run"
 DASHED="$(echo "$WORK" | sed 's/[^a-zA-Z0-9]/-/g')"
 [ "$AGENT" = "claude" ] && [ -d "$HOME/.claude/projects/$DASHED" ] && \
   fail "claude project dir pre-exists for $WORK"
@@ -159,11 +163,14 @@ if ( cd "$WORK" && ./gradlew -q :app:assembleDebug ) >>"$LOG" 2>&1; then
   APK="$WORK/app/build/outputs/apk/debug/app-debug.apk"
   APP_ID="$(grep -o 'applicationId *= *"[^"]*"' "$WORK/app/build.gradle.kts" | sed 's/.*"\(.*\)"/\1/')"
   if [ -f "$APK" ] && adb install -r "$APK" >>"$LOG" 2>&1; then
+    adb logcat -b all -c >/dev/null 2>&1 || true   # clear ALL buffers (incl crash) so crash detection is this-run-only
     adb shell monkey -p "$APP_ID" -c android.intent.category.LAUNCHER 1 >>"$LOG" 2>&1 || true
-    sleep 8
-    adb exec-out screencap -p > "$RUN_DIR/launch.png" 2>>"$LOG" || true
-    CRASH="$(adb shell dumpsys activity processes | grep -c "$APP_ID" || true)"
-    [ "${CRASH:-0}" -gt 0 ] && SMOKE=pass
+    # verify.sh waits for sync, checks the register populated, writes verification.json + logcat
+    "$H/verify.sh" "$APP_ID" "$RUN_DIR" | tee -a "$LOG"
+    # smoke = launched without crashing (build+install already succeeded to get here)
+    if command -v python3 >/dev/null 2>&1 && [ -f "$RUN_DIR/verification.json" ]; then
+      python3 -c "import json,sys; d=json.load(open('$RUN_DIR/verification.json')); sys.exit(0 if d['launched'] and not d['crashed'] else 1)" && SMOKE=pass
+    fi
   fi
 fi
 log "smoke: $SMOKE"
@@ -193,7 +200,7 @@ python3 "$H/$EXTRACTOR" \
   --scaffold-repo "templates/$TEMPLATE" --baseline "${BASELINE:0:7}" \
   --smoke "$SMOKE" --results "$POC/results.csv" \
   --wall-minutes "$WALL" \
-  --notes "agent_exit=$AGENT_EXIT" | tee -a "$LOG"
+  --notes "gen=2 agent_exit=$AGENT_EXIT" | tee -a "$LOG"
 
 # ---- teardown (no interesting siblings for the next run) -------------------
 # quarantine any global memory a gemini agent left behind (cross-run leak)

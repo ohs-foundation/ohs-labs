@@ -33,3 +33,10 @@ visit:
 Use whatever architecture, libraries, data model, and storage you think are
 best. The three existing patients above should be present in the app as
 starting data.
+
+Before you consider the task finished, make the app actually build and run.
+Compile it with `./gradlew assembleDebug` and fix every error until the build
+succeeds. Then, if an Android emulator is connected (check `adb devices`),
+install and launch the app, confirm it opens to its main screen without
+crashing, and check `adb logcat` for runtime errors. Do not report the task
+as done until the app compiles and runs.

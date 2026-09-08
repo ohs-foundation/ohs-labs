@@ -41,3 +41,10 @@ has kotlin-fhir R4 types (`dev.ohs.fhir:fhir-model`), FHIR Engine
 (`dev.ohs.fhir:fhir-engine`), and the Data Capture library
 (`dev.ohs.fhir:fhir-data-capture`) on the classpath. Use the server as the
 source of truth and the Questionnaire for the visit form.
+
+Before you consider the task finished, make the app actually build and run.
+Compile it with `./gradlew assembleDebug` and fix every error until the build
+succeeds. Then, if an Android emulator is connected (check `adb devices`),
+install and launch the app, confirm it opens to its main screen without
+crashing, and check `adb logcat` for runtime errors. Do not report the task
+as done until the app compiles and runs.

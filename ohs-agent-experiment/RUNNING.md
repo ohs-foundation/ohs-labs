@@ -36,6 +36,17 @@ cd harness
 There are four. `cold` and `ohs` are shared by both agents. The skills
 template is per agent, `ohs-skills-claude` and `ohs-skills-gemini`.
 
+**After editing any skill** in `skills/`, rebuild the two skills templates
+so the runner picks it up (editing `skills/` alone does not reach a run):
+
+```bash
+cd harness
+./refresh-skills-templates.sh
+```
+
+That is a skill/treatment change, so bump `skills/README.md` and do not
+pool the new ohs-skills runs with older ones.
+
 **Cache warming.** Run one throwaway build in `templates/cold` and one
 in `templates/ohs` so the shared Gradle cache is equally warm for every
 measured run
@@ -127,9 +138,17 @@ runs that already exist, so it resumes cleanly after any interruption.
    usage or quota limit, is an environment fault. It is discarded and
    the campaign halts. An agent that finishes with a broken app is
    kept, because that is data.
-7. **Smoke check.** Builds, installs, launches, screenshots to
-   `launch.png`. A pass means the app launches and nothing more. This
-   check has been fooled by broken apps twice.
+7. **Smoke check + verification.** Builds, installs, launches, then
+   `verify.sh` clears the logcat buffers, gives sync ~30s, screenshots
+   the settled screen to `launch.png`, detects a crash from the crash
+   buffer, captures `logcat.txt` (and `crash.txt` if any), and does a
+   best-effort count of how many patients reached the app's local DB.
+   It writes `verification.json` (folded into `run.json`). The smoke
+   verdict is launched-without-crash; `patients_in_local_db` is the
+   automated sync-success signal (0 or null means download sync did not
+   deliver - it catches the "sync never wired" failure the old
+   launch-only check passed). Whether the register visually renders is
+   still the human walk, judged from the post-sync `launch.png`.
 8. **Artifact export.** Four files land in `runs/<run_id>/` plus one
    results row. A folder missing any of the four is incomplete.
 
