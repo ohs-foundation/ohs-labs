@@ -68,8 +68,12 @@ log "=== $RUN_ID (model $MODEL_ID) ==="
 adb get-state >/dev/null 2>&1 || fail "no emulator/device connected"
 API_CODE="$(curl -s -m 10 -o /dev/null -w '%{http_code}' "$API_HOST" || echo 000)"
 [ "$API_CODE" = "000" ] && fail "no connectivity to $API_HOST (DNS/network)"
+# self-heal orphans an interrupted run leaves behind (never "interesting siblings"):
+rm -f "$H/work/".prompt-*.txt 2>/dev/null || true          # stale prompt files
+find "$H/work" -mindepth 1 -maxdepth 1 -type d -empty -exec rm -rf {} + 2>/dev/null || true
+# a genuinely non-empty leftover work dir is still a hard fault (could hide a prior solution)
 LEFTOVER="$(ls "$H/work" 2>/dev/null | grep -v "^$RUN_ID\$" || true)"
-[ -n "$LEFTOVER" ] && fail "work/ not empty (no-interesting-siblings rule): $LEFTOVER"
+[ -n "$LEFTOVER" ] && fail "work/ not empty (no-interesting-siblings rule): $LEFTOVER - inspect harness/work/, then remove it if it is a leftover from an interrupted run"
 DASHED="$(echo "$WORK" | sed 's/[^a-zA-Z0-9]/-/g')"
 [ "$AGENT" = "claude" ] && [ -d "$HOME/.claude/projects/$DASHED" ] && \
   fail "claude project dir pre-exists for $WORK"
