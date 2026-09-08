@@ -159,11 +159,14 @@ if ( cd "$WORK" && ./gradlew -q :app:assembleDebug ) >>"$LOG" 2>&1; then
   APK="$WORK/app/build/outputs/apk/debug/app-debug.apk"
   APP_ID="$(grep -o 'applicationId *= *"[^"]*"' "$WORK/app/build.gradle.kts" | sed 's/.*"\(.*\)"/\1/')"
   if [ -f "$APK" ] && adb install -r "$APK" >>"$LOG" 2>&1; then
+    adb logcat -b all -c >/dev/null 2>&1 || true   # clear ALL buffers (incl crash) so crash detection is this-run-only
     adb shell monkey -p "$APP_ID" -c android.intent.category.LAUNCHER 1 >>"$LOG" 2>&1 || true
-    sleep 8
-    adb exec-out screencap -p > "$RUN_DIR/launch.png" 2>>"$LOG" || true
-    CRASH="$(adb shell dumpsys activity processes | grep -c "$APP_ID" || true)"
-    [ "${CRASH:-0}" -gt 0 ] && SMOKE=pass
+    # verify.sh waits for sync, checks the register populated, writes verification.json + logcat
+    "$H/verify.sh" "$APP_ID" "$RUN_DIR" | tee -a "$LOG"
+    # smoke = launched without crashing (build+install already succeeded to get here)
+    if command -v python3 >/dev/null 2>&1 && [ -f "$RUN_DIR/verification.json" ]; then
+      python3 -c "import json,sys; d=json.load(open('$RUN_DIR/verification.json')); sys.exit(0 if d['launched'] and not d['crashed'] else 1)" && SMOKE=pass
+    fi
   fi
 fi
 log "smoke: $SMOKE"

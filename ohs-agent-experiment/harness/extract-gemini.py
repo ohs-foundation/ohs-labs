@@ -218,6 +218,14 @@ def main():
         "notes": (args.notes + " | schema verified against gemini-cli v0.57.0; "
                   "re-verify if the CLI is upgraded").strip(" |"),
     }
+    # fold in verify.sh's automated end-to-end result if present
+    _vpath = os.path.join(args.run_dir, "verification.json")
+    if os.path.exists(_vpath):
+        try:
+            run["verification"] = json.load(open(_vpath))
+        except Exception:
+            pass
+
     with open(os.path.join(args.run_dir, "run.json"), "w") as f:
         json.dump(run, f, indent=2)
 
