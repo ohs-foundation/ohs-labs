@@ -196,7 +196,7 @@ python3 "$H/$EXTRACTOR" \
   --scaffold-repo "templates/$TEMPLATE" --baseline "${BASELINE:0:7}" \
   --smoke "$SMOKE" --results "$POC/results.csv" \
   --wall-minutes "$WALL" \
-  --notes "agent_exit=$AGENT_EXIT" | tee -a "$LOG"
+  --notes "gen=2 agent_exit=$AGENT_EXIT" | tee -a "$LOG"
 
 # ---- teardown (no interesting siblings for the next run) -------------------
 # quarantine any global memory a gemini agent left behind (cross-run leak)
