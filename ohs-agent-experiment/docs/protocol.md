@@ -194,7 +194,10 @@ stack (implemented for Gemini CLI and Antigravity CLI, agent always
 explicit per run, raw Gemini model names, one shared rates table in
 `harness/extract-gemini.py`). Gemini CLI and Antigravity CLI both run
 Gemini models, so a Gemini CLI row and an Antigravity row at the same
-base model isolate the harness effect at a fixed model. Report cross-agent rows as a different agent plus model
+base model would isolate the harness effect at a fixed model. That
+pairing works only for pro models: gemini-cli serves
+`gemini-3.5-flash` for every flash name (see `../RUNNING.md`
+section 3). Report cross-agent rows as a different agent plus model
 stack, not a pure model comparison. Switching agent changes the model
 and the harness driving it at once, and some metrics map only
 approximately. Gemini CLI output tokens exclude thinking, so its cost

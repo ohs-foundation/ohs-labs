@@ -3,10 +3,8 @@
 # antigravity, N=3. Antigravity drives Gemini models too (same models as
 # manifest-gemini.txt, different agent harness) - its model ids always carry
 # an effort suffix (-low|-medium|-high), which is what keeps its run ids
-# distinct from the gemini-cli rows. -high is chosen because a bare Gemini 3
-# model id (what gemini-cli sends) defaults to high thinking, so this is the
-# closest same-model pairing to the gemini-cli rows. Run `agy models` for the
-# current list.
+# distinct from the gemini-cli rows. -high matches the default thinking level
+# of a bare Gemini 3 model id. Run `agy models` for the current list.
 # Prerequisites (see RUNNING.md): agy installed + logged in, the harness
 # work dir under a trusted workspace, ~/.gemini/GEMINI.md absent, one probe
 # run eyeballed first.

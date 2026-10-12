@@ -103,40 +103,36 @@ project root.
 | claude | `opus` | claude-opus-5, $5/$25 |
 | claude | `sonnet` | claude-sonnet-5, $2/$10 |
 | claude | `haiku` | claude-haiku-4-5-20251001, $1/$5 |
-| gemini | `gemini-3.8-flash` | $0.75/$3.75 intro until 2027 then $1.50/$7.50 |
-| gemini | `gemini-3.7-flash` | current workhorse, $0.75/$3.75 intro until 2027 then $1.50/$7.50 |
-| gemini | `gemini-3.6-flash` | same intro pricing schedule |
-| gemini | `gemini-3-flash` | $0.50/$3 |
 | gemini | `gemini-3.1-pro` | $2/$12 |
 | gemini | `gemini-2.5-pro` | $1.25/$10, previous generation |
-| gemini | `gemini-2.5-flash` | $0.30/$2.50 |
-| antigravity | `gemini-3.8-flash-high` | same Gemini 3.8 Flash, driven by `agy`; `-low`/`-medium`/`-high` is the reasoning effort |
+| gemini | any `*-flash` name | does not work, see below |
+| antigravity | `gemini-3.8-flash-high` | Gemini 3.8 Flash driven by `agy`; `-low`/`-medium`/`-high` is the reasoning effort |
 | antigravity | any other `gemini-*-{low,medium,high}` from `agy models` | e.g. `gemini-3.7-flash-medium`, `gemini-3.1-pro-high` |
 
-Claude accepts only the four shortcuts. Gemini accepts any name that
-starts with `gemini`, passed through raw. Antigravity accepts any
-`gemini-*` id that `agy models` prints (it also offers Claude and
-GPT-OSS models; the runner rejects those so every antigravity row is
-still a Gemini row). The seven gemini names listed have pricing wired in
-`GEMINI_RATES` inside `harness/extract-gemini.py`; antigravity strips
-the effort suffix and reuses that same table, so `gemini-3.8-flash-high`
-is priced as `gemini-3.8-flash`. Any other name still runs but reports
-a null cost until a rate is added there. Prices gathered 2026-09-01,
-spot-check before quoting externally.
+Flash rates in `GEMINI_RATES` (`harness/extract-gemini.py`):
+`gemini-3.8-flash`, `3.7-flash` and `3.6-flash` $0.75/$3.75 (intro
+rate through 2026-12-31, then $1.50/$7.50), `gemini-3-flash` $0.50/$3,
+`gemini-2.5-flash` $0.30/$2.50. Prices gathered 2026-09-01; spot-check
+before quoting externally.
 
-**Gemini CLI silently substitutes flash models.** Verified in the
-gemini-cli 0.60 source: when the account has Gemini 3.5 Flash GA access,
-`resolveModel` rewrites any requested name ending in `flash` to its
-default flash model, `gemini-3.5-flash`, and the CLI has no knowledge of
-a `gemini-3.8-flash` at all. Every sweep-1 gemini row labelled
-`gemini-3.8-flash` was served by `gemini-3.5-flash` (all 2,701 API calls
-across 35 sessions, per the CLI's own chat logs). Those rows carry a
-`SERVED MODEL MISMATCH` note in `run.json` and a `model_served` field.
-The runner now compares the served model against the requested one after
-every gemini and antigravity run and discards a mismatch as a harness
-fault. To run 3.5 Flash on purpose, name it: `gemini-3.5-flash` (add a
-rate to `GEMINI_RATES` first). Antigravity honours its model ids (the
-probe's init event and settings message both name Gemini 3.8 Flash).
+Claude accepts only the four shortcuts. Gemini accepts any name that
+starts with `gemini`. Antigravity accepts any `gemini-*` id that
+`agy models` prints with an effort suffix; it also offers Claude and
+GPT-OSS models, which the runner rejects. Antigravity strips the
+suffix for pricing, so `gemini-3.8-flash-high` is priced as
+`gemini-3.8-flash`. A name missing from `GEMINI_RATES` still runs but
+reports a null cost.
+
+**Gemini CLI swaps flash models.** gemini-cli 0.60, on an account with
+Gemini 3.5 Flash access, rewrites any model name ending in `flash` to
+`gemini-3.5-flash`. The runner compares the served model with the
+requested one after every gemini and antigravity run and discards a
+mismatch as a harness fault, so a gemini-cli flash run can never be
+collected. Use antigravity for flash models. The 33 early gemini-cli
+rows labelled `gemini-3.8-flash` (no effort suffix) predate this check
+and were all served by `gemini-3.5-flash`; their `run.json` carries
+`model_served` and a `SERVED MODEL MISMATCH` note. Antigravity reports
+the exact id it was given.
 
 Gemini CLI's `output_tokens` also excludes thinking tokens (it reports
 `candidates` only; `thoughts` appear per turn in
@@ -145,7 +141,7 @@ cost is a floor on the output side. Antigravity's `output_tokens`
 includes thinking.
 
 Because both agents run Gemini, a run id tells them apart only by the
-effort suffix: `s1-cold-gemini-3.8-flash-01` is Gemini CLI,
+effort suffix: `s1-cold-gemini-3.1-pro-01` is Gemini CLI,
 `s1-cold-gemini-3.8-flash-high-01` is Antigravity CLI. `run.json.harness`
 records it explicitly either way.
 
@@ -157,7 +153,7 @@ One run
 cd harness
 ./runner.sh <agent> <model> <condition> <replicate>
 ./runner.sh claude opus ohs 02                # example
-./runner.sh gemini gemini-3.7-flash cold 01   # example
+./runner.sh gemini gemini-3.1-pro cold 01     # example
 ./runner.sh antigravity gemini-3.8-flash-high cold 01   # example
 ```
 
@@ -240,7 +236,7 @@ runs that already exist, so it resumes cleanly after any interruption.
 Run one probe and eyeball it before trusting that agent's metrics
 
 ```bash
-./runner.sh gemini gemini-3.7-flash cold 99
+./runner.sh gemini gemini-3.1-pro cold 99
 ./runner.sh antigravity gemini-3.8-flash-high cold 99
 ```
 
