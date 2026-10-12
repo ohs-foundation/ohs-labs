@@ -1,0 +1,43 @@
+{
+  "run_id": "s1-cold-gemini-3.8-flash-medium-2",
+  "scenario": "s1-build",
+  "condition": "cold",
+  "model": "gemini-3.8-flash-medium",
+  "replicate": 2,
+  "date": null,
+  "harness": "antigravity-cli-headless",
+  "scaffold_repo": "templates/cold",
+  "baseline_commit": "12adaf5",
+  "session_id": "5bbcea1e-6aca-4016-b5da-2bcd3a2e3cfa",
+  "model_reported_by_cli": "gemini-3.8-flash-medium",
+  "permission_mode": "always-proceed",
+  "final_status": "SUCCESS",
+  "resume_turns": 0,
+  "wall_minutes": 4.7,
+  "user_turns": 1,
+  "corrective_turns": 0,
+  "tool_calls": 71,
+  "assistant_text_blocks": 11,
+  "tool_errors": 2,
+  "build_failures_self_fixed": 2,
+  "server_validation_incidents": 0,
+  "tokens": {
+    "input": 545492,
+    "output": 44389,
+    "thinking": 16941,
+    "cache_read": 3458019
+  },
+  "cost_usd_api_rates": 0.83,
+  "diff_lines_added": 1998,
+  "smoke_check": "pass",
+  "verified_working": null,
+  "round_trip_pass": null,
+  "notes": "gen=2 agent_exit=0 | agy_resumes=0 | schema verified against agy v1.2.7; re-verify if the CLI is upgraded",
+  "verification": {
+    "launched": true,
+    "crashed": false,
+    "screenshot_after_seconds": 30,
+    "patients_in_local_db": null,
+    "note": "launched+!crashed is the smoke verdict. patients_in_local_db is a best-effort sync-success signal (0/null suggests download sync did not deliver). Whether the register visually renders is the human walk, judged from launch.png."
+  }
+}
