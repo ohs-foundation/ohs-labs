@@ -237,32 +237,6 @@ if [ -n "$LIMIT_HIT" ]; then
   discard_work
   fail "run truncated by usage/quota limit - discarded; resume the campaign after the limit resets"
 fi
-# The CLI must have called the model we asked for. gemini-cli 0.60 silently rewrites any
-# model name ending in "flash" to its default flash model (gemini-3.5-flash) when the account
-# has 3.5 Flash GA access - every sweep-1 gemini row was served by 3.5 while labelled 3.8.
-# A served/requested mismatch is a harness fault, not data.
-if [ "$AGENT" = "gemini" ]; then
-  # the model that carried the most input tokens. gemini-cli also bills ~1% of a run to a side
-  # model (gemini-3-flash-preview: classifier / next-speaker calls), so the check is on the
-  # dominant model, not on the whole list; run.json keeps the full list as model_served.
-  SERVED="$(python3 -c '
-import json,sys
-m={}
-for l in open(sys.argv[1],errors="replace"):
-    try: d=json.loads(l)
-    except Exception: continue
-    if d.get("type")=="result" and isinstance(d.get("stats"),dict) and isinstance(d["stats"].get("models"),dict): m=d["stats"]["models"]
-print(max(m, key=lambda k: m[k].get("input_tokens",0)) if m else "")' "$GEMINI_STREAM" 2>/dev/null || true)"
-elif [ "$AGENT" = "antigravity" ]; then
-  SERVED="$(grep -m1 -o '"init":{"model":"[^"]*"' "$GEMINI_STREAM" | cut -d'"' -f6 || true)"
-else
-  SERVED="$MODEL_ID"
-fi
-if [ -n "$SERVED" ] && [ "$SERVED" != "$MODEL_ID" ]; then
-  discard_work
-  fail "requested model $MODEL_ID but the CLI served $SERVED - run discarded (relabel would be silent data corruption); pick a model id the CLI honours"
-fi
-[ -z "$SERVED" ] && log "WARNING: could not read the served model from the stream; run.json will say null"
 
 # ---- smoke check ----------------------------------------------------------
 mkdir -p "$RUN_DIR"

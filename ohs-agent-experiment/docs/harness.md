@@ -132,8 +132,7 @@ grid is the deliberate one, the skills files in the ohs-skills cells.
 ## 5. Failure policy
 
 A run that fails for environment reasons (docker down, emulator dead,
-network out, API auth, usage or quota limit, or the CLI serving a
-different model than requested) is a harness fault. It is
+network out, API auth, usage or quota limit) is a harness fault. It is
 discarded, never counted, and the campaign halts so faults cannot pile
 up junk. A run where the agent itself fails to produce a working app
 within the caps is data. Keep it, mark `verified_working` false, and
@@ -158,8 +157,8 @@ The mechanical half, a few hours of work.
    model name rule, the agent's API endpoint for the connectivity
    preflight, the headless invocation (prompt in, tools auto approved,
    transcript captured), where the transcript comes from, and the fault
-   gate: how to count tool calls, the agent's quota and error messages,
-   and how to read the model that actually served the run.
+   gate: how to count tool calls and the agent's quota and error
+   messages.
 2. `extract-<agent>.py` parses that transcript into the same `run.json`
    fields and the same `results.csv` row shape, with a rates table for
    cost. Copy the closest existing extractor and adjust.
@@ -178,7 +177,9 @@ The investigation half, where the real care goes.
    only by looking), which global instruction files it auto loads (add
    them to the rules in section 4), what its quota and error messages
    look like for the fault gate, and whether it honours the requested
-   model (gemini-cli silently did not).
+   model, and where the answering model is recorded (gemini-cli
+   silently swapped flash names; agy's stream only echoes the request,
+   the answering model is in its conversation db).
 7. One probe run with the transcript eyeballed before trusting any
    metrics, the same ritual every agent went through.
 

@@ -56,6 +56,63 @@ def base_model(name):
     return name
 
 
+AGY_CONVERSATIONS = os.path.expanduser("~/.gemini/antigravity-cli/conversations")
+
+
+def _pb_field(buf, num):
+    """First length-delimited field `num` of a protobuf message, or None."""
+    i = 0
+    while i < len(buf):
+        key, i = _varint(buf, i)
+        wire = key & 7
+        if wire == 0:
+            _, i = _varint(buf, i)
+        elif wire == 1:
+            i += 8
+        elif wire == 5:
+            i += 4
+        elif wire == 2:
+            n, i = _varint(buf, i)
+            if key >> 3 == num:
+                return buf[i:i + n]
+            i += n
+        else:
+            return None
+    return None
+
+
+def _varint(buf, i):
+    n = shift = 0
+    while True:
+        b = buf[i]
+        i += 1
+        n |= (b & 0x7F) << shift
+        shift += 7
+        if b < 0x80:
+            return n, i
+
+
+def served_models(conversation_id):
+    """{model: calls} for every generation in agy's conversation db, or None if unreadable.
+    Each gen_metadata row is one model call; field 1.19 is the model that answered it, without
+    the effort suffix (verified against agy v1.2.7: 2,060 calls across 15 runs, all matching)."""
+    import collections
+    import sqlite3
+    path = os.path.join(AGY_CONVERSATIONS, f"{conversation_id}.db")
+    if not conversation_id or not os.path.exists(path):
+        return None
+    counts = collections.Counter()
+    with sqlite3.connect(f"file:{path}?mode=ro", uri=True) as db:
+        for (blob,) in db.execute("select data from gen_metadata"):
+            try:
+                inner = _pb_field(blob, 1)
+                model = _pb_field(inner, 19) if inner else None
+            except IndexError:
+                model = None
+            counts[model.decode(errors="replace") if model else "?"] += 1
+    return dict(counts)
+
+
 def parse_lines(path):
     events = []
     with open(path, errors="replace") as f:
@@ -213,6 +270,8 @@ def main():
         "baseline_commit": args.baseline,
         "session_id": conversation_id,
         "model_reported_by_cli": model_reported,
+        # calls per answering model, from agy's conversation db (the stream only echoes the request)
+        "model_served": served_models(conversation_id),
         "permission_mode": permission_mode,
         "final_status": (final or {}).get("status"),
         "resume_turns": max(0, inits - 1),

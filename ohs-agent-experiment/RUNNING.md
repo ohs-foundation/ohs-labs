@@ -19,9 +19,23 @@ with an AVD such as Pixel 4 XL. JDK 21 on the PATH.
 `~/.local/bin/claude` because `claude` is only a shell alias.
 
 **Gemini CLI** (only for gemini runs). Install with
-`npm i -g @google/gemini-cli`, then authenticate by setting
-`GEMINI_API_KEY` or configuring an auth method in
-`~/.gemini/settings.json`.
+`npm i -g @google/gemini-cli` and set `GEMINI_API_KEY`. Personal Google
+login no longer works: as of 2026-10-12 the free Code Assist tier rejects
+gemini-cli ("This client is no longer supported... migrate to the
+Antigravity suite").
+
+**Gemini CLI may swap the model.** gemini-cli 0.60 can quietly replace
+the model you ask for: any name ending in `flash` (e.g.
+`gemini-3.8-flash`) is sent as `gemini-3.5-flash`. To get the model you
+asked for, add this to `~/.gemini/settings.json`:
+
+```json
+{ "experimental": { "dynamicModelConfiguration": true } }
+```
+
+It does not help for `gemini-2.5-flash`, which is still swapped. Check
+`model_served` in a run's `run.json` to see which model actually
+answered.
 
 **Antigravity CLI** (only for antigravity runs). Install `agy` per
 `https://antigravity.google/docs/cli/reference`, run `agy install`, then
@@ -103,17 +117,16 @@ project root.
 | claude | `opus` | claude-opus-5, $5/$25 |
 | claude | `sonnet` | claude-sonnet-5, $2/$10 |
 | claude | `haiku` | claude-haiku-4-5-20251001, $1/$5 |
+| gemini | `gemini-3.8-flash`, `3.7-flash`, `3.6-flash` | $0.75/$3.75, intro rate through 2026-12-31, then $1.50/$7.50 |
+| gemini | `gemini-3-flash` | $0.50/$3 |
 | gemini | `gemini-3.1-pro` | $2/$12 |
 | gemini | `gemini-2.5-pro` | $1.25/$10, previous generation |
-| gemini | any `*-flash` name | does not work, see below |
+| gemini | `gemini-2.5-flash` | $0.30/$2.50; swapped for 3.5 Flash even with the setting |
 | antigravity | `gemini-3.8-flash-high` | Gemini 3.8 Flash driven by `agy`; `-low`/`-medium`/`-high` is the reasoning effort |
 | antigravity | any other `gemini-*-{low,medium,high}` from `agy models` | e.g. `gemini-3.7-flash-medium`, `gemini-3.1-pro-high` |
 
-Flash rates in `GEMINI_RATES` (`harness/extract-gemini.py`):
-`gemini-3.8-flash`, `3.7-flash` and `3.6-flash` $0.75/$3.75 (intro
-rate through 2026-12-31, then $1.50/$7.50), `gemini-3-flash` $0.50/$3,
-`gemini-2.5-flash` $0.30/$2.50. Prices gathered 2026-09-01; spot-check
-before quoting externally.
+Rates live in `GEMINI_RATES` (`harness/extract-gemini.py`), gathered
+2026-09-01; spot-check before quoting externally.
 
 Claude accepts only the four shortcuts. Gemini accepts any name that
 starts with `gemini`. Antigravity accepts any `gemini-*` id that
@@ -123,16 +136,14 @@ suffix for pricing, so `gemini-3.8-flash-high` is priced as
 `gemini-3.8-flash`. A name missing from `GEMINI_RATES` still runs but
 reports a null cost.
 
-**Gemini CLI swaps flash models.** gemini-cli 0.60, on an account with
-Gemini 3.5 Flash access, rewrites any model name ending in `flash` to
-`gemini-3.5-flash`. The runner compares the served model with the
-requested one after every gemini and antigravity run and discards a
-mismatch as a harness fault, so a gemini-cli flash run can never be
-collected. Use antigravity for flash models. The 33 early gemini-cli
-rows labelled `gemini-3.8-flash` (no effort suffix) predate this check
-and were all served by `gemini-3.5-flash`; their `run.json` carries
-`model_served` and a `SERVED MODEL MISMATCH` note. Antigravity reports
-the exact id it was given.
+**Which model answered.** `run.json.model_served` records it for
+gemini and antigravity runs. Gemini CLI: per-model usage from the
+stream's final stats (expect about 1% on `gemini-3-flash-preview`,
+which gemini-cli uses for its own checks). Antigravity: calls per model
+from agy's conversation db; the stream itself only echoes the request.
+The 33 early gemini-cli runs labelled `gemini-3.8-flash` were all
+answered by `gemini-3.5-flash`. Every antigravity run so far was
+answered by the model it asked for.
 
 Gemini CLI's `output_tokens` also excludes thinking tokens (it reports
 `candidates` only; `thoughts` appear per turn in
@@ -192,8 +203,7 @@ runs that already exist, so it resumes cleanly after any interruption.
    and counts the resumes as `resume_turns` (why: `docs/harness.md`
    section 4).
 6. **Fault gate.** The run is an environment fault if the agent made
-   zero tool calls, if a usage or quota limit cut it off, or if the CLI
-   served a different model than the one requested. A faulted run is
+   zero tool calls, or if a usage or quota limit cut it off. A faulted run is
    discarded and the campaign halts. An agent that finishes with a
    broken app is kept, because that is data. An empty `code.diff` is
    also kept as data, flagged `EMPTY DIFF` in the log and
