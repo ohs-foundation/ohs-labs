@@ -194,12 +194,12 @@ stack (implemented for Gemini CLI and Antigravity CLI, agent always
 explicit per run, raw Gemini model names, one shared rates table in
 `harness/extract-gemini.py`). Gemini CLI and Antigravity CLI both run
 Gemini models, so a Gemini CLI row and an Antigravity row at the same
-base model isolate the harness effect at a fixed model. Report those
-rows as a different agent plus model stack, not a pure model
-comparison. Switching agent changes the model and the harness driving
-it at once, and some metrics map only approximately. There are no
-cache-token economics for Gemini, and corrective turns are zero for
-all headless runs by construction.
+base model isolate the harness effect at a fixed model. Report cross-agent rows as a different agent plus model
+stack, not a pure model comparison. Switching agent changes the model
+and the harness driving it at once, and some metrics map only
+approximately. Gemini CLI output tokens exclude thinking, so its cost
+is a floor. Corrective turns are zero for all headless runs by
+construction.
 
 ### B3. Demonstrated. Updating the form
 

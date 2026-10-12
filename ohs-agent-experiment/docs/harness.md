@@ -14,6 +14,9 @@ Skills only make sense on the OHS build, so the grid has 12 cells.
 | ohs (OHS libraries) | x | x | x | x |
 | ohs-skills (libraries plus agent docs) | x | x | x | x |
 
+The Gemini CLI and Antigravity CLI grids are the same three conditions
+against their own model ids (see `../RUNNING.md` section 3).
+
 Three replicates per cell, five for the cells that decide claims (the
 haiku rows and the fable ohs versus ohs-skills pair). Run order matters.
 One full sweep of every cell first for early signal on every claim, then
@@ -76,7 +79,7 @@ state, each with its cleaner and its check.
 |---|---|---|---|
 | Agent session and memory | resumed session, project memory, history | fresh directory per run, cloned from the template. A new path means a new project for every agent, with empty history and memory | runner asserts no prior agent state exists for the work path (Claude: no project dir; Antigravity: no entry in `last_conversations.json`) |
 | Global instruction files | `~/.claude/CLAUDE.md` and `~/.gemini/GEMINI.md` are injected into every session of their agent; agy also loads `~/.gemini/config/` | audit before a campaign that both are empty or absent | manual audit, plus the runner refuses a gemini or antigravity run while a non-empty `~/.gemini/GEMINI.md` exists, and an antigravity run while `~/.gemini/config/` holds rules or skills |
-| Server | previous run's uploaded resources and sync watermarks | container destroyed, recreated, and reseeded before every run, cold runs included, so the environment is constant | seed script verifies resource counts |
+| Server | previous run's uploaded resources and sync watermarks | container destroyed, recreated, and reseeded before every run, cold runs included, so the environment is constant | seed script fails if the server rejects the seed bundle, and prints resource counts next to the expected ones |
 | Device | installed APKs, on-device databases, queued sync work | uninstall sweep of every `com.example.*` package before and after each run | runner asserts the device is clean before starting |
 | Build caches | the first run would pay dependency downloads that later runs skip | warm the shared Gradle cache once per template before any measured run, so cache state is a constant for everyone | throwaway warm builds done during setup |
 | Filesystem neighbors | with permissions bypassed an agent could list its way into a previous run's folder and find a finished solution | each run's work folder is archived away at teardown | runner asserts the work area holds only the current run |
@@ -99,10 +102,16 @@ a private scratch folder (`~/.gemini/antigravity-cli/scratch/`) unless
 the work dir is passed with `--add-dir`; the runner always passes it,
 and the probe run checks the app really landed in the work folder.
 Headless agy also ends the session when the model yields on a
-background command (see RUNNING.md step 5); the runner resumes the
-conversation with a task-neutral continue prompt and records the count
-as `resume_turns`, which is a harness mechanic applied uniformly to
-every antigravity run, not a corrective turn. Conversations themselves
+background command. agy backgrounds any command that outlives its
+per-call wait (a Gradle build does) and invites the model to carry on
+or "update the user". In the TUI the task's completion wakes the agent;
+headless, the session just ends. Two early runs shipped zero lines this
+way while the smoke check passed on the untouched template. So while
+the last step in agy's conversation log is a still-running background
+task, the runner resumes the conversation with a continue prompt that
+says nothing about the task, and records the count as `resume_turns`.
+That is a harness mechanic applied uniformly to every antigravity run,
+not a corrective turn. Conversations themselves
 are stored globally by id under
 `~/.gemini/antigravity-cli/{conversations,brain}/`, keyed to the cwd
 only through `cache/last_conversations.json`, so a fresh path is a fresh
@@ -116,14 +125,15 @@ repo above `harness/work/`. They may exist only inside an agent's own
 skills template.
 
 The models themselves carry nothing between sessions. There is no
-server-side memory of past conversations for either agent. With the
+server-side memory of past conversations for any of the agents. With the
 channels above closed, the only knowledge injection anywhere in the
 grid is the deliberate one, the skills files in the ohs-skills cells.
 
 ## 5. Failure policy
 
 A run that fails for environment reasons (docker down, emulator dead,
-network out, API auth, usage or quota limit) is a harness fault. It is
+network out, API auth, usage or quota limit, or the CLI serving a
+different model than requested) is a harness fault. It is
 discarded, never counted, and the campaign halts so faults cannot pile
 up junk. A run where the agent itself fails to produce a working app
 within the caps is data. Keep it, mark `verified_working` false, and
@@ -147,7 +157,9 @@ The mechanical half, a few hours of work.
 1. `runner.sh` gains a branch in the agent case. Binary resolution,
    model name rule, the agent's API endpoint for the connectivity
    preflight, the headless invocation (prompt in, tools auto approved,
-   transcript captured), and where the transcript comes from.
+   transcript captured), where the transcript comes from, and the fault
+   gate: how to count tool calls, the agent's quota and error messages,
+   and how to read the model that actually served the run.
 2. `extract-<agent>.py` parses that transcript into the same `run.json`
    fields and the same `results.csv` row shape, with a rates table for
    cost. Copy the closest existing extractor and adjust.
@@ -164,8 +176,9 @@ The investigation half, where the real care goes.
    Discover where the agent persists sessions, whether it has a memory
    feature and where it writes (gemini's global memory leak was found
    only by looking), which global instruction files it auto loads (add
-   them to the rules in section 4), and what its quota and error
-   messages look like for the fault gate.
+   them to the rules in section 4), what its quota and error messages
+   look like for the fault gate, and whether it honours the requested
+   model (gemini-cli silently did not).
 7. One probe run with the transcript eyeballed before trusting any
    metrics, the same ritual every agent went through.
 

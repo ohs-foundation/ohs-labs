@@ -32,9 +32,12 @@ must sit under a trusted workspace: `trustedWorkspaces` in
 `~/.gemini/antigravity-cli/settings.json` should list this repo's parent
 (`ohs-labs`), which the first interactive launch from there records.
 
-**Ripgrep.** Install `ripgrep` (e.g., `brew install ripgrep` on macOS). Although not strictly required, having it installed allows the agent CLI to execute extremely fast codebase searches during the runs instead of falling back to standard grep.
+**Ripgrep** (optional). `brew install ripgrep`. The agent CLIs use it
+for code search when present.
 
-**Git.** The harness automatically handles Git environment setups. It exports a neutral Git author and committer identity (`OHS Agent <agent@example.com>`) and forces built-in diffs (`--no-ext-diff`) to bypass local sandbox and git config restrictions seamlessly.
+**Git.** Nothing to configure. The runner sets a neutral identity
+(`OHS Agent <agent@example.com>`) and uses `--no-ext-diff`, so your own
+git config cannot affect a run.
 
 **Templates.** The pristine starting projects live in
 `harness/templates/` and are not tracked in git. Build them once from
@@ -100,6 +103,7 @@ project root.
 | claude | `opus` | claude-opus-5, $5/$25 |
 | claude | `sonnet` | claude-sonnet-5, $2/$10 |
 | claude | `haiku` | claude-haiku-4-5-20251001, $1/$5 |
+| gemini | `gemini-3.8-flash` | $0.75/$3.75 intro until 2027 then $1.50/$7.50 |
 | gemini | `gemini-3.7-flash` | current workhorse, $0.75/$3.75 intro until 2027 then $1.50/$7.50 |
 | gemini | `gemini-3.6-flash` | same intro pricing schedule |
 | gemini | `gemini-3-flash` | $0.50/$3 |
@@ -113,7 +117,7 @@ Claude accepts only the four shortcuts. Gemini accepts any name that
 starts with `gemini`, passed through raw. Antigravity accepts any
 `gemini-*` id that `agy models` prints (it also offers Claude and
 GPT-OSS models; the runner rejects those so every antigravity row is
-still a Gemini row). The six gemini names listed have pricing wired in
+still a Gemini row). The seven gemini names listed have pricing wired in
 `GEMINI_RATES` inside `harness/extract-gemini.py`; antigravity strips
 the effort suffix and reuses that same table, so `gemini-3.8-flash-high`
 is priced as `gemini-3.8-flash`. Any other name still runs but reports
@@ -186,25 +190,20 @@ runs that already exist, so it resumes cleanly after any interruption.
 5. **Agent run.** Pipes the condition prompt (the text below the `---`
    in `build-a-prompt.md` or `build-b-prompt.md`, verbatim) into the
    agent headless, permissions auto-approved, capped at 60 minutes.
-   Antigravity only: agy backgrounds any command that outlives its
-   per-call wait (a Gradle build does) and then invites the model to
-   either carry on or "update the user with a short message". In the
-   TUI the task's completion wakes the agent; headless, the turn ends
-   and so does the session. Two early ohs-skills runs shipped zero
-   lines this way while the smoke check passed on the untouched
-   template. The runner therefore checks agy's conversation log after
-   each turn and, while the last recorded step is a still-running
-   background task, resumes the same conversation with a neutral
-   continue prompt that says nothing about the task. Each resume is
-   logged and counted in `run.json` as `resume_turns`, bounded by the
-   60-minute cap and 12 resumes. An empty `code.diff` is flagged in the
-   log and in `run.json.notes` as `EMPTY DIFF`; the run is kept as data.
-6. **Fault gate.** A run with zero tool calls, or one cut off by a
-   usage or quota limit, is an environment fault. It is discarded and
-   the campaign halts. An agent that finishes with a broken app is
-   kept, because that is data.
-7. **Smoke check + verification.** Builds, installs, launches, then
-   `verify.sh` clears the logcat buffers, gives sync ~30s, screenshots
+   Antigravity only: when agy ends its turn while waiting on a
+   background command, the runner resumes the conversation with a
+   neutral continue prompt, at most 12 times within the 60-minute cap,
+   and counts the resumes as `resume_turns` (why: `docs/harness.md`
+   section 4).
+6. **Fault gate.** The run is an environment fault if the agent made
+   zero tool calls, if a usage or quota limit cut it off, or if the CLI
+   served a different model than the one requested. A faulted run is
+   discarded and the campaign halts. An agent that finishes with a
+   broken app is kept, because that is data. An empty `code.diff` is
+   also kept as data, flagged `EMPTY DIFF` in the log and
+   `run.json.notes`.
+7. **Smoke check + verification.** The runner builds, installs, clears
+   the logcat buffers and launches. Then `verify.sh` gives sync ~30s, screenshots
    the settled screen to `launch.png`, detects a crash from the crash
    buffer, captures `logcat.txt` (and `crash.txt` if any), and does a
    best-effort count of how many patients reached the app's local DB.
@@ -214,8 +213,11 @@ runs that already exist, so it resumes cleanly after any interruption.
    deliver - it catches the "sync never wired" failure the old
    launch-only check passed). Whether the register visually renders is
    still the human walk, judged from the post-sync `launch.png`.
-8. **Artifact export.** Four files land in `runs/<run_id>/` plus one
-   results row. A folder missing any of the four is incomplete.
+8. **Artifact export.** These files land in `runs/<run_id>/`, plus one
+   results row. The extractor reports the folder as incomplete if
+   `transcript.jsonl`, `transcript.md`, `run.json` or `code.diff` is
+   missing. `verification.json`, `logcat.txt`, `launch.png` and
+   `crash.txt` come from step 7 when the app built.
 
    | File | Where it comes from |
    |---|---|
@@ -287,8 +289,10 @@ app. Check four things.
    sync works.
 2. A new visit can be recorded.
 3. The visit survives a force-stop and relaunch.
-4. For ohs runs, the visit reached the server. Check
-   `http://localhost:8080/fhir/QuestionnaireResponse?_sort=-_lastUpdated`
+4. For ohs runs, the visit reached the server. Apps store a visit as
+   different resource types, so check whichever the app writes, e.g.
+   `http://localhost:8080/fhir/Observation?_sort=-_lastUpdated` or
+   `.../Encounter`, `.../QuestionnaireResponse`.
 
 Record `verified_working` and `round_trip_pass` in the run's
 `run.json`, mirror them into its `results.csv` row, and add a one-line
@@ -319,8 +323,8 @@ is also safe.
 state for the work path, and the run's `results.csv` row. The campaign
 will redo it.
 
-**results.csv looks wrong.** It is derived data. Regenerate it from
-the `run.json` files, which are the source of truth.
+**results.csv looks wrong.** The `run.json` files are the source of
+truth. Fix the row by hand from them; there is no regeneration script.
 
 ## 8. Reading the results
 
