@@ -19,6 +19,17 @@ Repository for defining quick AI experiments that could be rolled into future OH
 * Demonstrate agentic use case of a chat app working with FHIR data via the CLI
 
 ### 4. Agentic coding evaluation on the OHS stack ([ohs-agent-experiment](ohs-agent-experiment/))
-* Same ANC app spec given to coding agents cold vs with OHS Foundations (HAPI + kotlin-fhir + FHIR Engine + Data Capture) vs Foundations + agent skills
-* Automated harness runs the grid across models (Haiku/Sonnet/Opus/Fable) with hermetic per-run state; results scored on cost, time, and verified-working
-* Sweep 1 findings in [results/grid.md](ohs-agent-experiment/results/grid.md); skills for the three kotlin-fhir libraries in [skills/](ohs-agent-experiment/skills/)
+Measures what it costs an AI agent to build a standards-based health app compared with a custom one. The agent gets the same antenatal care app spec three ways: a blank project (cold), the OHS libraries and a FHIR server (OHS), and the same plus [agent skills](ohs-agent-experiment/skills/) for the libraries.
+
+Gemini 3.8 Flash via Antigravity CLI, average of two runs each:
+
+| | Cold | OHS | OHS + skills |
+|---|---|---|---|
+| Cost | $0.84 | $3.48 | $1.46 |
+| Time | 4.6 min | 16.4 min | 6.5 min |
+| Data | JSON file on the phone | FHIR on a server | FHIR on a server |
+
+* With skills, the standards-based app cost 62 cents more than the custom one.
+* Without skills, the agent spent its time reverse-engineering the libraries.
+* Claude models showed the same skills effect ([results/grid.md](ohs-agent-experiment/results/grid.md)).
+* One task, two runs each: the direction is clear, the exact size is not.
