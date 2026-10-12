@@ -22,6 +22,13 @@ build() {  # $1 template name  $2 source tree
       cp -R "$H/../skills/kotlin-fhir" "$H/../skills/kotlin-fhir-engine" \
             "$H/../skills/kotlin-fhir-data-capture" "$DST/.claude/skills/"
       ;;
+    ohs-skills-antigravity)
+      # agy discovers skills at .agents/skills/<name>/SKILL.md (same layout and
+      # frontmatter as Claude's .claude/skills, progressive disclosure too)
+      mkdir -p "$DST/.agents/skills"
+      cp -R "$H/../skills/kotlin-fhir" "$H/../skills/kotlin-fhir-engine" \
+            "$H/../skills/kotlin-fhir-data-capture" "$DST/.agents/skills/"
+      ;;
     ohs-skills-gemini)
       python3 - "$H/../skills" "$DST/GEMINI.md" <<'PY'
 import sys
@@ -47,4 +54,5 @@ build cold cold
 build ohs ohs
 build ohs-skills-claude ohs
 build ohs-skills-gemini ohs
+build ohs-skills-antigravity ohs
 echo "done. Cache-warm once: (cd templates/cold && ./gradlew -q :app:assembleDebug); same for ohs."

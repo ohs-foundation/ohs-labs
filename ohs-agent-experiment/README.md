@@ -22,7 +22,8 @@ conditions.
    libraries added to the project.
 
 Each condition runs across several models (Haiku, Sonnet, Opus, Fable,
-and optionally Gemini models) and is repeated for reliability. An
+and Gemini models through either Gemini CLI or Antigravity CLI) and is
+repeated for reliability. An
 automated harness gives every run a clean slate. Fresh session, fresh
 folder, reset server, wiped device.
 
@@ -85,6 +86,6 @@ cd harness
 ```
 
 Or walk a whole grid with `./campaign.sh manifest-claude.txt` (one
-manifest per agent). Everything else, including
-supported models, artifact collection, and Gemini setup, is in
-[RUNNING.md](RUNNING.md).
+manifest per agent: claude, gemini, antigravity). Everything else,
+including supported models, artifact collection, and Gemini and
+Antigravity setup, is in [RUNNING.md](RUNNING.md).

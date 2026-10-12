@@ -17,17 +17,20 @@ what keeps the skills-condition retest honest (the agent must still design
 the app) and what makes these shippable with the toolkit afterward.
 
 Plain markdown with skill frontmatter: drops into a Claude Code project as
-`.claude/skills/<name>/SKILL.md`, and for Gemini the same three files are
-packaged (frontmatter stripped, concatenated) as a single `GEMINI.md` by
-`harness/setup-templates.sh` into the `ohs-skills-gemini` template - part
-of the retest is checking they help a non-Claude agent too.
+`.claude/skills/<name>/SKILL.md`, into an Antigravity CLI project unchanged
+as `.agents/skills/<name>/SKILL.md` (the `ohs-skills-antigravity` template),
+and for Gemini CLI the same three files are packaged (frontmatter stripped,
+concatenated) as a single `GEMINI.md` by `harness/setup-templates.sh` into
+the `ohs-skills-gemini` template - part of the retest is checking they help
+a non-Claude agent too.
 
 ## Using in the retest (skills condition)
 
-1. Fresh scaffold from the build B baseline.
-2. Copy the three skill folders into the scaffold's `.claude/skills/`.
-3. Same build prompt, same rules as every other run.
-4. Predicted effect (on record in `../docs/protocol.md` Part B): build cost drops
+1. `harness/setup-templates.sh` builds the per-agent skills templates
+   from this folder; `harness/refresh-skills-templates.sh` rebuilds them
+   after an edit.
+2. Same build prompt, same rules as every other run.
+3. Predicted effect (on record in `../docs/protocol.md` Part B): build cost drops
    from ~$60 toward ~$13 (the difference was mostly SDK archaeology),
    fewer self-correction loops, no repeat of the three known gotchas
    (upload strategy, DataCapture init, JVM 21).
@@ -37,7 +40,7 @@ of the retest is checking they help a non-Claude agent too.
 - fhir-engine 2.0.0-alpha02 transaction-bundle upload rejected by strict
   servers (fullUrl); use `UploadStrategy.forIndividualRequest`.
 - `DataCapture.initialize()` required before first form render (crash).
-- Artifacts target JVM 21; consumers must bump `jvmTarget`.
+- fhir-engine targets JVM 21; consumers must bump `jvmTarget` (see v2.4).
 - `work-runtime-ktx` and `kotlinx-serialization-json` needed at compile scope.
 - `TimestampContext` method name is `getLasUpdateTimestamp` (as published).
 - FHIR `String` collides with Kotlin's; alias the import.

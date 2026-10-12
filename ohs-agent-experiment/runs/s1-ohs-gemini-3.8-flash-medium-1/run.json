@@ -1,0 +1,43 @@
+{
+  "run_id": "s1-ohs-gemini-3.8-flash-medium-1",
+  "scenario": "s1-build",
+  "condition": "ohs",
+  "model": "gemini-3.8-flash-medium",
+  "replicate": 1,
+  "date": null,
+  "harness": "antigravity-cli-headless",
+  "scaffold_repo": "templates/ohs",
+  "baseline_commit": "71f3d4e",
+  "session_id": "d8e3190f-2718-4f20-a8d3-ff51eaa354ff",
+  "model_reported_by_cli": "gemini-3.8-flash-medium",
+  "permission_mode": "always-proceed",
+  "final_status": "SUCCESS",
+  "resume_turns": 1,
+  "wall_minutes": 17.8,
+  "user_turns": 1,
+  "corrective_turns": 0,
+  "tool_calls": 266,
+  "assistant_text_blocks": 5,
+  "tool_errors": 0,
+  "build_failures_self_fixed": 5,
+  "server_validation_incidents": 2,
+  "tokens": {
+    "input": 1701880,
+    "output": 144872,
+    "thinking": 56126,
+    "cache_read": 29225395
+  },
+  "cost_usd_api_rates": 4.01,
+  "diff_lines_added": 1605,
+  "smoke_check": "pass",
+  "verified_working": null,
+  "round_trip_pass": null,
+  "notes": "gen=2 agent_exit=0 | agy_resumes=1 | schema verified against agy v1.2.7; re-verify if the CLI is upgraded",
+  "verification": {
+    "launched": true,
+    "crashed": false,
+    "screenshot_after_seconds": 30,
+    "patients_in_local_db": 3,
+    "note": "launched+!crashed is the smoke verdict. patients_in_local_db is a best-effort sync-success signal (0/null suggests download sync did not deliver). Whether the register visually renders is the human walk, judged from launch.png."
+  }
+}

@@ -1,0 +1,23 @@
+# Antigravity CLI campaign manifest: <agent> <model> <condition> <replicate>
+# Grid: {cold, ohs, ohs-skills} x {gemini-3.8-flash-high} with agent
+# antigravity, N=3. Antigravity drives Gemini models too (same models as
+# manifest-gemini.txt, different agent harness) - its model ids always carry
+# an effort suffix (-low|-medium|-high), which is what keeps its run ids
+# distinct from the gemini-cli rows. -high matches the default thinking level
+# of a bare Gemini 3 model id. Run `agy models` for the current list.
+# Prerequisites (see RUNNING.md): agy installed + logged in, the harness
+# work dir under a trusted workspace, ~/.gemini/GEMINI.md absent, one probe
+# run eyeballed first.
+#
+# --- Sweep 1: every cell once ---
+antigravity gemini-3.8-flash-high cold       01
+antigravity gemini-3.8-flash-high ohs        01
+antigravity gemini-3.8-flash-high ohs-skills 01
+#
+# --- Sweeps 2-3: replicates ---
+antigravity gemini-3.8-flash-high cold       02
+antigravity gemini-3.8-flash-high ohs        02
+antigravity gemini-3.8-flash-high ohs-skills 02
+antigravity gemini-3.8-flash-high cold       03
+antigravity gemini-3.8-flash-high ohs        03
+antigravity gemini-3.8-flash-high ohs-skills 03
