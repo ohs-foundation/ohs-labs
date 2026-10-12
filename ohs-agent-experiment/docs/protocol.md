@@ -190,8 +190,11 @@ prompts, same settings. Only the model varies, and for cross-agent rows
 the explicitly recorded agent. Note model, agent, and settings per run.
 
 **Cross-agent extension.** The same grid can run on a different agent
-stack (implemented for Gemini CLI, agent always explicit per run, raw
-Gemini model names, rates in `harness/extract-gemini.py`). Report those
+stack (implemented for Gemini CLI and Antigravity CLI, agent always
+explicit per run, raw Gemini model names, one shared rates table in
+`harness/extract-gemini.py`). Gemini CLI and Antigravity CLI both run
+Gemini models, so a Gemini CLI row and an Antigravity row at the same
+base model isolate the harness effect at a fixed model. Report those
 rows as a different agent plus model stack, not a pure model
 comparison. Switching agent changes the model and the harness driving
 it at once, and some metrics map only approximately. There are no

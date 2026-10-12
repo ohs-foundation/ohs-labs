@@ -5,3 +5,4 @@ harness/archive/
 harness/templates/
 harness/logs/
 .idea/
+harness/__pycache__/

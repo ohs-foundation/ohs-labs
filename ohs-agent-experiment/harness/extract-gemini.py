@@ -26,8 +26,8 @@ import sys
 
 # USD per million tokens (input, output), standard tier (prompts <= 200k
 # tokens; Google bills a higher tier above that - costs here are therefore
-# a floor for very long-context turns). Cached-token discounts are not
-# applied. Gathered 2026-09-01 from public price guides; spot-check against
+# a floor for very long-context turns). Cached tokens (stats.cached) are
+# billed at 0.1x the input rate. Gathered 2026-09-01 from public price guides; spot-check against
 # ai.google.dev/pricing before quoting externally.
 GEMINI_RATES = {
     # current generation (checked 2026-09-01); 3.8/3.7/3.6-flash are
@@ -166,10 +166,18 @@ def main():
             pass
     args.wall_minutes = wall
 
+    # stats.input_tokens is the TOTAL prompt (cached + uncached); stats.cached is the part
+    # Google bills at the cached-content rate (0.1x input, same convention as extract-claude.py)
     cost = None
     if args.model in GEMINI_RATES and tok_in is not None:
         in_rate, out_rate = GEMINI_RATES[args.model]
-        cost = round(tok_in / 1e6 * in_rate + tok_out / 1e6 * out_rate, 2)
+        cached = (final_stats or {}).get("cached") or 0
+        cost = round(
+            (tok_in - cached) / 1e6 * in_rate
+            + cached / 1e6 * in_rate * 0.1
+            + tok_out / 1e6 * out_rate,
+            2,
+        )
 
     loc_added = None
     diff_path = os.path.join(args.run_dir, "code.diff")
@@ -200,6 +208,9 @@ def main():
         "baseline_commit": args.baseline,
         "session_id": session_id,
         "model_reported_by_cli": model_reported,
+        # the model the API calls actually went to (stats.models keys); gemini-cli may
+        # silently resolve the requested name to a different model - see runner.sh
+        "model_served": (list(final_stats["models"].keys()) if isinstance((final_stats or {}).get("models"), dict) else None),
         "final_status": final_status,
         "wall_minutes": args.wall_minutes,
         "user_turns": 1,

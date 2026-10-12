@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Rebuild the two skills templates from the current skills/ folder.
+# Rebuild the three skills templates from the current skills/ folder.
 # Run this whenever a skill in ohs-agent-experiment/skills/ changes, so the
 # runner picks it up. setup-templates.sh skips templates that already exist,
 # so editing skills/ alone does NOT reach the runner - this deletes the two
@@ -9,18 +9,24 @@
 set -euo pipefail
 H="$(cd "$(dirname "$0")" && pwd)"
 
-rm -rf "$H/templates/ohs-skills-claude" "$H/templates/ohs-skills-gemini"
+rm -rf "$H/templates/ohs-skills-claude" "$H/templates/ohs-skills-gemini" "$H/templates/ohs-skills-antigravity"
 "$H/setup-templates.sh"
 
 echo
 echo "Verifying the rebuilt templates match skills/ ..."
 CLAUDE_SKILLS="$H/templates/ohs-skills-claude/.claude/skills"
+AGY_SKILLS="$H/templates/ohs-skills-antigravity/.agents/skills"
 ok=1
 for s in kotlin-fhir kotlin-fhir-engine kotlin-fhir-data-capture; do
   if diff -q "$H/../skills/$s/SKILL.md" "$CLAUDE_SKILLS/$s/SKILL.md" >/dev/null; then
     echo "  ok   claude/$s"
   else
     echo "  DRIFT claude/$s"; ok=0
+  fi
+  if diff -q "$H/../skills/$s/SKILL.md" "$AGY_SKILLS/$s/SKILL.md" >/dev/null; then
+    echo "  ok   antigravity/$s"
+  else
+    echo "  DRIFT antigravity/$s"; ok=0
   fi
 done
 [ -s "$H/templates/ohs-skills-gemini/GEMINI.md" ] && echo "  ok   gemini/GEMINI.md" || { echo "  MISSING gemini/GEMINI.md"; ok=0; }

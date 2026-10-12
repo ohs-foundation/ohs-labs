@@ -6,7 +6,7 @@ One folder per run: `s<scenario>-<condition>-<model>-<replicate>`.
   record (Part 2 demonstrations, one replicate only).
 - **condition**: `cold` (scratch), `ohs` (Foundations libraries), `ohs-skills`
   (Foundations + `ohs-agent-experiment/skills/` in `.claude/skills/`).
-- **model**: `fable`, `opus`, `sonnet`, `haiku` (Claude); cross-agent runs use that agent's model names (e.g. `gemini-pro`) - the model segment implies the agent, and `run.json.harness` records it explicitly. No per-agent subfolders: one runs/ tree, one results.csv.
+- **model**: `fable`, `opus`, `sonnet`, `haiku` (Claude); cross-agent runs use that agent's model names (e.g. `gemini-3.7-flash` for Gemini CLI, `gemini-3.8-flash-low` for Antigravity CLI, whose ids always carry an effort suffix) - the model segment implies the agent, and `run.json.harness` records it explicitly. No per-agent subfolders: one runs/ tree, one results.csv.
 - **replicate**: two digits, `01` up.
 
 Each folder holds: `transcript.jsonl` (required), `transcript.md`,
@@ -14,7 +14,9 @@ Each folder holds: `transcript.jsonl` (required), `transcript.md`,
 commit), `launch.png` / `recording.mov` (if captured), and for gemini
 runs possibly `global-memory-left-by-agent.md` (quarantined global
 memory the agent tried to save - kept as evidence, never fed to later
-runs).
+runs). Antigravity runs add `transcript_full.jsonl` (agy's own
+conversation log, the only place tool outputs appear) and possibly
+`knowledge-left-by-agent/` (quarantined knowledge-store writes).
 
 `../results.csv` carries one row per run and is the only file analysis
 reads. After a run: copy the session jsonl in, fill `run.json`, append the

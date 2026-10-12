@@ -1,7 +1,10 @@
 # Running the experiment
 
-Every step from a fresh machine to a scored run. Covers both agents
-(Claude and Gemini) and explains where each artifact comes from.
+Every step from a fresh machine to a scored run. Covers all three agents
+(Claude Code, Gemini CLI, Antigravity CLI) and explains where each
+artifact comes from. Gemini CLI and Antigravity CLI both drive Gemini
+models; they are two agent harnesses over the same model family, and
+both stay supported.
 
 ## 1. One-time machine setup
 
@@ -20,6 +23,15 @@ with an AVD such as Pixel 4 XL. JDK 21 on the PATH.
 `GEMINI_API_KEY` or configuring an auth method in
 `~/.gemini/settings.json`.
 
+**Antigravity CLI** (only for antigravity runs). Install `agy` per
+`https://antigravity.google/docs/cli/reference`, run `agy install`, then
+log in once by launching `agy` interactively (it uses Google OAuth; state
+lives in `~/.gemini/antigravity-cli/`, separate from Gemini CLI's).
+`agy models` lists the ids the runner accepts. The harness `work/` dir
+must sit under a trusted workspace: `trustedWorkspaces` in
+`~/.gemini/antigravity-cli/settings.json` should list this repo's parent
+(`ohs-labs`), which the first interactive launch from there records.
+
 **Ripgrep.** Install `ripgrep` (e.g., `brew install ripgrep` on macOS). Although not strictly required, having it installed allows the agent CLI to execute extremely fast codebase searches during the runs instead of falling back to standard grep.
 
 **Git.** The harness automatically handles Git environment setups. It exports a neutral Git author and committer identity (`OHS Agent <agent@example.com>`) and forces built-in diffs (`--no-ext-diff`) to bypass local sandbox and git config restrictions seamlessly.
@@ -33,10 +45,11 @@ cd harness
 ./setup-templates.sh
 ```
 
-There are four. `cold` and `ohs` are shared by both agents. The skills
-template is per agent, `ohs-skills-claude` and `ohs-skills-gemini`.
+There are five. `cold` and `ohs` are shared by every agent. The skills
+template is per agent: `ohs-skills-claude`, `ohs-skills-gemini`, and
+`ohs-skills-antigravity`.
 
-**After editing any skill** in `skills/`, rebuild the two skills templates
+**After editing any skill** in `skills/`, rebuild the three skills templates
 so the runner picks it up (editing `skills/` alone does not reach a run):
 
 ```bash
@@ -59,8 +72,11 @@ measured run
 **Instruction file audit.** `~/.claude/CLAUDE.md` and
 `~/.gemini/GEMINI.md` are injected into every session of their agent.
 Both must be empty or absent so no run gets coached. The runner also
-refuses to start a gemini run while a non-empty `~/.gemini/GEMINI.md`
-exists.
+refuses to start a gemini or antigravity run while a non-empty
+`~/.gemini/GEMINI.md` exists. For antigravity it additionally refuses
+while `~/.gemini/config/` holds `rules/`, `skills/`, `GEMINI.md`, or
+`AGENTS.md` (agy's global customization root), or while its knowledge
+store `~/.gemini/antigravity-cli/knowledge/` holds anything.
 
 ## 2. Every sitting
 
@@ -90,12 +106,44 @@ project root.
 | gemini | `gemini-3.1-pro` | $2/$12 |
 | gemini | `gemini-2.5-pro` | $1.25/$10, previous generation |
 | gemini | `gemini-2.5-flash` | $0.30/$2.50 |
+| antigravity | `gemini-3.8-flash-high` | same Gemini 3.8 Flash, driven by `agy`; `-low`/`-medium`/`-high` is the reasoning effort |
+| antigravity | any other `gemini-*-{low,medium,high}` from `agy models` | e.g. `gemini-3.7-flash-medium`, `gemini-3.1-pro-high` |
 
 Claude accepts only the four shortcuts. Gemini accepts any name that
-starts with `gemini`, passed through raw. The six listed have pricing
-wired in `GEMINI_RATES` inside `harness/extract-gemini.py`. Any other
-name still runs but reports a null cost until a rate is added there.
-Prices gathered 2026-09-01, spot-check before quoting externally.
+starts with `gemini`, passed through raw. Antigravity accepts any
+`gemini-*` id that `agy models` prints (it also offers Claude and
+GPT-OSS models; the runner rejects those so every antigravity row is
+still a Gemini row). The six gemini names listed have pricing wired in
+`GEMINI_RATES` inside `harness/extract-gemini.py`; antigravity strips
+the effort suffix and reuses that same table, so `gemini-3.8-flash-high`
+is priced as `gemini-3.8-flash`. Any other name still runs but reports
+a null cost until a rate is added there. Prices gathered 2026-09-01,
+spot-check before quoting externally.
+
+**Gemini CLI silently substitutes flash models.** Verified in the
+gemini-cli 0.60 source: when the account has Gemini 3.5 Flash GA access,
+`resolveModel` rewrites any requested name ending in `flash` to its
+default flash model, `gemini-3.5-flash`, and the CLI has no knowledge of
+a `gemini-3.8-flash` at all. Every sweep-1 gemini row labelled
+`gemini-3.8-flash` was served by `gemini-3.5-flash` (all 2,701 API calls
+across 35 sessions, per the CLI's own chat logs). Those rows carry a
+`SERVED MODEL MISMATCH` note in `run.json` and a `model_served` field.
+The runner now compares the served model against the requested one after
+every gemini and antigravity run and discards a mismatch as a harness
+fault. To run 3.5 Flash on purpose, name it: `gemini-3.5-flash` (add a
+rate to `GEMINI_RATES` first). Antigravity honours its model ids (the
+probe's init event and settings message both name Gemini 3.8 Flash).
+
+Gemini CLI's `output_tokens` also excludes thinking tokens (it reports
+`candidates` only; `thoughts` appear per turn in
+`~/.gemini/tmp/<project>/chats/*.jsonl` but not in the stream), so gemini
+cost is a floor on the output side. Antigravity's `output_tokens`
+includes thinking.
+
+Because both agents run Gemini, a run id tells them apart only by the
+effort suffix: `s1-cold-gemini-3.8-flash-01` is Gemini CLI,
+`s1-cold-gemini-3.8-flash-high-01` is Antigravity CLI. `run.json.harness`
+records it explicitly either way.
 
 ## 4. Run with the harness
 
@@ -106,6 +154,7 @@ cd harness
 ./runner.sh <agent> <model> <condition> <replicate>
 ./runner.sh claude opus ohs 02                # example
 ./runner.sh gemini gemini-3.7-flash cold 01   # example
+./runner.sh antigravity gemini-3.8-flash-high cold 01   # example
 ```
 
 A whole grid. One manifest per agent, always named explicitly
@@ -113,6 +162,7 @@ A whole grid. One manifest per agent, always named explicitly
 ```bash
 ./campaign.sh manifest-claude.txt
 ./campaign.sh manifest-gemini.txt
+./campaign.sh manifest-antigravity.txt
 ```
 
 Conditions are `cold` (empty project), `ohs` (OHS libraries plus
@@ -123,7 +173,9 @@ runs that already exist, so it resumes cleanly after any interruption.
 
 1. **Preflight.** Refuses to start if the run already exists, no
    emulator is connected, the agent API is unreachable, the work area
-   is not empty, or leftover agent state exists for the work path.
+   is not empty, or leftover agent state exists for the work path (for
+   antigravity: a conversation already recorded for the work path in
+   `~/.gemini/antigravity-cli/cache/last_conversations.json`).
 2. **Fresh scaffold.** Clones the right template (picked from condition
    plus agent) into a never-used folder. A new folder means the agent
    starts with no session history and no memory.
@@ -134,6 +186,19 @@ runs that already exist, so it resumes cleanly after any interruption.
 5. **Agent run.** Pipes the condition prompt (the text below the `---`
    in `build-a-prompt.md` or `build-b-prompt.md`, verbatim) into the
    agent headless, permissions auto-approved, capped at 60 minutes.
+   Antigravity only: agy backgrounds any command that outlives its
+   per-call wait (a Gradle build does) and then invites the model to
+   either carry on or "update the user with a short message". In the
+   TUI the task's completion wakes the agent; headless, the turn ends
+   and so does the session. Two early ohs-skills runs shipped zero
+   lines this way while the smoke check passed on the untouched
+   template. The runner therefore checks agy's conversation log after
+   each turn and, while the last recorded step is a still-running
+   background task, resumes the same conversation with a neutral
+   continue prompt that says nothing about the task. Each resume is
+   logged and counted in `run.json` as `resume_turns`, bounded by the
+   60-minute cap and 12 resumes. An empty `code.diff` is flagged in the
+   log and in `run.json.notes` as `EMPTY DIFF`; the run is kept as data.
 6. **Fault gate.** A run with zero tool calls, or one cut off by a
    usage or quota limit, is an environment fault. It is discarded and
    the campaign halts. An agent that finishes with a broken app is
@@ -154,27 +219,35 @@ runs that already exist, so it resumes cleanly after any interruption.
 
    | File | Where it comes from |
    |---|---|
-   | `transcript.jsonl` | Claude runs copy the session file from `~/.claude/projects/<work-path>/`. Gemini runs capture the CLI stream-json stdout directly. |
-   | `transcript.md` | Rendered from the jsonl by the agent's extractor, `extract-claude.py` or `extract-gemini.py`. |
+   | `transcript.jsonl` | Claude runs copy the session file from `~/.claude/projects/<work-path>/`. Gemini and antigravity runs capture the CLI stream-json stdout directly. |
+   | `transcript_full.jsonl` | Antigravity only. agy's own conversation log, copied from `~/.gemini/antigravity-cli/brain/<conversation>/.system_generated/logs/`. The stream carries no tool outputs, so build failures and `OperationOutcome` counts come from this file. |
+   | `transcript.md` | Rendered from the jsonl by the agent's extractor, `extract-claude.py`, `extract-gemini.py`, or `extract-antigravity.py`. |
    | `run.json` | Filled by the extractor. Wall clock, tool calls, build failures, server rejections, tokens, and cost at the model's rates. The two walk verdicts stay null until section 6. |
    | `code.diff` | The work folder is committed, then diffed against the template baseline. |
 
 9. **Teardown.** The work folder is archived away so the next agent
    cannot find a previous solution, and the device is swept again. For
    gemini, any global memory the agent saved is quarantined into the
-   run folder as `global-memory-left-by-agent.md`.
+   run folder as `global-memory-left-by-agent.md`. For antigravity,
+   anything new in agy's knowledge store is quarantined into the run
+   folder as `knowledge-left-by-agent/`, and a written
+   `~/.gemini/GEMINI.md` is quarantined the same way as for gemini.
 
-### First gemini run only
+### First gemini or antigravity run only
 
-Run one probe and eyeball it before trusting gemini metrics
+Run one probe and eyeball it before trusting that agent's metrics
 
 ```bash
 ./runner.sh gemini gemini-3.7-flash cold 99
+./runner.sh antigravity gemini-3.8-flash-high cold 99
 ```
 
 Open the probe's `transcript.jsonl` and check its `run.json` looks
-sane. The stream format was verified against gemini-cli v0.57.0, and a
-newer CLI could change it. Delete the probe folder and its
+sane. The gemini stream format was verified against gemini-cli v0.57.0
+and the antigravity one against agy v1.2.7; a newer CLI could change
+either. For antigravity also confirm the app landed in the work folder
+and not in `~/.gemini/antigravity-cli/scratch/` (the runner passes
+`--add-dir` for exactly this reason). Delete the probe folder and its
 `results.csv` row afterward.
 
 ## 5. Run manually (interactive session)
@@ -227,6 +300,19 @@ passed every automated check.
 **Usage or quota limit.** The campaign halts itself with a clear
 message. Rerun `./campaign.sh <manifest>` after the limit resets and it
 continues where it stopped.
+
+**Antigravity quota.** agy runs on your Antigravity subscription, not
+an API key, and it has a per-model quota that resets on a short timer
+(the error names it, e.g. "Individual quota reached. Resets in 12m45s").
+The gate discards the run as a fault, the campaign halts, and rerunning
+after the reset continues where it stopped. A campaign of `-high` runs
+can hit this several times a day; `-medium` or `-low` spend it slower.
+
+**A leftover `harness/work/<id>` with no `.git`.** That is not a run, it
+is build output a Gradle daemon wrote back after the runner discarded
+the folder. The runner now stops the project's daemons before a discard
+and removes such husks itself at preflight; deleting the folder by hand
+is also safe.
 
 **A junk run got collected.** Delete `runs/<id>`,
 `harness/archive/<id>`, `harness/logs/<id>.log`, the leftover agent
