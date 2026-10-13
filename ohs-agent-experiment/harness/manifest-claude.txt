@@ -1,43 +1,34 @@
 # Claude campaign manifest: <agent> <model> <condition> <replicate>
-# Grid: {cold, ohs, ohs-skills} x {fable, opus, sonnet, haiku} with agent
-# claude, N=3. Gemini runs live in manifest-gemini.txt.
-# fable cold/ohs replicate 01 were the manual runs (already in runs/), so
-# those cells start at 02 here.
+# Grid of cold, ohs and ohs-skills across Haiku 5.5, Sonnet 5.5, Opus 5.5 and Fable 5.1, 2 runs each.
+# Model ids end in the Claude Code effort level, which the runner passes as --effort.
+# medium matches the Antigravity Gemini 3.8 Flash runs.
+# The August runs (s1-<cond>-{fable,opus,sonnet,haiku}-NN) used older models at
+# their default effort and are not part of this grid.
 #
-# --- Sweep 1: every cell once (early signal on every claim) ---
-claude haiku  cold       01
-claude haiku  ohs        01
-claude haiku  ohs-skills 01
-claude sonnet cold       01
-claude sonnet ohs        01
-claude sonnet ohs-skills 01
-claude opus   cold       01
-claude opus   ohs        01
-claude opus   ohs-skills 01
-claude fable  ohs-skills 01
-claude fable  cold       02
-claude fable  ohs        02
+# --- replicate 1, every cell once ---
+claude claude-haiku-5-5-medium  cold       1
+claude claude-haiku-5-5-medium  ohs        1
+claude claude-haiku-5-5-medium  ohs-skills 1
+claude claude-sonnet-5-5-medium cold       1
+claude claude-sonnet-5-5-medium ohs        1
+claude claude-sonnet-5-5-medium ohs-skills 1
+claude claude-opus-5-5-medium   cold       1
+claude claude-opus-5-5-medium   ohs        1
+claude claude-opus-5-5-medium   ohs-skills 1
+claude claude-fable-5-1-medium  cold       1
+claude claude-fable-5-1-medium  ohs        1
+claude claude-fable-5-1-medium  ohs-skills 1
 #
-# --- Sweeps 2-3: remaining replicates, interleaved ---
-claude haiku  cold       02
-claude haiku  ohs        02
-claude haiku  ohs-skills 02
-claude sonnet cold       02
-claude sonnet ohs        02
-claude sonnet ohs-skills 02
-claude opus   cold       02
-claude opus   ohs        02
-claude opus   ohs-skills 02
-claude fable  ohs-skills 02
-claude fable  cold       03
-claude fable  ohs        03
-claude haiku  cold       03
-claude haiku  ohs        03
-claude haiku  ohs-skills 03
-claude sonnet cold       03
-claude sonnet ohs        03
-claude sonnet ohs-skills 03
-claude opus   cold       03
-claude opus   ohs        03
-claude opus   ohs-skills 03
-claude fable  ohs-skills 03
+# --- replicate 2, every cell once ---
+claude claude-haiku-5-5-medium  cold       2
+claude claude-haiku-5-5-medium  ohs        2
+claude claude-haiku-5-5-medium  ohs-skills 2
+claude claude-sonnet-5-5-medium cold       2
+claude claude-sonnet-5-5-medium ohs        2
+claude claude-sonnet-5-5-medium ohs-skills 2
+claude claude-opus-5-5-medium   cold       2
+claude claude-opus-5-5-medium   ohs        2
+claude claude-opus-5-5-medium   ohs-skills 2
+claude claude-fable-5-1-medium  cold       2
+claude claude-fable-5-1-medium  ohs        2
+claude claude-fable-5-1-medium  ohs-skills 2

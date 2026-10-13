@@ -82,7 +82,7 @@ Run one build (emulator must be booted)
 
 ```bash
 cd harness
-./runner.sh claude opus ohs 02
+./runner.sh claude claude-opus-5-5-medium ohs 1
 ```
 
 Or walk a whole grid with `./campaign.sh manifest-claude.txt` (one

@@ -8,7 +8,7 @@ One folder per run: `s<scenario>-<condition>-<model>-<replicate>`.
   (Foundations + `ohs-agent-experiment/skills/`, placed where each agent
   loads them: `.claude/skills/`, `.agents/skills/`, or one `GEMINI.md`).
 - **model**: `fable`, `opus`, `sonnet`, `haiku` (Claude); cross-agent runs use that agent's model names (e.g. `gemini-3.1-pro` for Gemini CLI, `gemini-3.8-flash-low` for Antigravity CLI, whose ids always carry an effort suffix) - the model segment implies the agent, and `run.json.harness` records it explicitly. No per-agent subfolders: one runs/ tree, one results.csv.
-- **replicate**: two digits, `01` up.
+- **replicate**: `1` up. Runs before 2026-10 use two digits (`01`).
 
 Each folder holds: `transcript.jsonl` (required), `transcript.md`,
 `run.json` (metadata + metrics), `code.diff` (vs the scaffold's baseline

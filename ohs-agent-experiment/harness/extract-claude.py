@@ -5,7 +5,7 @@ jsonl, fills run.json with metrics, appends the results.csv row.
 Usage:
   extract-claude.py --jsonl PATH --run-dir runs/<run_id> --run-id ID \
              --scenario s1-build --condition cold|ohs|ohs-skills \
-             --model fable|sonnet|haiku --replicate N \
+             --model claude-<model>-<effort> --replicate N \
              --scaffold-repo NAME --baseline COMMIT \
              [--smoke pass|fail|skip] [--results results.csv] [--notes TEXT]
 """
@@ -17,20 +17,65 @@ import os
 import sys
 from datetime import datetime
 
-MODEL_IDS = {
+# Runs name the model as <claude model id>-<effort>, e.g. claude-opus-5-5-medium.
+# The August runs used these shortcuts and no pinned effort.
+LEGACY_IDS = {
     "fable": "claude-fable-5",
     "sonnet": "claude-sonnet-5",
     "opus": "claude-opus-5",
     "haiku": "claude-haiku-4-5-20251001",
 }
-# USD per million tokens: input, output. Cache read = 0.1x input,
-# cache write = 1.25x input (5-minute tier).
+EFFORTS = ("low", "medium", "high", "xhigh", "max")
+
+# USD per million tokens as (input, output, cache read multiplier of input).
+# Cache writes cost 1.25x input for the 5 minute cache and 2x for the 1 hour cache,
+# which Claude Code uses. Checked against platform.claude.com/docs/en/about-claude/pricing
+# on 2026-10-13.
 RATES = {
-    "fable": (10.0, 50.0),
-    "sonnet": (2.0, 10.0),
-    "opus": (5.0, 25.0),
-    "haiku": (1.0, 5.0),
+    "claude-fable-5-1": (10.0, 50.0, 0.025),
+    "claude-opus-5-5": (4.0, 20.0, 0.05),
+    "claude-sonnet-5-5": (2.0, 10.0, 0.05),
+    "claude-haiku-5-5": (0.10, 0.50, 0.1),
+    "claude-fable-5": (10.0, 50.0, 0.1),
+    "claude-opus-5": (5.0, 25.0, 0.1),
+    "claude-sonnet-5": (2.0, 10.0, 0.1),
+    "claude-haiku-4-5-20251001": (1.0, 5.0, 0.1),
 }
+# Haiku 5.5 bills a whole request at 5x when its prompt is over 100,000 tokens.
+# The prompt counts input, cache reads and cache writes.
+LONG_PROMPT = {"claude-haiku-5-5": (100_000, 5.0)}
+
+
+def split_model(name):
+    """Split 'claude-opus-5-5-medium' into ('claude-opus-5-5', 'medium'). Legacy shortcuts get no effort."""
+    if name in LEGACY_IDS:
+        return LEGACY_IDS[name], None
+    base, _, effort = name.rpartition("-")
+    if effort in EFFORTS:
+        return base, effort
+    return name, None
+
+
+def request_cost(model, u):
+    """Cost of one API request from its usage block. None if the model has no price."""
+    if model not in RATES:
+        return None
+    in_rate, out_rate, read_mult = RATES[model]
+    inp = u.get("input_tokens", 0)
+    read = u.get("cache_read_input_tokens", 0)
+    write = u.get("cache_creation_input_tokens", 0)
+    split = u.get("cache_creation") or {}
+    write_1h = split.get("ephemeral_1h_input_tokens", 0)
+    write_5m = split.get("ephemeral_5m_input_tokens", write - write_1h)
+    tier = LONG_PROMPT.get(model)
+    k = tier[1] if tier and inp + read + write > tier[0] else 1.0
+    return k * (
+        inp * in_rate
+        + read * in_rate * read_mult
+        + write_5m * in_rate * 1.25
+        + write_1h * in_rate * 2.0
+        + u.get("output_tokens", 0) * out_rate
+    ) / 1e6
 
 
 def parse(jsonl_path):
@@ -65,7 +110,7 @@ def main():
     ap.add_argument("--run-id", required=True)
     ap.add_argument("--scenario", default="s1-build")
     ap.add_argument("--condition", required=True)
-    ap.add_argument("--model", required=True, choices=MODEL_IDS)
+    ap.add_argument("--model", required=True)
     ap.add_argument("--replicate", type=int, required=True)
     ap.add_argument("--scaffold-repo", default="")
     ap.add_argument("--baseline", default="")
@@ -84,6 +129,9 @@ def main():
     tool_calls, asst_blocks = 0, 0
     build_failed, op_outcomes, tool_errors = 0, 0, 0
     tok = {"input": 0, "output": 0, "cache_read": 0, "cache_write": 0}
+    model_id, effort = split_model(args.model)
+    seen, served, efforts = set(), {}, {}
+    cost, unpriced = 0.0, False
     md = []
 
     for d in events:
@@ -95,10 +143,23 @@ def main():
         if kind == "assistant":
             m = d.get("message", {})
             u = m.get("usage") or {}
-            tok["input"] += u.get("input_tokens", 0)
-            tok["output"] += u.get("output_tokens", 0)
-            tok["cache_read"] += u.get("cache_read_input_tokens", 0)
-            tok["cache_write"] += u.get("cache_creation_input_tokens", 0)
+            # Claude Code writes one line per content block and repeats the
+            # request's usage on each, so count each message id once
+            if m.get("id") not in seen:
+                seen.add(m.get("id"))
+                tok["input"] += u.get("input_tokens", 0)
+                tok["output"] += u.get("output_tokens", 0)
+                tok["cache_read"] += u.get("cache_read_input_tokens", 0)
+                tok["cache_write"] += u.get("cache_creation_input_tokens", 0)
+                req_model = m.get("model") or model_id
+                served[req_model] = served.get(req_model, 0) + 1
+                if d.get("effort"):  # Claude Code records it on the line, not in usage
+                    efforts[d["effort"]] = efforts.get(d["effort"], 0) + 1
+                c = request_cost(req_model, u)
+                if c is None:
+                    unpriced = True
+                else:
+                    cost += c
             for b in m.get("content", []):
                 if not isinstance(b, dict):
                     continue
@@ -150,14 +211,7 @@ def main():
         except ValueError:
             pass
 
-    in_rate, out_rate = RATES[args.model]
-    cost = round(
-        tok["input"] / 1e6 * in_rate
-        + tok["output"] / 1e6 * out_rate
-        + tok["cache_read"] / 1e6 * in_rate * 0.1
-        + tok["cache_write"] / 1e6 * in_rate * 1.25,
-        2,
-    )
+    cost = None if unpriced else round(cost, 2)
 
     loc_added = None
     diff_path = os.path.join(args.run_dir, "code.diff")
@@ -170,7 +224,7 @@ def main():
 
     header = (
         f"# {args.run_id}\n\n"
-        f"condition: {args.condition} | model: {MODEL_IDS[args.model]} | "
+        f"condition: {args.condition} | model: {model_id} | effort: {effort} | "
         f"replicate: {args.replicate} | wall: {wall_minutes} min | "
         f"cost (API rates): ${cost}\n\n---\n"
     )
@@ -181,13 +235,17 @@ def main():
         "run_id": args.run_id,
         "scenario": args.scenario,
         "condition": args.condition,
-        "model": MODEL_IDS[args.model],
+        "model": args.model,  # as in the run id, e.g. claude-opus-5-5-medium, like antigravity
+        "effort": effort,
         "replicate": args.replicate,
         "date": (min(ts)[:10] if ts else None),
         "harness": "claude-code-headless",
         "scaffold_repo": args.scaffold_repo,
         "baseline_commit": args.baseline,
         "session_id": session_id,
+        # request counts per answering model and per effort
+        "model_served": served,
+        "effort_served": efforts,
         "wall_minutes": wall_minutes,
         "user_turns": user_turns,
         "corrective_turns": corrective_candidates,
@@ -220,7 +278,7 @@ def main():
             "run_id": args.run_id,
             "scenario": args.scenario,
             "condition": args.condition,
-            "model": MODEL_IDS[args.model],
+            "model": args.model,
             "replicate": args.replicate,
             "date": run["date"],
             "wall_minutes": wall_minutes,
@@ -231,7 +289,7 @@ def main():
             "server_validation_incidents": op_outcomes,
             "output_tokens": tok["output"],
             "cache_read_tokens": tok["cache_read"],
-            "cost_usd_api_rates": cost,
+            "cost_usd_api_rates": cost if cost is not None else "",
             "kotlin_loc_added": loc_added,
             "verified_working": "",
             "round_trip_pass": "",
