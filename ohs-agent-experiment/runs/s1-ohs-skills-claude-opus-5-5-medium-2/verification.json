@@ -1,0 +1,7 @@
+{
+  "launched": true,
+  "crashed": false,
+  "screenshot_after_seconds": 30,
+  "patients_in_local_db": 3,
+  "note": "launched+!crashed is the smoke verdict. patients_in_local_db is a best-effort sync-success signal (0/null suggests download sync did not deliver). Whether the register visually renders is the human walk, judged from launch.png."
+}

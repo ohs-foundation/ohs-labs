@@ -1,0 +1,46 @@
+{
+  "run_id": "s1-cold-claude-fable-5-1-medium-2",
+  "scenario": "s1-build",
+  "condition": "cold",
+  "model": "claude-fable-5-1-medium",
+  "effort": "medium",
+  "replicate": 2,
+  "date": "2026-10-13",
+  "harness": "claude-code-headless",
+  "scaffold_repo": "templates/cold",
+  "baseline_commit": "12adaf5",
+  "session_id": "8f765ab7-0848-4502-b72f-84114a3fe918",
+  "model_served": {
+    "claude-fable-5-1": 17
+  },
+  "effort_served": {
+    "medium": 17
+  },
+  "wall_minutes": 2.9,
+  "user_turns": 1,
+  "corrective_turns": 0,
+  "tool_calls": 17,
+  "assistant_text_blocks": 7,
+  "tool_errors": 0,
+  "build_failures_self_fixed": 0,
+  "server_validation_incidents": 0,
+  "tokens": {
+    "input": 334,
+    "output": 9185,
+    "cache_read": 718905,
+    "cache_write": 48535
+  },
+  "cost_usd_api_rates": 1.61,
+  "diff_lines_added": 240,
+  "smoke_check": "pass",
+  "verified_working": null,
+  "round_trip_pass": null,
+  "notes": "gen=2 agent_exit=0",
+  "verification": {
+    "launched": true,
+    "crashed": false,
+    "screenshot_after_seconds": 30,
+    "patients_in_local_db": null,
+    "note": "launched+!crashed is the smoke verdict. patients_in_local_db is a best-effort sync-success signal (0/null suggests download sync did not deliver). Whether the register visually renders is the human walk, judged from launch.png."
+  }
+}

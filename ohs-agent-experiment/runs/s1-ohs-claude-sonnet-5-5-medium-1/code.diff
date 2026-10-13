@@ -1,0 +1,371 @@
+diff --git a/app/build.gradle.kts b/app/build.gradle.kts
+index ad2507d..0ae12b8 100644
+--- a/app/build.gradle.kts
++++ b/app/build.gradle.kts
+@@ -37,6 +37,7 @@ dependencies {
+   implementation("androidx.compose.material:material-icons-extended")
+   implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.9.4")
+ 
++  implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")
+   implementation("dev.ohs.fhir:fhir-model:1.0.0-beta05")
+   implementation("dev.ohs.fhir:fhir-engine:2.0.0-alpha02")
+   implementation("dev.ohs.fhir:fhir-data-capture:2.0.0-alpha02")
+diff --git a/app/src/main/AndroidManifest.xml b/app/src/main/AndroidManifest.xml
+index c454ae9..4ba4430 100644
+--- a/app/src/main/AndroidManifest.xml
++++ b/app/src/main/AndroidManifest.xml
+@@ -4,7 +4,7 @@
+     <uses-permission android:name="android.permission.INTERNET" />
+ 
+     <application
+-        android:label="ANC App"
++        android:label="ANC App" android:usesCleartextTraffic="true"
+         android:theme="@android:style/Theme.Material.Light.NoActionBar">
+         <activity
+             android:name=".MainActivity"
+diff --git a/app/src/main/java/com/example/ancapp/Fhir.kt b/app/src/main/java/com/example/ancapp/Fhir.kt
+new file mode 100644
+index 0000000..4f3f785
+--- /dev/null
++++ b/app/src/main/java/com/example/ancapp/Fhir.kt
+@@ -0,0 +1,174 @@
++package com.example.ancapp
++
++import java.net.HttpURLConnection
++import java.net.URL
++import java.time.LocalDate
++import java.time.temporal.ChronoUnit
++import java.util.UUID
++import org.json.JSONArray
++import org.json.JSONObject
++
++private const val BASE = "http://10.0.2.2:8080/fhir"
++private const val LOINC = "http://loinc.org"
++private const val UCUM = "http://unitsofmeasure.org"
++private const val SIGNS = "urn:example:anc-danger-signs"
++
++data class PatientRow(val id: String, val name: String, val age: Int, val edd: LocalDate?) {
++  // 280-day pregnancy counted back from the due date
++  val weeks: Int? get() = edd?.let { ((280 - ChronoUnit.DAYS.between(LocalDate.now(), it)) / 7).toInt() }
++}
++
++data class Visit(
++  val date: String,
++  val weight: Double?,
++  val bp: String?,
++  val hb: Double?,
++  val dangerSigns: List<String>,
++  val notes: String?,
++)
++
++private fun call(method: String, path: String, body: String? = null): JSONObject {
++  val c = URL("$BASE/$path").openConnection() as HttpURLConnection
++  try {
++    c.requestMethod = method
++    c.connectTimeout = 10_000
++    c.readTimeout = 20_000
++    c.setRequestProperty("Accept", "application/fhir+json")
++    if (body != null) {
++      c.doOutput = true
++      c.setRequestProperty("Content-Type", "application/fhir+json")
++      c.outputStream.use { it.write(body.toByteArray()) }
++    }
++    val stream = if (c.responseCode < 400) c.inputStream else c.errorStream
++    val text = stream.bufferedReader().readText()
++    if (c.responseCode >= 400) { android.util.Log.e("ANC", text); error("HTTP ${c.responseCode}") }
++    return JSONObject(text)
++  } finally {
++    c.disconnect()
++  }
++}
++
++private fun resources(bundle: JSONObject): List<JSONObject> {
++  val e = bundle.optJSONArray("entry") ?: return emptyList()
++  return (0 until e.length()).map { e.getJSONObject(it).getJSONObject("resource") }
++}
++
++private fun JSONObject.codeOf(): String? =
++  optJSONObject("code")?.optJSONArray("coding")?.optJSONObject(0)?.optString("code")
++
++fun fetchQuestionnaire(): String = call("GET", "Questionnaire/anc-contact").toString()
++
++fun fetchRegister(): List<PatientRow> {
++  val edds = resources(call("GET", "Observation?code=$LOINC|11778-8&_count=500"))
++    .groupBy { it.getJSONObject("subject").getString("reference") }
++    .mapValues { (_, l) -> l.maxBy { it.optString("effectiveDateTime") }.optString("valueDateTime") }
++  return resources(call("GET", "Patient?active=true&_count=500"))
++    .map { p ->
++      val n = p.getJSONArray("name").getJSONObject(0)
++      val given = n.optJSONArray("given")?.let { g -> (0 until g.length()).joinToString(" ") { g.getString(it) } }
++      val dob = LocalDate.parse(p.getString("birthDate"))
++      PatientRow(
++        p.getString("id"),
++        listOfNotNull(given, n.optString("family").ifEmpty { null }).joinToString(" "),
++        ChronoUnit.YEARS.between(dob, LocalDate.now()).toInt(),
++        edds["Patient/${p.getString("id")}"]?.takeIf { it.isNotEmpty() }?.let { LocalDate.parse(it.take(10)) },
++      )
++    }
++    .sortedWith(compareBy(nullsLast()) { it.edd })
++}
++
++fun fetchVisits(patientId: String): List<Visit> {
++  val encounters = resources(call("GET", "Encounter?subject=Patient/$patientId&_count=500"))
++  val obs = resources(call("GET", "Observation?subject=Patient/$patientId&_count=500"))
++    .groupBy { it.optJSONObject("encounter")?.optString("reference") }
++  return encounters.map { e ->
++    val o = obs["Encounter/${e.getString("id")}"].orEmpty()
++    fun q(code: String) = o.firstOrNull { it.codeOf() == code }?.optJSONObject("valueQuantity")?.optDouble("value")
++    val bp = o.firstOrNull { it.codeOf() == "85354-9" }?.optJSONArray("component")?.let { c ->
++      val v = (0 until c.length()).associate { c.getJSONObject(it).codeOf() to c.getJSONObject(it).getJSONObject("valueQuantity").getInt("value") }
++      "${v["8480-6"]}/${v["8462-4"]}"
++    }
++    Visit(
++      date = e.getJSONObject("period").getString("start"),
++      weight = q("29463-7"),
++      bp = bp,
++      hb = q("718-7"),
++      dangerSigns = o.filter { it.optJSONObject("code")?.optJSONArray("coding")?.optJSONObject(0)?.optString("system") == SIGNS }
++        .map { it.getJSONObject("code").optString("text") },
++      notes = o.firstOrNull { it.codeOf() == "notes" }?.optString("valueString"),
++    )
++  }.sortedByDescending { it.date }
++}
++
++private fun JSONObject.flatItems(out: MutableMap<String, JSONArray> = mutableMapOf()): Map<String, JSONArray> {
++  optJSONArray("item")?.let { a ->
++    for (i in 0 until a.length()) {
++      val it = a.getJSONObject(i)
++      it.optJSONArray("answer")?.let { ans -> out[it.getString("linkId")] = ans }
++      it.flatItems(out)
++    }
++  }
++  return out
++}
++
++/** Persists the filled form as QuestionnaireResponse plus Encounter/Observations in one transaction. */
++fun saveVisit(patientId: String, responseJson: String) {
++  val qr = JSONObject(responseJson).put("subject", JSONObject().put("reference", "Patient/$patientId"))
++  val a = qr.flatItems()
++  fun first(id: String) = a[id]?.getJSONObject(0)
++  val date = first("visit-date")?.getString("valueDate") ?: error("Visit date required")
++  val encRef = "urn:uuid:${UUID.randomUUID()}"
++  val subject = JSONObject().put("reference", "Patient/$patientId")
++  val entries = JSONArray()
++  fun add(r: JSONObject, fullUrl: String? = null) {
++    entries.put(JSONObject().apply {
++      put("fullUrl", fullUrl ?: "urn:uuid:${UUID.randomUUID()}")
++      put("resource", r)
++      put("request", JSONObject().put("method", "POST").put("url", r.getString("resourceType")))
++    })
++  }
++  fun obs(coding: JSONObject, text: String, set: JSONObject.() -> Unit) = JSONObject()
++    .put("resourceType", "Observation").put("status", "final").put("subject", subject)
++    .put("encounter", JSONObject().put("reference", encRef)).put("effectiveDateTime", date)
++    .put("code", JSONObject().put("coding", JSONArray().put(coding)).put("text", text)).apply(set)
++  fun coding(system: String, code: String, display: String) =
++    JSONObject().put("system", system).put("code", code).put("display", display)
++  fun qty(v: Number, unit: String, code: String = unit) =
++    JSONObject().put("value", v).put("unit", unit).put("system", UCUM).put("code", code)
++
++  add(JSONObject().put("resourceType", "Encounter").put("status", "finished")
++    .put("class", JSONObject().put("system", "http://terminology.hl7.org/CodeSystem/v3-ActCode").put("code", "AMB"))
++    .put("type", JSONArray().put(JSONObject().put("text", "Antenatal care contact")))
++    .put("subject", subject).put("period", JSONObject().put("start", date).put("end", date)), encRef)
++  first("weight")?.optDouble("valueDecimal")?.takeIf { !it.isNaN() }?.let { w ->
++    add(obs(coding(LOINC, "29463-7", "Body weight"), "Body weight") { put("valueQuantity", qty(w, "kg")) })
++  }
++  val sys = first("bp-systolic")?.optInt("valueInteger")
++  val dia = first("bp-diastolic")?.optInt("valueInteger")
++  if (sys != null && dia != null) {
++    fun comp(code: String, name: String, v: Int) = JSONObject()
++      .put("code", JSONObject().put("coding", JSONArray().put(coding(LOINC, code, name))))
++      .put("valueQuantity", qty(v, "mmHg", "mm[Hg]"))
++    add(obs(coding(LOINC, "85354-9", "Blood pressure panel with all children optional"), "Blood pressure") {
++      put("component", JSONArray().put(comp("8480-6", "Systolic blood pressure", sys)).put(comp("8462-4", "Diastolic blood pressure", dia)))
++    })
++  }
++  first("gestational-age")?.optInt("valueInteger")?.let { w ->
++    add(obs(coding(LOINC, "11884-4", "Gestational age"), "Gestational age") { put("valueQuantity", qty(w, "wk")) })
++  }
++  a["danger-signs"]?.let { ans ->
++    for (i in 0 until ans.length()) {
++      val c = ans.getJSONObject(i).optJSONObject("valueCoding") ?: continue
++      if (c.getString("code") != "none") {
++        add(obs(coding(SIGNS, c.getString("code"), c.getString("display")), c.getString("display")) { put("valueBoolean", true) })
++      }
++    }
++  }
++  first("notes")?.optString("valueString")?.takeIf { it.isNotBlank() }?.let { n ->
++    add(obs(coding("urn:example:anc", "notes", "Visit notes"), "Visit notes") { put("valueString", n) })
++  }
++  qr.put("encounter", JSONObject().put("reference", encRef))
++  qr.put("status", "completed")
++  add(qr)
++  call("POST", "", JSONObject().put("resourceType", "Bundle").put("type", "transaction").put("entry", entries).toString())
++}
+diff --git a/app/src/main/java/com/example/ancapp/MainActivity.kt b/app/src/main/java/com/example/ancapp/MainActivity.kt
+index b5e554b..aa78dc6 100644
+--- a/app/src/main/java/com/example/ancapp/MainActivity.kt
++++ b/app/src/main/java/com/example/ancapp/MainActivity.kt
+@@ -2,14 +2,159 @@ package com.example.ancapp
+ 
+ import android.os.Bundle
+ import androidx.activity.ComponentActivity
++import androidx.activity.compose.BackHandler
+ import androidx.activity.compose.setContent
++import androidx.compose.foundation.clickable
++import androidx.compose.foundation.layout.Arrangement
++import androidx.compose.foundation.layout.Box
++import androidx.compose.foundation.layout.Column
++import androidx.compose.foundation.layout.fillMaxSize
++import androidx.compose.foundation.layout.fillMaxWidth
++import androidx.compose.foundation.layout.padding
++import androidx.compose.foundation.lazy.LazyColumn
++import androidx.compose.foundation.lazy.items
++import androidx.compose.material3.Button
++import androidx.compose.material3.Card
++import androidx.compose.material3.ExperimentalMaterial3Api
+ import androidx.compose.material3.MaterialTheme
+-import androidx.compose.material3.Surface
++import androidx.compose.material3.Scaffold
+ import androidx.compose.material3.Text
++import androidx.compose.material3.TopAppBar
++import androidx.compose.runtime.Composable
++import androidx.compose.runtime.CompositionLocalProvider
++import androidx.compose.runtime.DisposableEffect
++import androidx.compose.runtime.LaunchedEffect
++import androidx.compose.runtime.getValue
++import androidx.compose.runtime.mutableIntStateOf
++import androidx.compose.runtime.mutableStateOf
++import androidx.compose.runtime.remember
++import androidx.compose.runtime.rememberCoroutineScope
++import androidx.compose.runtime.setValue
++import androidx.compose.ui.Alignment
++import androidx.compose.ui.Modifier
++import androidx.compose.ui.unit.dp
++import androidx.lifecycle.ViewModelStore
++import androidx.lifecycle.ViewModelStoreOwner
++import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
++import dev.ohs.fhir.datacapture.DataCapture
++import dev.ohs.fhir.datacapture.Questionnaire
++import dev.ohs.fhir.model.r4.QuestionnaireResponse
++import kotlinx.serialization.json.Json
++import kotlinx.coroutines.Dispatchers
++import kotlinx.coroutines.launch
++import kotlinx.coroutines.withContext
+ 
+ class MainActivity : ComponentActivity() {
+   override fun onCreate(savedInstanceState: Bundle?) {
+     super.onCreate(savedInstanceState)
+-    setContent { MaterialTheme { Surface { Text("Hello") } } }
++    DataCapture.initialize(applicationContext)
++    setContent { MaterialTheme { App() } }
++  }
++}
++
++/** Runs [block] off the main thread; result is null while loading, error text on failure. */
++@Composable
++private fun <T> load(key: Any?, block: () -> T): Pair<T?, String?> {
++  var state by remember(key) { mutableStateOf<Pair<T?, String?>>(null to null) }
++  LaunchedEffect(key) {
++    state = try { withContext(Dispatchers.IO) { block() } to null } catch (e: Exception) { null to (e.message ?: e.toString()) }
++  }
++  return state
++}
++
++@OptIn(ExperimentalMaterial3Api::class)
++@Composable
++private fun App() {
++  var patient by remember { mutableStateOf<PatientRow?>(null) }
++  var form by remember { mutableStateOf(false) }
++  var reload by remember { mutableIntStateOf(0) }
++  BackHandler(patient != null) { if (form) form = false else patient = null }
++  Scaffold(topBar = { TopAppBar(title = { Text(patient?.name ?: "ANC Register") }) }) { pad ->
++    Box(Modifier.padding(pad).fillMaxSize()) {
++      val p = patient
++      when {
++        p == null -> Register { patient = it }
++        form -> VisitForm(p) { form = false; if (it) reload++ }
++        else -> Detail(p, reload) { form = true }
++      }
++    }
++  }
++}
++
++@Composable
++private fun Status(error: String?) =
++  Text(error ?: "Loading…", Modifier.padding(16.dp), color = if (error != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface)
++
++@Composable
++private fun Register(onOpen: (PatientRow) -> Unit) {
++  val (rows, err) = load(Unit) { fetchRegister() }
++  if (rows == null) return Status(err)
++  LazyColumn(Modifier.fillMaxSize(), contentPadding = androidx.compose.foundation.layout.PaddingValues(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
++    items(rows) { r ->
++      Card(Modifier.fillMaxWidth().clickable { onOpen(r) }) {
++        Column(Modifier.padding(16.dp)) {
++          Text(r.name, style = MaterialTheme.typography.titleMedium)
++          Text("Age ${r.age} · Due ${r.edd ?: "unknown"} · ${r.weeks?.let { "$it weeks" } ?: "weeks unknown"}")
++        }
++      }
++    }
++  }
++}
++
++@Composable
++private fun Detail(p: PatientRow, reload: Int, onNewVisit: () -> Unit) {
++  val (visits, err) = load(p.id to reload) { fetchVisits(p.id) }
++  Column(Modifier.fillMaxSize().padding(12.dp)) {
++    Text("Age ${p.age} · Due ${p.edd ?: "unknown"} · ${p.weeks?.let { "$it weeks" } ?: ""}")
++    Button(onNewVisit, Modifier.padding(vertical = 8.dp)) { Text("Record new ANC visit") }
++    if (visits == null) return@Column Status(err)
++    if (visits.isEmpty()) Text("No visits recorded")
++    LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
++      items(visits) { v ->
++        Card(Modifier.fillMaxWidth()) {
++          Column(Modifier.padding(16.dp)) {
++            Text(v.date, style = MaterialTheme.typography.titleMedium)
++            Text("Weight: ${v.weight?.let { "$it kg" } ?: "—"}")
++            Text("BP: ${v.bp?.let { "$it mmHg" } ?: "—"}")
++            v.hb?.let { Text("Hemoglobin: $it g/dL") }
++            if (v.dangerSigns.isNotEmpty()) Text("Danger signs: ${v.dangerSigns.joinToString()}", color = MaterialTheme.colorScheme.error)
++            v.notes?.let { Text("Notes: $it") }
++          }
++        }
++      }
++    }
++  }
++}
++
++@Composable
++private fun VisitForm(p: PatientRow, onDone: (saved: Boolean) -> Unit) {
++  val (q, err) = load(Unit) { fetchQuestionnaire() }
++  val scope = rememberCoroutineScope()
++  var saveErr by remember { mutableStateOf<String?>(null) }
++  if (q == null) return Status(err)
++  // fresh ViewModel store per open, otherwise Data Capture reuses the previous form's answers
++  val owner = remember { object : ViewModelStoreOwner { override val viewModelStore = ViewModelStore() } }
++  DisposableEffect(owner) { onDispose { owner.viewModelStore.clear() } }
++  CompositionLocalProvider(LocalViewModelStoreOwner provides owner) {
++  Column(Modifier.fillMaxSize()) {
++    saveErr?.let { Text("Save failed: $it", Modifier.padding(8.dp), color = MaterialTheme.colorScheme.error) }
++    Questionnaire(
++      questionnaireJson = q,
++      questionnaireResponseJson = null,
++      questionnaireLaunchContextMap = null,
++      onSubmit = { getResponse ->
++        scope.launch {
++          try {
++            val json = Json.encodeToString(QuestionnaireResponse.serializer(), getResponse())
++            withContext(Dispatchers.IO) { saveVisit(p.id, json) }
++            onDone(true)
++          } catch (e: Exception) {
++            saveErr = e.message ?: e.toString()
++          }
++        }
++      },
++      onCancel = { onDone(false) },
++    )
++  }
+   }
+ }

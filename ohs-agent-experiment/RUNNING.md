@@ -113,10 +113,10 @@ project root.
 
 | Agent | Model argument | Notes |
 |---|---|---|
-| claude | `fable` | claude-fable-5, $10/$50 per MTok |
-| claude | `opus` | claude-opus-5, $5/$25 |
-| claude | `sonnet` | claude-sonnet-5, $2/$10 |
-| claude | `haiku` | claude-haiku-4-5-20251001, $1/$5 |
+| claude | `claude-fable-5-1-<effort>` | $10/$50 per MTok, cache reads 0.025x input |
+| claude | `claude-opus-5-5-<effort>` | $4/$20, cache reads 0.05x input |
+| claude | `claude-sonnet-5-5-<effort>` | $2/$10, cache reads 0.05x input |
+| claude | `claude-haiku-5-5-<effort>` | $0.10/$0.50, 5x for any request whose prompt is over 100K tokens |
 | gemini | `gemini-3.8-flash`, `3.7-flash`, `3.6-flash` | $0.75/$3.75, intro rate through 2026-12-31, then $1.50/$7.50 |
 | gemini | `gemini-3-flash` | $0.50/$3 |
 | gemini | `gemini-3.1-pro` | $2/$12 |
@@ -128,7 +128,13 @@ project root.
 Rates live in `GEMINI_RATES` (`harness/extract-gemini.py`), gathered
 2026-09-01; spot-check before quoting externally.
 
-Claude accepts only the four shortcuts. Gemini accepts any name that
+Claude takes a model id plus a Claude Code effort level (`low`,
+`medium`, `high`, `xhigh` or `max`), e.g. `claude-opus-5-5-medium`. The
+runner passes the effort as `--effort`. Claude rates live in `RATES`
+(`harness/extract-claude.py`), checked 2026-10-13. Cache writes are
+billed at 2x input because Claude Code uses the 1-hour cache. The August
+runs used shortcuts (`fable`, `opus`, `sonnet`, `haiku`) for older
+models at their default effort. Gemini accepts any name that
 starts with `gemini`. Antigravity accepts any `gemini-*` id that
 `agy models` prints with an effort suffix; it also offers Claude and
 GPT-OSS models, which the runner rejects. Antigravity strips the
@@ -163,7 +169,7 @@ One run
 ```bash
 cd harness
 ./runner.sh <agent> <model> <condition> <replicate>
-./runner.sh claude opus ohs 02                # example
+./runner.sh claude claude-opus-5-5-medium ohs 1   # example
 ./runner.sh gemini gemini-3.1-pro cold 01     # example
 ./runner.sh antigravity gemini-3.8-flash-high cold 01   # example
 ```

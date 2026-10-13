@@ -1,0 +1,568 @@
+diff --git a/app/build.gradle.kts b/app/build.gradle.kts
+index ad2507d..3c4b504 100644
+--- a/app/build.gradle.kts
++++ b/app/build.gradle.kts
+@@ -19,14 +19,14 @@ android {
+   }
+ 
+   compileOptions {
+-    sourceCompatibility = JavaVersion.VERSION_17
+-    targetCompatibility = JavaVersion.VERSION_17
++    sourceCompatibility = JavaVersion.VERSION_21
++    targetCompatibility = JavaVersion.VERSION_21
+   }
+ 
+   buildFeatures { compose = true }
+ }
+ 
+-kotlin { compilerOptions { jvmTarget.set(JvmTarget.JVM_17) } }
++kotlin { compilerOptions { jvmTarget.set(JvmTarget.JVM_21) } }
+ 
+ dependencies {
+   implementation(platform("androidx.compose:compose-bom:2026.03.01"))
+@@ -36,6 +36,8 @@ dependencies {
+   implementation("androidx.compose.material3:material3")
+   implementation("androidx.compose.material:material-icons-extended")
+   implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.9.4")
++  implementation("androidx.navigation:navigation-compose:2.9.4")
++  implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")
+ 
+   implementation("dev.ohs.fhir:fhir-model:1.0.0-beta05")
+   implementation("dev.ohs.fhir:fhir-engine:2.0.0-alpha02")
+diff --git a/app/src/main/AndroidManifest.xml b/app/src/main/AndroidManifest.xml
+index c454ae9..1a1cda9 100644
+--- a/app/src/main/AndroidManifest.xml
++++ b/app/src/main/AndroidManifest.xml
+@@ -4,6 +4,8 @@
+     <uses-permission android:name="android.permission.INTERNET" />
+ 
+     <application
++        android:name=".AncApp"
++        android:usesCleartextTraffic="true"
+         android:label="ANC App"
+         android:theme="@android:style/Theme.Material.Light.NoActionBar">
+         <activity
+diff --git a/app/src/main/java/com/example/ancapp/Anc.kt b/app/src/main/java/com/example/ancapp/Anc.kt
+new file mode 100644
+index 0000000..d396ce2
+--- /dev/null
++++ b/app/src/main/java/com/example/ancapp/Anc.kt
+@@ -0,0 +1,310 @@
++package com.example.ancapp
++
++import android.app.Application
++import android.util.Log
++import dev.ohs.fhir.datacapture.DataCapture
++import dev.ohs.fhir.engine.FhirEngine
++import dev.ohs.fhir.engine.FhirEngineConfiguration
++import dev.ohs.fhir.engine.FhirEngineProvider
++import dev.ohs.fhir.engine.ServerConfiguration
++import dev.ohs.fhir.engine.search.ReferenceClientParam
++import dev.ohs.fhir.engine.search.search
++import dev.ohs.fhir.engine.sync.AcceptLocalConflictResolver
++import dev.ohs.fhir.engine.sync.FhirSyncTask
++import dev.ohs.fhir.engine.sync.download.ResourceParamsBasedDownloadWorkManager
++import dev.ohs.fhir.engine.sync.runSync
++import dev.ohs.fhir.engine.sync.upload.HttpCreateMethod
++import dev.ohs.fhir.engine.sync.upload.HttpUpdateMethod
++import dev.ohs.fhir.engine.sync.upload.UploadStrategy
++import dev.ohs.fhir.model.r4.Encounter
++import dev.ohs.fhir.model.r4.Observation
++import dev.ohs.fhir.model.r4.Patient
++import dev.ohs.fhir.model.r4.QuestionnaireResponse
++import dev.ohs.fhir.model.r4.Resource
++import dev.ohs.fhir.model.r4.terminologies.ResourceType
++import java.time.LocalDate
++import java.time.temporal.ChronoUnit
++import java.util.UUID
++import kotlinx.coroutines.CoroutineScope
++import kotlinx.coroutines.Dispatchers
++import kotlinx.coroutines.SupervisorJob
++import kotlinx.coroutines.flow.MutableStateFlow
++import kotlinx.coroutines.launch
++import kotlinx.coroutines.sync.Mutex
++import kotlinx.coroutines.sync.withLock
++import kotlinx.serialization.json.Json
++import kotlinx.serialization.json.JsonArray
++import kotlinx.serialization.json.JsonElement
++import kotlinx.serialization.json.JsonObject
++import kotlinx.serialization.json.JsonPrimitive
++import kotlinx.serialization.json.buildJsonObject
++import kotlinx.serialization.json.contentOrNull
++import kotlinx.serialization.json.jsonArray
++import kotlinx.serialization.json.jsonObject
++import kotlinx.serialization.json.jsonPrimitive
++import kotlinx.serialization.json.put
++import kotlinx.serialization.json.putJsonArray
++import kotlinx.serialization.json.putJsonObject
++
++const val SERVER = "http://10.0.2.2:8080/fhir/"
++const val QUESTIONNAIRE_ID = "anc-contact"
++private const val LOINC = "http://loinc.org"
++
++class AncApp : Application() {
++  override fun onCreate() {
++    super.onCreate()
++    FhirEngineProvider.init(
++      FhirEngineConfiguration(serverConfiguration = ServerConfiguration(SERVER)),
++      this,
++    )
++    DataCapture.initialize(this)
++    Anc.engine = FhirEngineProvider.getInstance(this)
++    Anc.sync()
++  }
++}
++
++data class PatientRow(val id: String, val name: String, val age: Int, val edd: LocalDate, val gaDays: Long)
++
++data class Visit(
++  val date: String,
++  val weightKg: String?,
++  val bp: String?,
++  val hb: String?,
++  val gaWeeks: String?,
++  val dangerSigns: List<String>,
++  val notes: String?,
++)
++
++object Anc {
++  lateinit var engine: FhirEngine
++  val json = Json { explicitNulls = false; encodeDefaults = true; ignoreUnknownKeys = true }
++
++  /** Bumped after every sync/save so screens reload from the local DB. */
++  val dataVersion = MutableStateFlow(0)
++  val syncError = MutableStateFlow<String?>(null)
++  private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
++  private val syncLock = Mutex()
++
++  // ponytail: in-memory timestamps, so every app start re-downloads everything; persist if data grows.
++  private val lastUpdated = mutableMapOf<ResourceType, String>()
++
++  private val syncTask = object : FhirSyncTask {
++    override fun getFhirEngine() = engine
++    override fun getConflictResolver() = AcceptLocalConflictResolver
++    // Individual requests: the bundle generator emits relative fullUrls, which HAPI rejects.
++    override fun getUploadStrategy() = UploadStrategy.forIndividualRequest(HttpCreateMethod.PUT, HttpUpdateMethod.PATCH, true)
++    override fun getDownloadWorkManager() =
++        ResourceParamsBasedDownloadWorkManager(
++          mapOf(
++            ResourceType.Patient to emptyMap(),
++            ResourceType.Encounter to emptyMap(),
++            ResourceType.Observation to emptyMap(),
++            ResourceType.QuestionnaireResponse to emptyMap(),
++            ResourceType.Questionnaire to mapOf("_id" to QUESTIONNAIRE_ID),
++          ),
++          object : ResourceParamsBasedDownloadWorkManager.TimestampContext {
++            override suspend fun saveLastUpdatedTimestamp(resourceType: ResourceType, timestamp: String?) {
++              timestamp?.let { lastUpdated[resourceType] = it }
++            }
++
++            override suspend fun getLasUpdateTimestamp(resourceType: ResourceType) = lastUpdated[resourceType]
++          },
++        )
++  }
++
++  /** Uploads local changes and downloads server data; local DB stays usable when offline. */
++  fun sync() =
++    scope.launch {
++      syncLock.withLock {
++        runCatching { syncTask.runSync("anc-sync") {} }
++          .onSuccess { syncError.value = if (it is dev.ohs.fhir.engine.sync.SyncJobStatus.Failed) "Sync failed — working offline" else null }
++          .onFailure {
++            Log.e("Anc", "sync failed", it)
++            syncError.value = "Sync failed — working offline"
++          }
++        dataVersion.value++
++      }
++    }
++
++  fun Resource.toJson(): JsonObject = json.encodeToJsonElement(Resource.serializer(), this).jsonObject
++
++  private fun JsonObject.toResource(): Resource = json.decodeFromJsonElement(Resource.serializer(), this)
++
++  private fun JsonElement?.str(): String? = (this as? JsonPrimitive)?.contentOrNull
++
++  private fun JsonObject.path(vararg keys: String): JsonElement? =
++    keys.fold(this as JsonElement?) { e, k ->
++      when (e) {
++        is JsonObject -> e[k]
++        is JsonArray -> e.firstOrNull()?.jsonObject?.get(k)
++        else -> null
++      }
++    }
++
++  private fun JsonObject.code(): String? = path("code", "coding", "code").str()
++
++  suspend fun patients(today: LocalDate = LocalDate.now()): List<PatientRow> {
++    val edds =
++      engine.search<Observation> {}.map { it.resource.toJson() }
++        .filter { it.code() == "11778-8" }
++        .mapNotNull { o ->
++          val pid = o.path("subject", "reference").str()?.substringAfter("/") ?: return@mapNotNull null
++          val edd = o["valueDateTime"].str()?.take(10)?.let(LocalDate::parse) ?: return@mapNotNull null
++          pid to (o.path("effectiveDateTime").str() to edd)
++        }
++        .groupBy({ it.first }, { it.second })
++        .mapValues { (_, v) -> v.maxBy { it.first ?: "" }.second } // latest recorded EDD wins
++
++    return engine.search<Patient> {}.mapNotNull { r ->
++      val p = r.resource.toJson()
++      val id = r.resource.id ?: return@mapNotNull null
++      val edd = edds[id] ?: return@mapNotNull null
++      val gaDays = 280 - ChronoUnit.DAYS.between(today, edd)
++      if (gaDays !in 0..(42 * 7)) return@mapNotNull null // not currently pregnant
++      val n = p.path("name")?.jsonArray?.firstOrNull()?.jsonObject
++      val name =
++        listOfNotNull(n?.get("given")?.jsonArray?.joinToString(" ") { it.jsonPrimitive.content }, n?.get("family").str())
++          .joinToString(" ")
++      val dob = p["birthDate"].str()?.let(LocalDate::parse)
++      PatientRow(id, name, dob?.let { java.time.Period.between(it, today).years } ?: 0, edd, gaDays)
++    }.sortedBy { it.edd }
++  }
++
++  suspend fun patientName(id: String): String =
++    engine.get(ResourceType.Patient, id).toJson().path("name")?.jsonArray?.firstOrNull()?.jsonObject?.let { n ->
++      (n["given"]?.jsonArray?.map { it.jsonPrimitive.content }.orEmpty() + listOfNotNull(n["family"].str())).joinToString(" ")
++    } ?: id
++
++  suspend fun visits(patientId: String): List<Visit> {
++    val subject: dev.ohs.fhir.engine.search.Search.() -> Unit = {
++      filter(ReferenceClientParam("subject"), { value = "Patient/$patientId" })
++    }
++    val obs = engine.search<Observation>(subject).map { it.resource.toJson() }.groupBy { it.path("encounter", "reference").str() }
++    val qrs = engine.search<QuestionnaireResponse>(subject).map { it.resource.toJson() }.associateBy { it.path("encounter", "reference").str() }
++    return engine.search<Encounter>(subject).map { it.resource.toJson() }.map { e ->
++      val ref = "Encounter/${e["id"].str()}"
++      val o = obs[ref].orEmpty()
++      fun q(code: String) = o.firstOrNull { it.code() == code }?.get("valueQuantity")?.jsonObject
++      fun fmt(qty: JsonObject?) = qty?.let { "${it["value"].str()} ${it["unit"].str().orEmpty()}".trim() }
++      val bp = o.firstOrNull { it.code() == "85354-9" }?.get("component")?.jsonArray?.map { it.jsonObject }
++      fun comp(code: String) = bp?.firstOrNull { it.code() == code }?.path("valueQuantity", "value").str()
++      val answers = qrs[ref]?.let(::answers).orEmpty()
++      Visit(
++        date = e.path("period", "start").str()?.take(10) ?: "?",
++        weightKg = fmt(q("29463-7")),
++        bp = if (comp("8480-6") != null) "${comp("8480-6")}/${comp("8462-4") ?: "?"} mmHg" else null,
++        hb = fmt(q("718-7")),
++        gaWeeks = q("18185-9")?.get("value").str(),
++        dangerSigns = answers["danger-signs"].orEmpty().mapNotNull { it.path("valueCoding", "display").str() }.filter { it != "None" },
++        notes = answers["notes"]?.firstOrNull()?.get("valueString").str(),
++      )
++    }.sortedByDescending { it.date }
++  }
++
++  /** linkId -> answers, flattened across groups. */
++  private fun answers(qr: JsonObject): Map<String, List<JsonObject>> {
++    val out = mutableMapOf<String, List<JsonObject>>()
++    fun walk(items: JsonElement?) {
++      items?.jsonArray?.forEach { i ->
++        val o = i.jsonObject
++        o["linkId"].str()?.let { id -> o["answer"]?.jsonArray?.let { out[id] = it.map { a -> a.jsonObject } } }
++        walk(o["item"])
++      }
++    }
++    walk(qr["item"])
++    return out
++  }
++
++  suspend fun questionnaireJson(): String =
++    json.encodeToString(Resource.serializer(), engine.get(ResourceType.Questionnaire, QUESTIONNAIRE_ID))
++
++  /** Turns a completed anc-contact response into Encounter + Observations, saves locally, then syncs. */
++  suspend fun saveVisit(patientId: String, response: QuestionnaireResponse) {
++    val a = answers(response.toJson())
++    fun first(id: String, key: String) = a[id]?.firstOrNull()?.get(key).str()
++    val date = first("visit-date", "valueDate") ?: LocalDate.now().toString()
++    val patientRef = "Patient/$patientId"
++    val encId = UUID.randomUUID().toString()
++    val encRef = "Encounter/$encId"
++
++    val encounter = buildJsonObject {
++      put("resourceType", "Encounter")
++      put("id", encId)
++      put("status", "finished")
++      putJsonObject("class") {
++        put("system", "http://terminology.hl7.org/CodeSystem/v3-ActCode")
++        put("code", "AMB")
++        put("display", "ambulatory")
++      }
++      putJsonArray("type") { add(buildJsonObject { put("text", "Antenatal care contact") }) }
++      putJsonObject("subject") { put("reference", patientRef) }
++      putJsonObject("period") {
++        put("start", date)
++        put("end", date)
++      }
++    }
++
++    fun coding(code: String, display: String) = buildJsonObject {
++      putJsonArray("coding") {
++        add(buildJsonObject {
++          put("system", LOINC)
++          put("code", code)
++          put("display", display)
++        })
++      }
++    }
++
++    fun quantity(value: String, unit: String, ucum: String) = buildJsonObject {
++      put("value", JsonPrimitive(value.toBigDecimal()))
++      put("unit", unit)
++      put("system", "http://unitsofmeasure.org")
++      put("code", ucum)
++    }
++
++    fun observation(code: String, display: String, body: kotlinx.serialization.json.JsonObjectBuilder.() -> Unit) =
++      buildJsonObject {
++        put("resourceType", "Observation")
++        put("id", UUID.randomUUID().toString())
++        put("status", "final")
++        put("code", coding(code, display))
++        putJsonObject("subject") { put("reference", patientRef) }
++        putJsonObject("encounter") { put("reference", encRef) }
++        put("effectiveDateTime", date)
++        body()
++      }
++
++    val observations = buildList {
++      first("weight", "valueDecimal")?.let { w ->
++        add(observation("29463-7", "Body weight") { put("valueQuantity", quantity(w, "kg", "kg")) })
++      }
++      first("gestational-age", "valueInteger")?.let { ga ->
++        add(observation("18185-9", "Gestational age") { put("valueQuantity", quantity(ga, "wk", "wk")) })
++      }
++      val sys = first("bp-systolic", "valueInteger")
++      val dia = first("bp-diastolic", "valueInteger")
++      if (sys != null || dia != null) {
++        add(observation("85354-9", "Blood pressure panel with all children optional") {
++          putJsonArray("component") {
++            sys?.let { add(buildJsonObject { put("code", coding("8480-6", "Systolic blood pressure")); put("valueQuantity", quantity(it, "mmHg", "mm[Hg]")) }) }
++            dia?.let { add(buildJsonObject { put("code", coding("8462-4", "Diastolic blood pressure")); put("valueQuantity", quantity(it, "mmHg", "mm[Hg]")) }) }
++          }
++        })
++      }
++    }
++
++    val qr = JsonObject(
++      response.toJson() + mapOf(
++        "id" to JsonPrimitive(UUID.randomUUID().toString()),
++        "questionnaire" to JsonPrimitive("http://example.org/fhir/Questionnaire/$QUESTIONNAIRE_ID"),
++        "status" to JsonPrimitive("completed"),
++        "subject" to buildJsonObject { put("reference", patientRef) },
++        "encounter" to buildJsonObject { put("reference", encRef) },
++        "authored" to JsonPrimitive(java.time.OffsetDateTime.now().withNano(0).toString()),
++      )
++    )
++
++    engine.create(*(listOf(encounter) + observations + qr).map { it.toResource() }.toTypedArray())
++    dataVersion.value++
++    sync()
++  }
++}
+diff --git a/app/src/main/java/com/example/ancapp/MainActivity.kt b/app/src/main/java/com/example/ancapp/MainActivity.kt
+index b5e554b..c00bec4 100644
+--- a/app/src/main/java/com/example/ancapp/MainActivity.kt
++++ b/app/src/main/java/com/example/ancapp/MainActivity.kt
+@@ -1,15 +1,201 @@
+ package com.example.ancapp
+ 
+ import android.os.Bundle
++import android.util.Log
+ import androidx.activity.ComponentActivity
+ import androidx.activity.compose.setContent
++import androidx.compose.foundation.clickable
++import androidx.compose.foundation.layout.Box
++import androidx.compose.foundation.layout.Column
++import androidx.compose.foundation.layout.fillMaxSize
++import androidx.compose.foundation.layout.padding
++import androidx.compose.foundation.lazy.LazyColumn
++import androidx.compose.foundation.lazy.items
++import androidx.compose.material.icons.Icons
++import androidx.compose.material.icons.automirrored.filled.ArrowBack
++import androidx.compose.material.icons.filled.Add
++import androidx.compose.material.icons.filled.Refresh
++import androidx.compose.material3.CircularProgressIndicator
++import androidx.compose.material3.ExperimentalMaterial3Api
++import androidx.compose.material3.ExtendedFloatingActionButton
++import androidx.compose.material3.HorizontalDivider
++import androidx.compose.material3.Icon
++import androidx.compose.material3.IconButton
++import androidx.compose.material3.ListItem
+ import androidx.compose.material3.MaterialTheme
+-import androidx.compose.material3.Surface
++import androidx.compose.material3.Scaffold
+ import androidx.compose.material3.Text
++import androidx.compose.material3.TopAppBar
++import androidx.compose.runtime.Composable
++import androidx.compose.runtime.collectAsState
++import androidx.compose.runtime.getValue
++import androidx.compose.runtime.produceState
++import androidx.compose.runtime.rememberCoroutineScope
++import androidx.compose.ui.Alignment
++import androidx.compose.ui.Modifier
++import androidx.compose.ui.graphics.Color
++import androidx.compose.ui.unit.dp
++import androidx.navigation.NavController
++import androidx.navigation.compose.NavHost
++import androidx.navigation.compose.composable
++import androidx.navigation.compose.rememberNavController
++import dev.ohs.fhir.datacapture.Questionnaire
++import java.time.format.DateTimeFormatter
++import kotlinx.coroutines.launch
+ 
+ class MainActivity : ComponentActivity() {
+   override fun onCreate(savedInstanceState: Bundle?) {
+     super.onCreate(savedInstanceState)
+-    setContent { MaterialTheme { Surface { Text("Hello") } } }
++    setContent {
++      MaterialTheme {
++        val nav = rememberNavController()
++        NavHost(nav, startDestination = "register") {
++          composable("register") { RegisterScreen(nav) }
++          composable("patient/{id}") { PatientScreen(nav, it.arguments!!.getString("id")!!) }
++          composable("visit/{id}") { VisitFormScreen(nav, it.arguments!!.getString("id")!!) }
++        }
++      }
++    }
++  }
++}
++
++/** Re-runs [load] whenever local data changes (save or sync). Null while loading. */
++@Composable
++private fun <T> localData(vararg keys: Any, load: suspend () -> T): T? {
++  val version by Anc.dataVersion.collectAsState()
++  return produceState<T?>(null, version, *keys) {
++    value = runCatching { load() }.onFailure { Log.e("Anc", "load failed", it) }.getOrNull()
++  }.value
++}
++
++@OptIn(ExperimentalMaterial3Api::class)
++@Composable
++private fun Screen(
++  title: String,
++  nav: NavController?,
++  actions: @Composable () -> Unit = {},
++  fab: @Composable () -> Unit = {},
++  content: @Composable (Modifier) -> Unit,
++) {
++  val error by Anc.syncError.collectAsState()
++  Scaffold(
++    topBar = {
++      TopAppBar(
++        title = { Text(title) },
++        navigationIcon = {
++          nav?.let {
++            IconButton(onClick = { it.popBackStack() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") }
++          }
++        },
++        actions = { actions() },
++      )
++    },
++    floatingActionButton = fab,
++  ) { pad ->
++    Column(Modifier.padding(pad).fillMaxSize()) {
++      error?.let { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(horizontal = 16.dp)) }
++      content(Modifier.fillMaxSize())
++    }
++  }
++}
++
++@Composable
++private fun Loading() = Box(Modifier.fillMaxSize(), Alignment.Center) { CircularProgressIndicator() }
++
++private val dateFmt = DateTimeFormatter.ofPattern("d MMM yyyy")
++
++@Composable
++private fun RegisterScreen(nav: NavController) {
++  val patients = localData { Anc.patients() }
++  Screen(
++    "ANC register",
++    nav = null,
++    actions = { IconButton(onClick = { Anc.sync() }) { Icon(Icons.Default.Refresh, "Sync") } },
++  ) { mod ->
++    when {
++      patients == null -> Loading()
++      patients.isEmpty() -> Box(mod, Alignment.Center) { Text("No pregnant patients yet. Tap sync.") }
++      else ->
++        LazyColumn(mod) {
++          items(patients, key = { it.id }) { p ->
++            ListItem(
++              headlineContent = { Text(p.name) },
++              supportingContent = { Text("Age ${p.age} · Due ${p.edd.format(dateFmt)}") },
++              trailingContent = { Text("${p.gaDays / 7}w ${p.gaDays % 7}d", style = MaterialTheme.typography.titleMedium) },
++              modifier = Modifier.clickable { nav.navigate("patient/${p.id}") },
++            )
++            HorizontalDivider()
++          }
++        }
++    }
++  }
++}
++
++@Composable
++private fun PatientScreen(nav: NavController, id: String) {
++  val name = localData(id) { Anc.patientName(id) }
++  val visits = localData(id) { Anc.visits(id) }
++  Screen(
++    name ?: "",
++    nav,
++    fab = {
++      ExtendedFloatingActionButton(
++        text = { Text("Record visit") },
++        icon = { Icon(Icons.Default.Add, null) },
++        onClick = { nav.navigate("visit/$id") },
++      )
++    },
++  ) { mod ->
++    when {
++      visits == null -> Loading()
++      visits.isEmpty() -> Box(mod, Alignment.Center) { Text("No ANC visits recorded") }
++      else ->
++        LazyColumn(mod) {
++          items(visits) { v ->
++            ListItem(
++              headlineContent = { Text(v.date) },
++              supportingContent = {
++                Column {
++                  Text(
++                    listOfNotNull(
++                      v.gaWeeks?.let { "GA $it wk" },
++                      v.weightKg?.let { "Weight $it" },
++                      v.bp?.let { "BP $it" },
++                      v.hb?.let { "Hb $it" },
++                    ).joinToString(" · ")
++                  )
++                  if (v.dangerSigns.isNotEmpty()) Text("Danger signs: ${v.dangerSigns.joinToString()}", color = Color(0xFFB00020))
++                  v.notes?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
++                }
++              },
++            )
++            HorizontalDivider()
++          }
++        }
++    }
++  }
++}
++
++@Composable
++private fun VisitFormScreen(nav: NavController, id: String) {
++  val questionnaire = localData { Anc.questionnaireJson() }
++  val scope = rememberCoroutineScope()
++  Screen("Record ANC visit", nav) { mod ->
++    if (questionnaire == null) {
++      Box(mod, Alignment.Center) { Text("Form not downloaded yet — sync with the server first.") }
++      return@Screen
++    }
++    Box(mod) {
++      Questionnaire(
++        questionnaireJson = questionnaire,
++        onSubmit = { getResponse ->
++          scope.launch {
++            Anc.saveVisit(id, getResponse())
++            nav.popBackStack()
++          }
++        },
++        onCancel = { nav.popBackStack() },
++      )
++    }
+   }
+ }

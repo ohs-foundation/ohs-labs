@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Runs ONE clean eval build run: ./runner.sh <agent> <model> <condition> <replicate>
 #   agent:     always explicit, no default: claude | gemini | antigravity
-#   model:     claude: fable | opus | sonnet | haiku; gemini: raw names (e.g. gemini-3.7-flash);
+#   model:     claude <model id>-<effort> (e.g. claude-opus-5-5-medium), gemini raw names (e.g. gemini-3.7-flash),
 #              antigravity: raw `agy models` ids, gemini only (e.g. gemini-3.8-flash-high)
 #   condition: cold | ohs | ohs-skills
 #   replicate: 01, 02, ...
@@ -15,7 +15,7 @@ export GIT_COMMITTER_NAME="OHS Agent"
 export GIT_COMMITTER_EMAIL="agent@example.com"
 
 if [ "$#" -ne 4 ]; then
-  echo "usage: runner.sh <agent> <model> <condition> <replicate>   e.g.: runner.sh claude opus ohs 02"
+  echo "usage: runner.sh <agent> <model> <condition> <replicate>   e.g.: runner.sh claude claude-opus-5-5-medium ohs 01"
   exit 2
 fi
 AGENT="$1"; MODEL="$2"; COND="$3"; REP="$4"
@@ -39,12 +39,12 @@ AGY_HOME="$HOME/.gemini/antigravity-cli"   # agy's own state; ~/.gemini root is 
 
 if [ "$AGENT" = "claude" ]; then
   [ -x "$CLAUDE_BIN" ] || { echo "claude binary not found at $CLAUDE_BIN"; exit 2; }
+  # The model id ends in a Claude Code effort level, passed as --effort. Every run
+  # pins its effort and the run id records it, like antigravity's ids.
   case "$MODEL" in
-    fable)  MODEL_ID="claude-fable-5" ;;
-    sonnet) MODEL_ID="claude-sonnet-5" ;;
-    opus)   MODEL_ID="claude-opus-5" ;;
-    haiku)  MODEL_ID="claude-haiku-4-5-20251001" ;;
-    *) echo "unknown claude model $MODEL"; exit 2 ;;
+    claude-*-low|claude-*-medium|claude-*-high|claude-*-xhigh|claude-*-max)
+      EFFORT="${MODEL##*-}"; MODEL_ID="${MODEL%-*}" ;;
+    *) echo "claude models must be <model id>-<effort> (low|medium|high|xhigh|max), e.g. claude-opus-5-5-medium, got '$MODEL'"; exit 2 ;;
   esac
   API_HOST="https://api.anthropic.com/"
 elif [ "$AGENT" = "gemini" ]; then
@@ -154,7 +154,7 @@ GEMINI_STREAM="$H/work/.stream-$RUN_ID.jsonl"   # gemini and antigravity: stream
 set +e
 if [ "$AGENT" = "claude" ]; then
   ( cd "$WORK" && perl -e 'alarm 3600; exec @ARGV' -- \
-      "$CLAUDE_BIN" -p --model "$MODEL_ID" --dangerously-skip-permissions \
+      "$CLAUDE_BIN" -p --model "$MODEL_ID" --effort "$EFFORT" --dangerously-skip-permissions \
       < "$PROMPT_FILE" ) >>"$LOG" 2>&1
 elif [ "$AGENT" = "gemini" ]; then
   # stream-json on stdout IS the transcript; stderr goes to the log

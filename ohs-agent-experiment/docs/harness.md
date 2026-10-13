@@ -33,12 +33,12 @@ pattern (see section 6). The rule throughout is that the agent is an
 attribute of a run, never a folder hierarchy, and never a default.
 
 1. One `runs/` tree, one `results.csv`, one grid. A run's model segment
-   already implies its agent (`opus` is Claude, `gemini-3.7-flash` is
+   already implies its agent (`claude-opus-5-5-medium` is Claude, `gemini-3.7-flash` is
    Gemini CLI, `gemini-3.8-flash-high` is Antigravity because agy ids
    always carry an effort suffix, no overlap) and `run.json` records the
    harness explicitly.
 2. The agent is the explicit first argument of every run
-   (`./runner.sh claude opus ohs 02`). There is no default agent, no
+   (`./runner.sh claude claude-opus-5-5-medium ohs 1`). There is no default agent, no
    default manifest, and no file named as if one agent were the normal
    case. Each agent has its own extractor (`extract-claude.py`,
    `extract-gemini.py`, `extract-antigravity.py`) and its own campaign
