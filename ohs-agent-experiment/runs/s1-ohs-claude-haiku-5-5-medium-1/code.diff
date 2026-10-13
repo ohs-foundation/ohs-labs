@@ -1,0 +1,615 @@
+diff --git a/app/src/main/AndroidManifest.xml b/app/src/main/AndroidManifest.xml
+index c454ae9..bfb79ec 100644
+--- a/app/src/main/AndroidManifest.xml
++++ b/app/src/main/AndroidManifest.xml
+@@ -4,6 +4,7 @@
+     <uses-permission android:name="android.permission.INTERNET" />
+ 
+     <application
++        android:usesCleartextTraffic="true"
+         android:label="ANC App"
+         android:theme="@android:style/Theme.Material.Light.NoActionBar">
+         <activity
+diff --git a/app/src/main/java/com/example/ancapp/Fhir.kt b/app/src/main/java/com/example/ancapp/Fhir.kt
+new file mode 100644
+index 0000000..c68dbf2
+--- /dev/null
++++ b/app/src/main/java/com/example/ancapp/Fhir.kt
+@@ -0,0 +1,289 @@
++package com.example.ancapp
++
++import org.json.JSONArray
++import org.json.JSONObject
++import java.io.IOException
++import java.net.HttpURLConnection
++import java.net.URL
++import java.time.LocalDate
++import java.time.temporal.ChronoUnit
++import java.util.UUID
++
++// 10.0.2.2 is the Android emulator's alias for the host machine.
++private const val BASE = "http://10.0.2.2:8080/fhir"
++private const val LOINC = "http://loinc.org"
++private const val LOCAL = "urn:example:anc-form"
++private const val LOINC_EDD = "11778-8"
++private const val LOINC_WEIGHT = "29463-7"
++private const val LOINC_BP = "85354-9"
++private const val LOINC_SYSTOLIC = "8480-6"
++private const val LOINC_DIASTOLIC = "8462-4"
++private const val LOINC_HB = "718-7"
++private const val LOINC_GA = "18185-9"
++
++data class Coding(val system: String, val code: String, val display: String)
++
++data class Patient(
++  val id: String,
++  val name: String,
++  val birthDate: LocalDate,
++  val dueDate: LocalDate,
++) {
++  val age: Int get() = ChronoUnit.YEARS.between(birthDate, LocalDate.now()).toInt()
++
++  // Gestation is 280 days minus the days remaining until the estimated due date.
++  val weeks: Int get() = ((280 - ChronoUnit.DAYS.between(LocalDate.now(), dueDate)) / 7).toInt()
++}
++
++data class Visit(
++  val id: String,
++  val date: LocalDate,
++  val weight: Double?,
++  val systolic: Int?,
++  val diastolic: Int?,
++  val hb: Double?,
++  val dangerSigns: List<String>,
++  val notes: String?,
++)
++
++data class QuestionItem(
++  val linkId: String,
++  val text: String,
++  val type: String,
++  val required: Boolean,
++  val options: List<Coding>,
++)
++
++data class VisitInput(
++  val date: LocalDate,
++  val gestationalWeeks: Int,
++  val weightKg: Double,
++  val systolic: Int,
++  val diastolic: Int,
++  val dangerSigns: List<Coding>,
++  val notes: String,
++)
++
++// Patients with an estimated due date on or after today, soonest first.
++fun loadPregnantPatients(): List<Patient> {
++  val today = LocalDate.now()
++  val dueByPatient = get("Observation?code=$LOINC_EDD&_count=500").resources()
++    .groupBy { it.refId("subject") }
++    .mapValues { (_, obs) ->
++      LocalDate.parse(obs.maxBy { it.optString("effectiveDateTime") }.getString("valueDateTime"))
++    }
++  return get("Patient?_count=500").resources().mapNotNull { p ->
++    val due = dueByPatient[p.getString("id")] ?: return@mapNotNull null
++    if (due < today) null else p.toPatient(due)
++  }.sortedBy { it.dueDate }
++}
++
++fun loadVisits(patientId: String): List<Visit> {
++  val resources = get("Encounter?subject=Patient/$patientId&_revinclude=Observation:encounter&_count=200")
++    .resources()
++  val obsByEncounter = resources
++    .filter { it.getString("resourceType") == "Observation" }
++    .groupBy { it.refId("encounter") }
++  return resources
++    .filter { it.getString("resourceType") == "Encounter" }
++    .map { enc ->
++      val obs = obsByEncounter[enc.getString("id")].orEmpty()
++      val bp = obs.byCode(LOINC_BP)
++      val danger = obs.byCode("danger-signs")?.optJSONObject("valueCodeableConcept")?.optJSONArray("coding")
++      Visit(
++        id = enc.getString("id"),
++        date = LocalDate.parse(enc.getJSONObject("period").getString("start")),
++        weight = obs.byCode(LOINC_WEIGHT)?.quantity(),
++        systolic = bp?.component(LOINC_SYSTOLIC)?.toInt(),
++        diastolic = bp?.component(LOINC_DIASTOLIC)?.toInt(),
++        hb = obs.byCode(LOINC_HB)?.quantity(),
++        dangerSigns = danger.objects().map { it.optString("display") },
++        notes = obs.byCode("notes")?.optString("valueString")?.ifEmpty { null },
++      )
++    }
++    .sortedByDescending { it.date }
++}
++
++fun loadQuestionnaire(): List<QuestionItem> =
++  get("Questionnaire/anc-contact").optJSONArray("item").questionItems()
++
++// Saves one visit as an Encounter plus Observations in a single transaction.
++fun saveVisit(patientId: String, v: VisitInput) {
++  val entries = JSONArray()
++  val patientRef = ref("Patient/$patientId")
++  val encounter = entries.add(
++    JSONObject()
++      .put("resourceType", "Encounter")
++      .put("status", "finished")
++      .put(
++        "class",
++        JSONObject()
++          .put("system", "http://terminology.hl7.org/CodeSystem/v3-ActCode")
++          .put("code", "AMB")
++          .put("display", "ambulatory"),
++      )
++      .put("type", JSONArray().put(JSONObject().put("text", "Antenatal care contact")))
++      .put("subject", patientRef)
++      .put(
++        "period",
++        JSONObject().put("start", v.date.toString()).put("end", v.date.toString()),
++      ),
++  )
++
++  fun observation(code: JSONObject, body: JSONObject.() -> Unit) = entries.add(
++    JSONObject()
++      .put("resourceType", "Observation")
++      .put("status", "final")
++      .put("code", code)
++      .put("subject", patientRef)
++      .put("encounter", ref(encounter))
++      .put("effectiveDateTime", v.date.toString())
++      .apply(body),
++  )
++
++  observation(concept(LOINC, LOINC_GA, "Gestational age")) {
++    put("valueInteger", v.gestationalWeeks)
++  }
++  observation(concept(LOINC, LOINC_WEIGHT, "Body weight")) {
++    put("valueQuantity", quantity(v.weightKg, "kg", "kg"))
++  }
++  observation(concept(LOINC, LOINC_BP, "Blood pressure panel with all children optional")) {
++    put(
++      "component",
++      JSONArray()
++        .put(
++          JSONObject()
++            .put("code", concept(LOINC, LOINC_SYSTOLIC, "Systolic blood pressure"))
++            .put("valueQuantity", quantity(v.systolic, "mmHg", "mm[Hg]")),
++        )
++        .put(
++          JSONObject()
++            .put("code", concept(LOINC, LOINC_DIASTOLIC, "Diastolic blood pressure"))
++            .put("valueQuantity", quantity(v.diastolic, "mmHg", "mm[Hg]")),
++        ),
++    )
++  }
++  if (v.dangerSigns.isNotEmpty()) {
++    observation(concept(LOCAL, "danger-signs", "Danger signs present")) {
++      put(
++        "valueCodeableConcept",
++        JSONObject().put(
++          "coding",
++          JSONArray(v.dangerSigns.map {
++            JSONObject().put("system", it.system).put("code", it.code).put("display", it.display)
++          }),
++        ),
++      )
++    }
++  }
++  if (v.notes.isNotBlank()) {
++    observation(concept(LOCAL, "notes", "Notes")) { put("valueString", v.notes) }
++  }
++
++  request(
++    "POST",
++    "",
++    JSONObject().put("resourceType", "Bundle").put("type", "transaction").put("entry", entries),
++  )
++}
++
++private fun get(path: String) = request("GET", path)
++
++private fun request(method: String, path: String, body: JSONObject? = null): JSONObject {
++  val conn = (URL("$BASE/$path").openConnection() as HttpURLConnection).apply {
++    requestMethod = method
++    connectTimeout = 10_000
++    readTimeout = 10_000
++    setRequestProperty("Accept", "application/fhir+json")
++    if (body != null) {
++      doOutput = true
++      setRequestProperty("Content-Type", "application/fhir+json")
++      outputStream.use { it.write(body.toString().toByteArray()) }
++    }
++  }
++  try {
++    val code = conn.responseCode
++    val stream = if (code < 400) conn.inputStream else conn.errorStream
++    val text = stream?.bufferedReader()?.use { it.readText() }.orEmpty()
++    if (code >= 400) throw IOException("HTTP $code from $method $path: $text")
++    return JSONObject(text)
++  } finally {
++    conn.disconnect()
++  }
++}
++
++private fun JSONArray?.objects(): List<JSONObject> =
++  this?.let { arr -> List(arr.length()) { arr.getJSONObject(it) } }.orEmpty()
++
++private fun JSONObject.resources(): List<JSONObject> =
++  optJSONArray("entry").objects().map { it.getJSONObject("resource") }
++
++private fun JSONObject.refId(field: String): String =
++  optJSONObject(field)?.optString("reference").orEmpty().substringAfter("/")
++
++private fun ref(url: String) = JSONObject().put("reference", url)
++
++private fun List<JSONObject>.byCode(code: String): JSONObject? = firstOrNull { it.codeOf() == code }
++
++private fun JSONObject.codeOf(): String? =
++  optJSONObject("code")?.optJSONArray("coding")?.optJSONObject(0)?.optString("code")
++
++private fun JSONObject.quantity(): Double? =
++  optJSONObject("valueQuantity")?.optDouble("value")?.takeUnless { it.isNaN() }
++
++private fun JSONObject.component(code: String): Double? =
++  optJSONArray("component").objects().firstOrNull { it.codeOf() == code }?.quantity()
++
++private fun JSONObject.toPatient(due: LocalDate): Patient {
++  val name = optJSONArray("name")?.optJSONObject(0)
++  val given = name?.optJSONArray("given")?.optString(0).orEmpty()
++  return Patient(
++    id = getString("id"),
++    name = "$given ${name?.optString("family").orEmpty()}".trim(),
++    birthDate = LocalDate.parse(getString("birthDate")),
++    dueDate = due,
++  )
++}
++
++private fun JSONArray?.questionItems(): List<QuestionItem> = objects().flatMap { item ->
++  if (item.optString("type") == "group") {
++    item.optJSONArray("item").questionItems()
++  } else {
++    val options = item.optJSONArray("answerOption").objects().mapNotNull { opt ->
++      opt.optJSONObject("valueCoding")?.let {
++        Coding(it.getString("system"), it.getString("code"), it.getString("display"))
++      }
++    }
++    listOf(
++      QuestionItem(
++        linkId = item.getString("linkId"),
++        text = item.optString("text"),
++        type = item.getString("type"),
++        required = item.optBoolean("required"),
++        options = options,
++      ),
++    )
++  }
++}
++
++private fun JSONArray.add(resource: JSONObject): String {
++  val fullUrl = "urn:uuid:${UUID.randomUUID()}"
++  put(
++    JSONObject()
++      .put("fullUrl", fullUrl)
++      .put("resource", resource)
++      .put("request", JSONObject().put("method", "POST").put("url", resource.getString("resourceType"))),
++  )
++  return fullUrl
++}
++
++private fun concept(system: String, code: String, display: String) = JSONObject().put(
++  "coding",
++  JSONArray().put(JSONObject().put("system", system).put("code", code).put("display", display)),
++)
++
++private fun quantity(value: Number, unit: String, ucumCode: String) = JSONObject()
++  .put("value", value)
++  .put("unit", unit)
++  .put("system", "http://unitsofmeasure.org")
++  .put("code", ucumCode)
+diff --git a/app/src/main/java/com/example/ancapp/MainActivity.kt b/app/src/main/java/com/example/ancapp/MainActivity.kt
+index b5e554b..0055a0c 100644
+--- a/app/src/main/java/com/example/ancapp/MainActivity.kt
++++ b/app/src/main/java/com/example/ancapp/MainActivity.kt
+@@ -1,15 +1,301 @@
++@file:OptIn(ExperimentalMaterial3Api::class)
+ package com.example.ancapp
+ 
+ import android.os.Bundle
+ import androidx.activity.ComponentActivity
+ import androidx.activity.compose.setContent
++import androidx.compose.foundation.clickable
++import androidx.compose.foundation.layout.Arrangement
++import androidx.compose.foundation.layout.Box
++import androidx.compose.foundation.layout.Column
++import androidx.compose.foundation.layout.Row
++import androidx.compose.foundation.layout.fillMaxSize
++import androidx.compose.foundation.layout.PaddingValues
++import androidx.compose.foundation.layout.fillMaxWidth
++import androidx.compose.foundation.layout.padding
++import androidx.compose.foundation.lazy.LazyColumn
++import androidx.compose.foundation.lazy.items
++import androidx.compose.foundation.rememberScrollState
++import androidx.compose.foundation.text.KeyboardOptions
++import androidx.compose.foundation.verticalScroll
++import androidx.compose.material.icons.Icons
++import androidx.compose.material.icons.automirrored.filled.ArrowBack
++import androidx.compose.material.icons.filled.Add
++import androidx.compose.material3.Button
++import androidx.compose.material3.ExperimentalMaterial3Api
++import androidx.compose.material3.Card
++import androidx.compose.material3.Checkbox
++import androidx.compose.material3.CircularProgressIndicator
++import androidx.compose.material3.FloatingActionButton
++import androidx.compose.material3.Icon
++import androidx.compose.material3.IconButton
+ import androidx.compose.material3.MaterialTheme
+-import androidx.compose.material3.Surface
++import androidx.compose.material3.OutlinedTextField
++import androidx.compose.material3.Scaffold
+ import androidx.compose.material3.Text
++import androidx.compose.material3.TopAppBar
++import androidx.compose.runtime.Composable
++import androidx.compose.runtime.getValue
++import androidx.compose.runtime.mutableStateMapOf
++import androidx.compose.runtime.mutableStateOf
++import androidx.compose.runtime.produceState
++import androidx.compose.runtime.remember
++import androidx.compose.runtime.rememberCoroutineScope
++import androidx.compose.runtime.setValue
++import androidx.compose.runtime.snapshots.SnapshotStateMap
++
++import androidx.compose.ui.Alignment
++import androidx.compose.ui.Modifier
++import androidx.compose.ui.text.font.FontWeight
++import androidx.compose.ui.text.input.KeyboardType
++import androidx.compose.ui.unit.dp
++import kotlinx.coroutines.Dispatchers
++import kotlinx.coroutines.launch
++import kotlinx.coroutines.withContext
++import java.time.LocalDate
+ 
+ class MainActivity : ComponentActivity() {
+   override fun onCreate(savedInstanceState: Bundle?) {
+     super.onCreate(savedInstanceState)
+-    setContent { MaterialTheme { Surface { Text("Hello") } } }
++    setContent { MaterialTheme { AncApp() } }
++  }
++}
++
++private sealed interface Route {
++  data object Register : Route
++  data class Detail(val patient: Patient) : Route
++  data class NewVisit(val patient: Patient) : Route
++}
++
++@Composable
++private fun AncApp() {
++  var route by remember { mutableStateOf<Route>(Route.Register) }
++  when (val r = route) {
++    Route.Register -> RegisterScreen(onOpen = { route = Route.Detail(it) })
++    is Route.Detail -> DetailScreen(
++      patient = r.patient,
++      onBack = { route = Route.Register },
++      onNewVisit = { route = Route.NewVisit(r.patient) },
++    )
++    is Route.NewVisit -> VisitFormScreen(
++      patient = r.patient,
++      onBack = { route = Route.Detail(r.patient) },
++      onSaved = { route = Route.Detail(r.patient) },
++    )
++  }
++}
++
++// Runs a blocking FHIR call off the main thread; null while it is in flight.
++@Composable
++private fun <T> loadAsync(key: Any, block: () -> T) = produceState<Result<T>?>(null, key) {
++  value = withContext(Dispatchers.IO) { runCatching(block) }
++}
++
++@Composable
++private fun <T> Loaded(state: Result<T>?, modifier: Modifier, content: @Composable (T) -> Unit) {
++  Box(modifier, contentAlignment = Alignment.Center) {
++    when {
++      state == null -> CircularProgressIndicator()
++      state.isFailure -> Text(
++        "Could not load from the FHIR server: ${state.exceptionOrNull()?.message}",
++        color = MaterialTheme.colorScheme.error,
++        modifier = Modifier.padding(16.dp),
++      )
++      else -> content(state.getOrThrow())
++    }
++  }
++}
++
++@Composable
++private fun RegisterScreen(onOpen: (Patient) -> Unit) {
++  val state by loadAsync(Unit) { loadPregnantPatients() }
++  Scaffold(topBar = { TopAppBar(title = { Text("Pregnant patients") }) }) { pad ->
++    Loaded(state, Modifier.padding(pad).fillMaxSize()) { patients ->
++      if (patients.isEmpty()) {
++        Text("No pregnant patients on file.", modifier = Modifier.padding(16.dp))
++      } else {
++        LazyColumn(
++          contentPadding = PaddingValues(16.dp),
++          verticalArrangement = Arrangement.spacedBy(8.dp),
++          modifier = Modifier.fillMaxSize(),
++        ) {
++          items(patients, key = { it.id }) { p ->
++            Card(onClick = { onOpen(p) }, modifier = Modifier.fillMaxWidth()) {
++              Column(Modifier.padding(16.dp)) {
++                Text(p.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
++                Text("Age ${p.age} · Due ${p.dueDate} · ${p.weeks} weeks")
++              }
++            }
++          }
++        }
++      }
++    }
++  }
++}
++
++@Composable
++private fun DetailScreen(patient: Patient, onBack: () -> Unit, onNewVisit: () -> Unit) {
++  val state by loadAsync(patient.id) { loadVisits(patient.id) }
++  Scaffold(
++    topBar = {
++      TopAppBar(
++        title = { Text(patient.name) },
++        navigationIcon = {
++          IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") }
++        },
++      )
++    },
++    floatingActionButton = {
++      FloatingActionButton(onClick = onNewVisit) { Icon(Icons.Default.Add, "Record ANC visit") }
++    },
++  ) { pad ->
++    Loaded(state, Modifier.padding(pad).fillMaxSize()) { visits ->
++      LazyColumn(
++        contentPadding = PaddingValues(16.dp),
++        verticalArrangement = Arrangement.spacedBy(8.dp),
++        modifier = Modifier.fillMaxSize(),
++      ) {
++        item {
++          Text("Age ${patient.age} · Due ${patient.dueDate} · ${patient.weeks} weeks")
++          Text("ANC visits", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 8.dp))
++        }
++        if (visits.isEmpty()) item { Text("No ANC visits recorded yet.") }
++        items(visits, key = { it.id }) { VisitCard(it) }
++      }
++    }
++  }
++}
++
++@Composable
++private fun VisitCard(v: Visit) {
++  val bp = if (v.systolic != null && v.diastolic != null) "${v.systolic}/${v.diastolic} mmHg" else "—"
++  Card(Modifier.fillMaxWidth()) {
++    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
++      Text(v.date.toString(), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
++      Text("Weight: ${v.weight?.let { "$it kg" } ?: "—"}")
++      Text("Blood pressure: $bp")
++      v.hb?.let { Text("Hemoglobin: $it g/dL") }
++      if (v.dangerSigns.isNotEmpty()) Text("Danger signs: ${v.dangerSigns.joinToString()}")
++      v.notes?.let { Text("Notes: $it") }
++    }
++  }
++}
++
++@Composable
++private fun VisitFormScreen(patient: Patient, onBack: () -> Unit, onSaved: () -> Unit) {
++  val state by loadAsync(Unit) { loadQuestionnaire() }
++  Scaffold(
++    topBar = {
++      TopAppBar(
++        title = { Text("New ANC visit") },
++        navigationIcon = {
++          IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") }
++        },
++      )
++    },
++  ) { pad ->
++    Loaded(state, Modifier.padding(pad).fillMaxSize()) { items ->
++      VisitForm(patient, items, onSaved)
++    }
++  }
++}
++
++// Renders the server's anc-contact Questionnaire items; answers are keyed by linkId.
++@Composable
++private fun VisitForm(patient: Patient, items: List<QuestionItem>, onSaved: () -> Unit) {
++  val texts = remember { mutableStateMapOf("visit-date" to LocalDate.now().toString()) }
++  val picks = remember { mutableStateMapOf<String, Set<Coding>>() }
++  var error by remember { mutableStateOf<String?>(null) }
++  var saving by remember { mutableStateOf(false) }
++  val scope = rememberCoroutineScope()
++
++  Column(
++    Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
++    verticalArrangement = Arrangement.spacedBy(12.dp),
++  ) {
++    Text(patient.name, style = MaterialTheme.typography.titleMedium)
++    items.forEach { item ->
++      if (item.type == "choice") {
++        ChoiceField(item, picks)
++      } else {
++        val label = if (item.type == "date") "${item.text} (YYYY-MM-DD)" else item.text
++        OutlinedTextField(
++          value = texts[item.linkId].orEmpty(),
++          onValueChange = { texts[item.linkId] = it },
++          label = { Text(if (item.required) "$label *" else label) },
++          keyboardOptions = KeyboardOptions(
++            keyboardType = when (item.type) {
++              "integer" -> KeyboardType.Number
++              "decimal" -> KeyboardType.Decimal
++              else -> KeyboardType.Text
++            },
++          ),
++          singleLine = item.type != "text",
++          minLines = if (item.type == "text") 3 else 1,
++          modifier = Modifier.fillMaxWidth(),
++        )
++      }
++    }
++    error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
++    Button(
++      enabled = !saving,
++      onClick = {
++        saving = true
++        error = null
++        scope.launch {
++          runCatching {
++            val visit = parseVisit(items, texts, picks)
++            withContext(Dispatchers.IO) { saveVisit(patient.id, visit) }
++          }.onSuccess {
++            onSaved()
++          }.onFailure {
++            error = it.message ?: "Save failed"
++            saving = false
++          }
++        }
++      },
++      modifier = Modifier.fillMaxWidth(),
++    ) { Text("Save visit") }
++  }
++}
++
++@Composable
++private fun ChoiceField(item: QuestionItem, picks: SnapshotStateMap<String, Set<Coding>>) {
++  val selected = picks[item.linkId].orEmpty()
++  Column {
++    Text(item.text, style = MaterialTheme.typography.titleSmall)
++    item.options.forEach { option ->
++      val checked = option in selected
++      Row(
++        Modifier.fillMaxWidth().clickable {
++          picks[item.linkId] = if (checked) selected - option else selected + option
++        },
++        verticalAlignment = Alignment.CenterVertically,
++      ) {
++        Checkbox(checked = checked, onCheckedChange = null)
++        Text(option.display)
++      }
++    }
++  }
++}
++
++private fun parseVisit(
++  items: List<QuestionItem>,
++  texts: Map<String, String>,
++  picks: Map<String, Set<Coding>>,
++): VisitInput {
++  fun <T> field(id: String, parse: (String) -> T?): T {
++    val label = items.first { it.linkId == id }.text
++    return texts[id]?.trim()?.takeIf { it.isNotEmpty() }?.let(parse)
++      ?: error("$label is missing or invalid")
+   }
++  return VisitInput(
++    date = field("visit-date") { runCatching { LocalDate.parse(it) }.getOrNull() },
++    gestationalWeeks = field("gestational-age") { it.toIntOrNull() },
++    weightKg = field("weight") { it.toDoubleOrNull() },
++    systolic = field("bp-systolic") { it.toIntOrNull() },
++    diastolic = field("bp-diastolic") { it.toIntOrNull() },
++    dangerSigns = picks["danger-signs"].orEmpty().toList(),
++    notes = texts["notes"]?.trim().orEmpty(),
++  )
+ }

@@ -1,0 +1,237 @@
+diff --git a/app/src/main/java/com/example/ancapp/Data.kt b/app/src/main/java/com/example/ancapp/Data.kt
+new file mode 100644
+index 0000000..ecb4ce7
+--- /dev/null
++++ b/app/src/main/java/com/example/ancapp/Data.kt
+@@ -0,0 +1,75 @@
++package com.example.ancapp
++
++import android.content.Context
++import org.json.JSONArray
++import org.json.JSONObject
++import java.io.File
++import java.time.LocalDate
++import java.time.temporal.ChronoUnit
++
++data class Patient(val id: Int, val name: String, val dob: LocalDate, val edd: LocalDate) {
++  val age: Int get() = ChronoUnit.YEARS.between(dob, LocalDate.now()).toInt()
++  // ponytail: GA derived from EDD (40w rule); add LMP/ultrasound dating if clinic needs it
++  val weeksPregnant: Int get() = (40 - ChronoUnit.DAYS.between(LocalDate.now(), edd) / 7).toInt()
++}
++
++data class Visit(
++  val patientId: Int,
++  val date: LocalDate,
++  val gaWeeks: Int,
++  val weightKg: Double,
++  val systolic: Int,
++  val diastolic: Int,
++  val hb: Double?,
++  val dangerSigns: List<String>,
++  val notes: String,
++)
++
++val DANGER_SIGNS = listOf("Vaginal bleeding", "Severe headache", "Blurred vision", "Fever")
++
++/** JSON file store. ponytail: whole-file rewrite per save, fine for a small clinic; move to Room if thousands of visits. */
++class Store(context: Context) {
++  private val file = File(context.filesDir, "anc.json")
++  val patients: List<Patient>
++  var visits: List<Visit> private set
++
++  init {
++    if (!file.exists()) file.writeText(SEED)
++    val root = JSONObject(file.readText())
++    patients = root.getJSONArray("patients").objects {
++      Patient(it.getInt("id"), it.getString("name"), LocalDate.parse(it.getString("dob")), LocalDate.parse(it.getString("edd")))
++    }
++    visits = root.getJSONArray("visits").objects {
++      Visit(
++        it.getInt("patientId"), LocalDate.parse(it.getString("date")), it.getInt("gaWeeks"), it.getDouble("weightKg"),
++        it.getInt("systolic"), it.getInt("diastolic"), if (it.isNull("hb")) null else it.getDouble("hb"),
++        it.getJSONArray("dangerSigns").strings(), it.optString("notes"),
++      )
++    }
++  }
++
++  fun addVisit(v: Visit) {
++    visits = visits + v
++    val root = JSONObject(file.readText())
++    root.put("visits", JSONArray(visits.map {
++      JSONObject().put("patientId", it.patientId).put("date", it.date.toString()).put("gaWeeks", it.gaWeeks)
++        .put("weightKg", it.weightKg).put("systolic", it.systolic).put("diastolic", it.diastolic)
++        .put("hb", it.hb ?: JSONObject.NULL).put("dangerSigns", JSONArray(it.dangerSigns)).put("notes", it.notes)
++    }))
++    file.writeText(root.toString())
++  }
++
++  private fun <T> JSONArray.objects(f: (JSONObject) -> T) = (0 until length()).map { f(getJSONObject(it)) }
++  private fun JSONArray.strings() = (0 until length()).map { getString(it) }
++}
++
++private val SEED = """
++{"patients":[
++ {"id":1,"name":"Emily Carter","dob":"1996-04-12","edd":"2026-12-05"},
++ {"id":2,"name":"Sarah Mitchell","dob":"1990-11-02","edd":"2027-01-20"},
++ {"id":3,"name":"Grace Thompson","dob":"2001-07-30","edd":"2026-10-15"}],
++ "visits":[
++ {"patientId":1,"date":"2026-08-10","gaWeeks":23,"weightKg":68.5,"systolic":118,"diastolic":76,"hb":11.8,"dangerSigns":[],"notes":""},
++ {"patientId":2,"date":"2026-08-12","gaWeeks":17,"weightKg":61.2,"systolic":110,"diastolic":70,"hb":12.4,"dangerSigns":[],"notes":""},
++ {"patientId":3,"date":"2026-08-05","gaWeeks":30,"weightKg":72.0,"systolic":128,"diastolic":84,"hb":10.2,"dangerSigns":[],"notes":""}]}
++""".trimIndent()
+diff --git a/app/src/main/java/com/example/ancapp/MainActivity.kt b/app/src/main/java/com/example/ancapp/MainActivity.kt
+index b5e554b..6ffdf22 100644
+--- a/app/src/main/java/com/example/ancapp/MainActivity.kt
++++ b/app/src/main/java/com/example/ancapp/MainActivity.kt
+@@ -2,14 +2,147 @@ package com.example.ancapp
+ 
+ import android.os.Bundle
+ import androidx.activity.ComponentActivity
++import androidx.activity.compose.BackHandler
+ import androidx.activity.compose.setContent
+-import androidx.compose.material3.MaterialTheme
+-import androidx.compose.material3.Surface
+-import androidx.compose.material3.Text
++import androidx.compose.foundation.clickable
++import androidx.compose.foundation.layout.*
++import androidx.compose.foundation.lazy.LazyColumn
++import androidx.compose.foundation.lazy.items
++import androidx.compose.foundation.rememberScrollState
++import androidx.compose.foundation.text.KeyboardOptions
++import androidx.compose.foundation.verticalScroll
++import androidx.compose.material3.*
++import androidx.compose.runtime.*
++import androidx.compose.ui.Modifier
++import androidx.compose.ui.text.input.KeyboardType
++import androidx.compose.ui.unit.dp
++import java.time.LocalDate
+ 
+ class MainActivity : ComponentActivity() {
+   override fun onCreate(savedInstanceState: Bundle?) {
+     super.onCreate(savedInstanceState)
+-    setContent { MaterialTheme { Surface { Text("Hello") } } }
++    val store = Store(applicationContext)
++    setContent { MaterialTheme { Surface(Modifier.fillMaxSize()) { App(store) } } }
++  }
++}
++
++// ponytail: screen = nullable ids, no nav lib; add Navigation Compose if deep links/more screens appear
++@Composable
++fun App(store: Store) {
++  var selected by remember { mutableStateOf<Patient?>(null) }
++  var recording by remember { mutableStateOf(false) }
++  var visits by remember { mutableStateOf(store.visits) }
++  val p = selected
++  when {
++    p == null -> RegisterScreen(store.patients) { selected = it }
++    recording -> VisitForm(p, onCancel = { recording = false }) {
++      store.addVisit(it); visits = store.visits; recording = false
++    }
++    else -> DetailScreen(p, visits.filter { it.patientId == p.id }, onBack = { selected = null }) { recording = true }
++  }
++}
++
++@OptIn(ExperimentalMaterial3Api::class)
++@Composable
++fun RegisterScreen(patients: List<Patient>, onOpen: (Patient) -> Unit) {
++  Scaffold(topBar = { TopAppBar(title = { Text("ANC Register") }) }) { pad ->
++    LazyColumn(Modifier.padding(pad)) {
++      items(patients.sortedBy { it.edd }) { p ->
++        ListItem(
++          modifier = Modifier.clickable { onOpen(p) },
++          headlineContent = { Text(p.name) },
++          supportingContent = { Text("Age ${p.age} · EDD ${p.edd} · ${p.weeksPregnant} weeks") },
++        )
++        HorizontalDivider()
++      }
++    }
++  }
++}
++
++@OptIn(ExperimentalMaterial3Api::class)
++@Composable
++fun DetailScreen(p: Patient, visits: List<Visit>, onBack: () -> Unit, onRecord: () -> Unit) {
++  BackHandler(onBack = onBack)
++  Scaffold(
++    topBar = { TopAppBar(title = { Text(p.name) }, navigationIcon = { TextButton(onBack) { Text("Back") } }) },
++    floatingActionButton = { ExtendedFloatingActionButton(onClick = onRecord) { Text("Record visit") } },
++  ) { pad ->
++    LazyColumn(Modifier.padding(pad)) {
++      item { Text("Age ${p.age} · EDD ${p.edd} · ${p.weeksPregnant} weeks", Modifier.padding(16.dp)) }
++      items(visits.sortedByDescending { it.date }) { v ->
++        ListItem(
++          headlineContent = { Text("${v.date} · ${v.gaWeeks} wks") },
++          supportingContent = {
++            Text(
++              "Weight ${v.weightKg} kg · BP ${v.systolic}/${v.diastolic}" +
++                (v.hb?.let { " · Hb $it g/dL" } ?: "") +
++                (if (v.dangerSigns.isNotEmpty()) "\nDanger signs: ${v.dangerSigns.joinToString()}" else "") +
++                (if (v.notes.isNotBlank()) "\n${v.notes}" else "")
++            )
++          },
++        )
++        HorizontalDivider()
++      }
++    }
++  }
++}
++
++@OptIn(ExperimentalMaterial3Api::class)
++@Composable
++fun VisitForm(p: Patient, onCancel: () -> Unit, onSave: (Visit) -> Unit) {
++  BackHandler(onBack = onCancel)
++  var date by remember { mutableStateOf(LocalDate.now().toString()) }
++  var ga by remember { mutableStateOf(p.weeksPregnant.toString()) }
++  var weight by remember { mutableStateOf("") }
++  var sys by remember { mutableStateOf("") }
++  var dia by remember { mutableStateOf("") }
++  var hb by remember { mutableStateOf("") }
++  var signs by remember { mutableStateOf(setOf<String>()) }
++  var notes by remember { mutableStateOf("") }
++  var error by remember { mutableStateOf<String?>(null) }
++
++  Scaffold(topBar = { TopAppBar(title = { Text("New visit · ${p.name}") }, navigationIcon = { TextButton(onCancel) { Text("Cancel") } }) }) { pad ->
++    Column(Modifier.padding(pad).padding(16.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
++      val num = KeyboardOptions(keyboardType = KeyboardType.Number)
++      val dec = KeyboardOptions(keyboardType = KeyboardType.Decimal)
++      OutlinedTextField(date, { date = it }, label = { Text("Visit date (YYYY-MM-DD)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
++      OutlinedTextField(ga, { ga = it }, label = { Text("Gestational age (weeks)") }, keyboardOptions = num, singleLine = true, modifier = Modifier.fillMaxWidth())
++      OutlinedTextField(weight, { weight = it }, label = { Text("Weight (kg)") }, keyboardOptions = dec, singleLine = true, modifier = Modifier.fillMaxWidth())
++      Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
++        OutlinedTextField(sys, { sys = it }, label = { Text("Systolic (mmHg)") }, keyboardOptions = num, singleLine = true, modifier = Modifier.weight(1f))
++        OutlinedTextField(dia, { dia = it }, label = { Text("Diastolic (mmHg)") }, keyboardOptions = num, singleLine = true, modifier = Modifier.weight(1f))
++      }
++      OutlinedTextField(hb, { hb = it }, label = { Text("Hemoglobin (g/dL, optional)") }, keyboardOptions = dec, singleLine = true, modifier = Modifier.fillMaxWidth())
++      Text("Danger signs", style = MaterialTheme.typography.titleSmall)
++      Row(Modifier.fillMaxWidth().clickable { signs = emptySet() }, verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
++        Checkbox(signs.isEmpty(), { signs = emptySet() }); Text("None")
++      }
++      DANGER_SIGNS.forEach { s ->
++        val on = s in signs
++        Row(Modifier.fillMaxWidth().clickable { signs = if (on) signs - s else signs + s }, verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
++          Checkbox(on, { signs = if (on) signs - s else signs + s }); Text(s)
++        }
++      }
++      OutlinedTextField(notes, { notes = it }, label = { Text("Notes") }, minLines = 3, modifier = Modifier.fillMaxWidth())
++      error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
++      Button(
++        modifier = Modifier.fillMaxWidth(),
++        onClick = {
++          val d = runCatching { LocalDate.parse(date.trim()) }.getOrNull()
++          val g = ga.trim().toIntOrNull(); val w = weight.trim().toDoubleOrNull()
++          val s = sys.trim().toIntOrNull(); val di = dia.trim().toIntOrNull()
++          val h = hb.trim().let { if (it.isEmpty()) null else it.toDoubleOrNull() }
++          error = when {
++            d == null -> "Date must be YYYY-MM-DD"
++            g == null || g !in 1..45 -> "Gestational age must be 1–45 weeks"
++            w == null || w <= 0 -> "Weight must be a positive number"
++            s == null || di == null || s <= di -> "Enter valid systolic/diastolic (systolic > diastolic)"
++            hb.isNotBlank() && h == null -> "Hemoglobin must be a number"
++            else -> null
++          }
++          if (error == null) onSave(Visit(p.id, d!!, g!!, w!!, s!!, di!!, h, DANGER_SIGNS.filter { it in signs }, notes.trim()))
++        },
++      ) { Text("Save visit") }
++    }
+   }
+ }

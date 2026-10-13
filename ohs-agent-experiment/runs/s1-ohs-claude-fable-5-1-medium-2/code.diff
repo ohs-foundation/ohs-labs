@@ -1,0 +1,459 @@
+diff --git a/app/build.gradle.kts b/app/build.gradle.kts
+index ad2507d..c3b4c52 100644
+--- a/app/build.gradle.kts
++++ b/app/build.gradle.kts
+@@ -19,14 +19,14 @@ android {
+   }
+ 
+   compileOptions {
+-    sourceCompatibility = JavaVersion.VERSION_17
+-    targetCompatibility = JavaVersion.VERSION_17
++    sourceCompatibility = JavaVersion.VERSION_21
++    targetCompatibility = JavaVersion.VERSION_21
+   }
+ 
+   buildFeatures { compose = true }
+ }
+ 
+-kotlin { compilerOptions { jvmTarget.set(JvmTarget.JVM_17) } }
++kotlin { compilerOptions { jvmTarget.set(JvmTarget.JVM_21) } }
+ 
+ dependencies {
+   implementation(platform("androidx.compose:compose-bom:2026.03.01"))
+@@ -37,6 +37,9 @@ dependencies {
+   implementation("androidx.compose.material:material-icons-extended")
+   implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.9.4")
+ 
++  implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")
++  implementation("io.ktor:ktor-client-core:3.1.1")
++
+   implementation("dev.ohs.fhir:fhir-model:1.0.0-beta05")
+   implementation("dev.ohs.fhir:fhir-engine:2.0.0-alpha02")
+   implementation("dev.ohs.fhir:fhir-data-capture:2.0.0-alpha02")
+diff --git a/app/src/main/AndroidManifest.xml b/app/src/main/AndroidManifest.xml
+index c454ae9..30a43e6 100644
+--- a/app/src/main/AndroidManifest.xml
++++ b/app/src/main/AndroidManifest.xml
+@@ -5,6 +5,7 @@
+ 
+     <application
+         android:label="ANC App"
++        android:usesCleartextTraffic="true"
+         android:theme="@android:style/Theme.Material.Light.NoActionBar">
+         <activity
+             android:name=".MainActivity"
+diff --git a/app/src/main/java/com/example/ancapp/Fhir.kt b/app/src/main/java/com/example/ancapp/Fhir.kt
+new file mode 100644
+index 0000000..5eb2313
+--- /dev/null
++++ b/app/src/main/java/com/example/ancapp/Fhir.kt
+@@ -0,0 +1,219 @@
++package com.example.ancapp
++
++import android.content.Context
++import android.util.Log
++import com.ionspin.kotlin.bignum.decimal.BigDecimal
++import dev.ohs.fhir.engine.FhirEngine
++import dev.ohs.fhir.engine.FhirEngineConfiguration
++import dev.ohs.fhir.engine.FhirEngineProvider
++import dev.ohs.fhir.engine.ServerConfiguration
++import dev.ohs.fhir.engine.search.Search
++import dev.ohs.fhir.engine.search.search
++import dev.ohs.fhir.engine.sync.AcceptRemoteConflictResolver
++import dev.ohs.fhir.engine.sync.Sync
++import dev.ohs.fhir.model.r4.Bundle
++import dev.ohs.fhir.model.r4.Canonical
++import dev.ohs.fhir.model.r4.Code
++import dev.ohs.fhir.model.r4.CodeableConcept
++import dev.ohs.fhir.model.r4.Coding
++import dev.ohs.fhir.model.r4.DateTime
++import dev.ohs.fhir.model.r4.Decimal
++import dev.ohs.fhir.model.r4.Encounter
++import dev.ohs.fhir.model.r4.Enumeration
++import dev.ohs.fhir.model.r4.FhirDate
++import dev.ohs.fhir.model.r4.FhirDateTime
++import dev.ohs.fhir.model.r4.Observation
++import dev.ohs.fhir.model.r4.Patient
++import dev.ohs.fhir.model.r4.Period
++import dev.ohs.fhir.model.r4.Quantity
++import dev.ohs.fhir.model.r4.QuestionnaireResponse
++import dev.ohs.fhir.model.r4.Reference
++import dev.ohs.fhir.model.r4.Resource
++import dev.ohs.fhir.model.r4.String as FhirString
++import dev.ohs.fhir.model.r4.Uri
++import dev.ohs.fhir.model.r4.terminologies.ResourceType
++import io.ktor.client.HttpClient
++import io.ktor.client.request.get
++import io.ktor.client.request.header
++import io.ktor.client.request.put
++import io.ktor.client.request.setBody
++import io.ktor.client.statement.bodyAsText
++import io.ktor.http.ContentType
++import io.ktor.http.contentType
++import java.time.LocalDate
++import java.util.UUID
++import kotlinx.coroutines.flow.flow
++import kotlinx.datetime.toJavaLocalDate
++import kotlinx.datetime.toKotlinLocalDate
++
++const val LOINC = "http://loinc.org"
++const val EDD_CODE = "11778-8"
++const val WEIGHT_CODE = "29463-7"
++const val BP_CODE = "85354-9"
++const val SYSTOLIC_CODE = "8480-6"
++const val DIASTOLIC_CODE = "8462-4"
++const val HB_CODE = "718-7"
++
++fun fhirEngine(ctx: Context): FhirEngine {
++  val app = ctx.applicationContext
++  if (FhirEngineProvider.isNotInitialized()) {
++    FhirEngineProvider.init(
++      FhirEngineConfiguration(serverConfiguration = ServerConfiguration(BASE_URL)),
++      app,
++    )
++  }
++  return FhirEngineProvider.getInstance(app)
++}
++
++const val BASE_URL = "http://10.0.2.2:8080/fhir/"
++private val http by lazy { HttpClient() }
++private val json get() = Sync.json
++
++private suspend fun fetchAll(path: String): List<Resource> {
++  val text = http.get(BASE_URL + path) { header("Accept", "application/fhir+json") }.bodyAsText()
++  return (json.decodeFromString(Resource.serializer(), text) as? Bundle)?.entry?.mapNotNull { it.resource } ?: emptyList()
++}
++
++/** PUTs every locally created resource the server doesn't have yet. Pending changes are cleared by the next download (remote wins). */
++private suspend fun pushPending(engine: FhirEngine) {
++  for (type in listOf(ResourceType.Encounter, ResourceType.Observation, ResourceType.QuestionnaireResponse)) {
++    for (r in engine.search<Resource>(Search(type)).map { it.resource }) {
++      val id = r.id ?: continue
++      if (engine.getLocalChanges(type, id).isEmpty()) continue
++      val resp = http.put("$BASE_URL${type.name}/$id") {
++        contentType(ContentType.parse("application/fhir+json"))
++        setBody(json.encodeToString(Resource.serializer(), r))
++      }
++      Log.d("ANC", "PUT ${type.name}/$id -> ${resp.status}")
++    }
++  }
++}
++
++/**
++ * Pushes local changes, then pulls everything the clinic has.
++ * ponytail: the SDK's bundle uploader is rejected by HAPI (relative fullUrls) and its individual-request mode
++ * is unimplemented, so we talk HTTP directly. No paging: _count=500 is plenty for a small clinic.
++ */
++suspend fun syncOnce(engine: FhirEngine) {
++  runCatching { pushPending(engine) }.onFailure { Log.w("ANC", "push failed", it) }
++  engine.syncDownload(AcceptRemoteConflictResolver) {
++    flow {
++      for (t in listOf("Patient", "Encounter", "Observation", "QuestionnaireResponse", "Questionnaire")) emit(fetchAll("$t?_count=500"))
++    }
++  }
++}
++
++// ---- Read models ----
++
++data class RegisterRow(val id: String, val name: String, val age: Int?, val edd: LocalDate?) {
++  val weeks: Int? get() = edd?.let { 40 - (it.toEpochDay() - LocalDate.now().toEpochDay()).toInt() / 7 }
++}
++
++data class Visit(val date: LocalDate?, val weightKg: String?, val bp: String?, val hb: String?)
++
++val Patient.displayName: String
++  get() = name.firstOrNull()?.let { n -> (n.given.mapNotNull { it.value } + listOfNotNull(n.family?.value)).joinToString(" ") } ?: id ?: "?"
++
++private fun FhirDate?.toLocalDate(): LocalDate? = (this as? FhirDate.Date)?.date?.toJavaLocalDate()
++private fun FhirDateTime?.toLocalDate(): LocalDate? = when (this) {
++  is FhirDateTime.Date -> date.toJavaLocalDate()
++  is FhirDateTime.DateTime -> dateTime.date.toJavaLocalDate()
++  else -> null
++}
++private fun Observation.effectiveDate() = effective?.asDateTime()?.value?.value.toLocalDate()
++private fun Observation.hasCode(code: String) = this.code?.coding?.any { it.code?.value == code } == true
++private fun Quantity?.text(): String? = this?.value?.value?.toPlainString()
++
++suspend fun loadRegister(engine: FhirEngine): List<RegisterRow> {
++  val edds = engine.search("Observation?code=$EDD_CODE").map { it.resource as Observation }
++    .associate { it.subject?.reference?.value to it.value?.asDateTime()?.value?.value.toLocalDate() }
++  val today = LocalDate.now()
++  return engine.search<Patient> {}.map { it.resource }.map { p ->
++    val birth = p.birthDate?.value.toLocalDate()
++    RegisterRow(
++      id = p.id!!,
++      name = p.displayName,
++      age = birth?.let { java.time.Period.between(it, today).years },
++      edd = edds["Patient/${p.id}"],
++    )
++  }.sortedWith(compareBy(nullsLast()) { it.edd })
++}
++
++suspend fun loadVisits(engine: FhirEngine, patientId: String): List<Visit> {
++  val obs = engine.search("Observation?subject=Patient/$patientId").map { it.resource as Observation }
++    .filter { !it.hasCode(EDD_CODE) }
++  return obs.groupBy { it.encounter?.reference?.value ?: it.effectiveDate().toString() }.values.map { group ->
++    val bp = group.firstOrNull { it.hasCode(BP_CODE) }
++    fun comp(code: String) = bp?.component?.firstOrNull { c -> c.code?.coding?.any { it.code?.value == code } == true }?.value?.asQuantity()?.value.text()
++    Visit(
++      date = group.firstNotNullOfOrNull { it.effectiveDate() },
++      weightKg = group.firstOrNull { it.hasCode(WEIGHT_CODE) }?.value?.asQuantity()?.value.text(),
++      bp = comp(SYSTOLIC_CODE)?.let { s -> "$s/${comp(DIASTOLIC_CODE) ?: "?"}" },
++      hb = group.firstOrNull { it.hasCode(HB_CODE) }?.value?.asQuantity()?.value.text(),
++    )
++  }.sortedByDescending { it.date }
++}
++
++// ---- Write ----
++
++private fun QuestionnaireResponse.Item.flatten(): List<QuestionnaireResponse.Item> = listOf(this) + item.flatMap { it.flatten() }
++
++private fun loinc(code: String, display: String) =
++  CodeableConcept(coding = listOf(Coding(system = Uri(value = LOINC), code = Code(value = code), display = FhirString(value = display))))
++
++private fun qty(value: String, unit: String, ucum: String) =
++  Quantity(value = Decimal(value = BigDecimal.parseString(value)), unit = FhirString(value = unit), system = Uri(value = "http://unitsofmeasure.org"), code = Code(value = ucum))
++
++/** Persists the filled form as QuestionnaireResponse + Encounter + vital-sign Observations. */
++suspend fun saveVisit(engine: FhirEngine, patientId: String, qr: QuestionnaireResponse) {
++  val answers = qr.item.flatMap { it.flatten() }.associate { it.linkId.value to it.answer.firstOrNull()?.value }
++  val visitDate = answers["visit-date"]?.asDate()?.value?.value.toLocalDate() ?: LocalDate.now()
++  val fhirDate = FhirDateTime.Date(visitDate.toKotlinLocalDate())
++  val encId = UUID.randomUUID().toString()
++  val subject = Reference(reference = FhirString(value = "Patient/$patientId"))
++  val encRef = Reference(reference = FhirString(value = "Encounter/$encId"))
++
++  fun obs(code: CodeableConcept, value: Observation.Value?, components: List<Observation.Component> = emptyList()) = Observation(
++    id = UUID.randomUUID().toString(),
++    status = Enumeration(value = Observation.ObservationStatus.Final),
++    category = listOf(CodeableConcept(coding = listOf(Coding(system = Uri(value = "http://terminology.hl7.org/CodeSystem/observation-category"), code = Code(value = "vital-signs"))))),
++    code = code,
++    subject = subject,
++    encounter = encRef,
++    effective = Observation.Effective.DateTime(DateTime(value = fhirDate)),
++    value = value,
++    component = components,
++  )
++  fun num(linkId: String) = answers[linkId]?.let { it.asDecimal()?.value?.value?.toPlainString() ?: it.asInteger()?.value?.value?.toString() }
++
++  val resources = mutableListOf<Resource>(
++    Encounter(
++      id = encId,
++      status = Enumeration(value = Encounter.EncounterStatus.Finished),
++      `class` = Coding(system = Uri(value = "http://terminology.hl7.org/CodeSystem/v3-ActCode"), code = Code(value = "AMB"), display = FhirString(value = "ambulatory")),
++      type = listOf(CodeableConcept(text = FhirString(value = "Antenatal care contact"))),
++      subject = subject,
++      period = Period(start = DateTime(value = fhirDate), end = DateTime(value = fhirDate)),
++    ),
++    qr.copy(
++      id = qr.id ?: UUID.randomUUID().toString(),
++      questionnaire = Canonical(value = "http://example.org/fhir/Questionnaire/anc-contact"),
++      status = Enumeration(value = QuestionnaireResponse.QuestionnaireResponseStatus.Completed),
++      subject = subject,
++      encounter = encRef,
++      authored = DateTime(value = fhirDate),
++    ),
++  )
++  num("weight")?.let { resources += obs(loinc(WEIGHT_CODE, "Body weight"), Observation.Value.Quantity(qty(it, "kg", "kg"))) }
++  val sys = num("bp-systolic"); val dia = num("bp-diastolic")
++  if (sys != null || dia != null) {
++    fun comp(code: String, display: String, v: String?) = v?.let {
++      Observation.Component(code = loinc(code, display), value = Observation.Component.Value.Quantity(qty(it, "mmHg", "mm[Hg]")))
++    }
++    resources += obs(
++      loinc(BP_CODE, "Blood pressure panel with all children optional"), null,
++      listOfNotNull(comp(SYSTOLIC_CODE, "Systolic blood pressure", sys), comp(DIASTOLIC_CODE, "Diastolic blood pressure", dia)),
++    )
++  }
++  engine.create(*resources.toTypedArray())
++}
+diff --git a/app/src/main/java/com/example/ancapp/MainActivity.kt b/app/src/main/java/com/example/ancapp/MainActivity.kt
+index b5e554b..8712948 100644
+--- a/app/src/main/java/com/example/ancapp/MainActivity.kt
++++ b/app/src/main/java/com/example/ancapp/MainActivity.kt
+@@ -2,14 +2,183 @@ package com.example.ancapp
+ 
+ import android.os.Bundle
+ import androidx.activity.ComponentActivity
++import androidx.activity.compose.BackHandler
+ import androidx.activity.compose.setContent
++import androidx.compose.foundation.clickable
++import androidx.compose.foundation.layout.Box
++import androidx.compose.foundation.layout.Column
++import androidx.compose.foundation.layout.fillMaxSize
++import androidx.compose.foundation.layout.padding
++import androidx.compose.foundation.lazy.LazyColumn
++import androidx.compose.foundation.lazy.items
++import androidx.compose.material.icons.Icons
++import androidx.compose.material.icons.automirrored.filled.ArrowBack
++import androidx.compose.material.icons.filled.Add
++import androidx.compose.material3.CircularProgressIndicator
++import androidx.compose.material3.ExperimentalMaterial3Api
++import androidx.compose.material3.ExtendedFloatingActionButton
++import androidx.compose.material3.HorizontalDivider
++import androidx.compose.material3.Icon
++import androidx.compose.material3.IconButton
++import androidx.compose.material3.ListItem
+ import androidx.compose.material3.MaterialTheme
+-import androidx.compose.material3.Surface
++import androidx.compose.material3.Scaffold
+ import androidx.compose.material3.Text
++import androidx.compose.material3.TopAppBar
++import androidx.compose.runtime.Composable
++import androidx.compose.runtime.getValue
++import androidx.compose.runtime.mutableIntStateOf
++import androidx.compose.runtime.mutableStateOf
++import androidx.compose.runtime.produceState
++import androidx.compose.runtime.remember
++import androidx.compose.runtime.rememberCoroutineScope
++import androidx.compose.runtime.setValue
++import androidx.compose.ui.Alignment
++import androidx.compose.ui.Modifier
++import androidx.compose.ui.platform.LocalContext
++import androidx.compose.ui.unit.dp
++import dev.ohs.fhir.datacapture.DataCapture
++import dev.ohs.fhir.datacapture.Questionnaire
++import dev.ohs.fhir.datacapture.QuestionnaireConfig
++import dev.ohs.fhir.engine.sync.Sync
++import dev.ohs.fhir.model.r4.Resource
++import dev.ohs.fhir.model.r4.terminologies.ResourceType
++import kotlinx.coroutines.launch
++
++sealed interface Screen {
++  data object Register : Screen
++  data class Detail(val row: RegisterRow) : Screen
++  data class NewVisit(val row: RegisterRow) : Screen
++}
+ 
+ class MainActivity : ComponentActivity() {
+   override fun onCreate(savedInstanceState: Bundle?) {
+     super.onCreate(savedInstanceState)
+-    setContent { MaterialTheme { Surface { Text("Hello") } } }
++    DataCapture.initialize(this)
++    fhirEngine(this)
++    setContent { MaterialTheme { App() } }
++  }
++}
++
++@Composable
++fun App() {
++  var screen by remember { mutableStateOf<Screen>(Screen.Register) }
++  var version by remember { mutableIntStateOf(0) } // bump to reload data after sync/save
++  val ctx = LocalContext.current
++  val scope = rememberCoroutineScope()
++  val synced by produceState(false) { runCatching { syncOnce(fhirEngine(ctx)) }; value = true; version++ }
++
++  when (val s = screen) {
++    Screen.Register -> RegisterScreen(version, synced) { screen = Screen.Detail(it) }
++    is Screen.Detail -> {
++      BackHandler { screen = Screen.Register }
++      DetailScreen(s.row, version, onBack = { screen = Screen.Register }, onAdd = { screen = Screen.NewVisit(s.row) })
++    }
++    is Screen.NewVisit -> {
++      BackHandler { screen = Screen.Detail(s.row) }
++      NewVisitScreen(s.row, onDone = { saved ->
++        screen = Screen.Detail(s.row)
++        if (saved) { version++; scope.launch { runCatching { syncOnce(fhirEngine(ctx)) } } }
++      })
++    }
++  }
++}
++
++@OptIn(ExperimentalMaterial3Api::class)
++@Composable
++fun RegisterScreen(version: Int, synced: Boolean, onOpen: (RegisterRow) -> Unit) {
++  val ctx = LocalContext.current
++  val rows by produceState<List<RegisterRow>?>(null, version) { value = loadRegister(fhirEngine(ctx)) }
++  Scaffold(topBar = { TopAppBar(title = { Text("ANC Register") }) }) { pad ->
++    when {
++      rows == null -> Loading(pad)
++      rows!!.isEmpty() -> Box(Modifier.padding(pad).fillMaxSize(), Alignment.Center) {
++        Text(if (synced) "No patients found. Is the FHIR server running?" else "Syncing with server…")
++      }
++      else -> LazyColumn(Modifier.padding(pad)) {
++        items(rows!!, key = { it.id }) { r ->
++          ListItem(
++            modifier = Modifier.clickable { onOpen(r) },
++            headlineContent = { Text(r.name) },
++            supportingContent = { Text("Age ${r.age ?: "?"} · EDD ${r.edd ?: "unknown"} · ${r.weeks?.let { "$it weeks" } ?: "GA unknown"}") },
++          )
++          HorizontalDivider()
++        }
++      }
++    }
+   }
+ }
++
++@OptIn(ExperimentalMaterial3Api::class)
++@Composable
++fun DetailScreen(row: RegisterRow, version: Int, onBack: () -> Unit, onAdd: () -> Unit) {
++  val ctx = LocalContext.current
++  val visits by produceState<List<Visit>?>(null, version) { value = loadVisits(fhirEngine(ctx), row.id) }
++  Scaffold(
++    topBar = { TopAppBar(title = { Text(row.name) }, navigationIcon = { IconButton(onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } }) },
++    floatingActionButton = { ExtendedFloatingActionButton(onClick = onAdd, icon = { Icon(Icons.Default.Add, null) }, text = { Text("New ANC visit") }) },
++  ) { pad ->
++    if (visits == null) Loading(pad)
++    else LazyColumn(Modifier.padding(pad)) {
++      item {
++        Text(
++          "Age ${row.age ?: "?"} · EDD ${row.edd ?: "unknown"} · ${row.weeks?.let { "$it weeks pregnant" } ?: ""}",
++          Modifier.padding(16.dp), style = MaterialTheme.typography.bodyMedium,
++        )
++        HorizontalDivider()
++      }
++      if (visits!!.isEmpty()) item { Text("No visits recorded yet.", Modifier.padding(16.dp)) }
++      items(visits!!) { v ->
++        ListItem(
++          headlineContent = { Text(v.date?.toString() ?: "Unknown date") },
++          supportingContent = {
++            Column {
++              Text("Weight: ${v.weightKg?.let { "$it kg" } ?: "—"}")
++              Text("BP: ${v.bp?.let { "$it mmHg" } ?: "—"}")
++              v.hb?.let { Text("Hb: $it g/dL") }
++            }
++          },
++        )
++        HorizontalDivider()
++      }
++    }
++  }
++}
++
++@OptIn(ExperimentalMaterial3Api::class)
++@Composable
++fun NewVisitScreen(row: RegisterRow, onDone: (Boolean) -> Unit) {
++  val ctx = LocalContext.current
++  val scope = rememberCoroutineScope()
++  val json by produceState<String?>(null) {
++    value = runCatching {
++      Sync.json.encodeToString(Resource.serializer(), fhirEngine(ctx).get(ResourceType.Questionnaire, "anc-contact"))
++    }.getOrNull() ?: ""
++  }
++  Scaffold(topBar = {
++    TopAppBar(title = { Text("New visit · ${row.name}") }, navigationIcon = { IconButton({ onDone(false) }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } })
++  }) { pad ->
++    when (json) {
++      null -> Loading(pad)
++      "" -> Box(Modifier.padding(pad).fillMaxSize(), Alignment.Center) { Text("Visit form not downloaded yet. Check the FHIR server and retry.") }
++      else -> Box(Modifier.padding(pad)) {
++        Questionnaire(
++          questionnaireJson = json!!,
++          config = QuestionnaireConfig(showSubmitButton = true, showCancelButton = true),
++          onSubmit = { getResponse ->
++            scope.launch {
++              saveVisit(fhirEngine(ctx), row.id, getResponse())
++              onDone(true)
++            }
++          },
++          onCancel = { onDone(false) },
++        )
++      }
++    }
++  }
++}
++
++@Composable
++private fun Loading(pad: androidx.compose.foundation.layout.PaddingValues) {
++  Box(Modifier.padding(pad).fillMaxSize(), Alignment.Center) { CircularProgressIndicator() }
++}

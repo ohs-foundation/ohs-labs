@@ -1,0 +1,46 @@
+{
+  "run_id": "s1-cold-claude-opus-5-5-medium-1",
+  "scenario": "s1-build",
+  "condition": "cold",
+  "model": "claude-opus-5-5-medium",
+  "effort": "medium",
+  "replicate": 1,
+  "date": "2026-10-13",
+  "harness": "claude-code-headless",
+  "scaffold_repo": "templates/cold",
+  "baseline_commit": "12adaf5",
+  "session_id": "29ea9f1e-9893-4b07-9248-e8225e6d2985",
+  "model_served": {
+    "claude-opus-5-5": 19
+  },
+  "effort_served": {
+    "medium": 19
+  },
+  "wall_minutes": 3.6,
+  "user_turns": 1,
+  "corrective_turns": 0,
+  "tool_calls": 22,
+  "assistant_text_blocks": 7,
+  "tool_errors": 0,
+  "build_failures_self_fixed": 2,
+  "server_validation_incidents": 0,
+  "tokens": {
+    "input": 38,
+    "output": 14113,
+    "cache_read": 728443,
+    "cache_write": 43680
+  },
+  "cost_usd_api_rates": 0.78,
+  "diff_lines_added": 314,
+  "smoke_check": "pass",
+  "verified_working": null,
+  "round_trip_pass": null,
+  "notes": "gen=2 agent_exit=0",
+  "verification": {
+    "launched": true,
+    "crashed": false,
+    "screenshot_after_seconds": 30,
+    "patients_in_local_db": null,
+    "note": "launched+!crashed is the smoke verdict. patients_in_local_db is a best-effort sync-success signal (0/null suggests download sync did not deliver). Whether the register visually renders is the human walk, judged from launch.png."
+  }
+}

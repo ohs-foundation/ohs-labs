@@ -1,0 +1,290 @@
+diff --git a/app/build.gradle.kts b/app/build.gradle.kts
+index 98395df..20bd8fd 100644
+--- a/app/build.gradle.kts
++++ b/app/build.gradle.kts
+@@ -37,3 +37,5 @@ dependencies {
+   implementation("androidx.compose.material:material-icons-extended")
+   implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.9.4")
+ }
++
++dependencies { testImplementation("junit:junit:4.13.2") }
+diff --git a/app/src/main/java/com/example/ancapp/Db.kt b/app/src/main/java/com/example/ancapp/Db.kt
+new file mode 100644
+index 0000000..0fe84eb
+--- /dev/null
++++ b/app/src/main/java/com/example/ancapp/Db.kt
+@@ -0,0 +1,80 @@
++package com.example.ancapp
++
++import android.content.ContentValues
++import android.content.Context
++import android.database.sqlite.SQLiteDatabase
++import android.database.sqlite.SQLiteOpenHelper
++import java.time.LocalDate
++import java.time.Period
++import java.time.temporal.ChronoUnit
++
++data class Patient(val id: Long, val name: String, val dob: LocalDate, val edd: LocalDate)
++
++data class Visit(
++  val date: LocalDate,
++  val gaWeeks: Int,
++  val weightKg: Double,
++  val systolic: Int,
++  val diastolic: Int,
++  val hb: Double?,
++  val dangerSigns: List<String>,
++  val notes: String,
++)
++
++val DANGER_SIGNS = listOf("Vaginal bleeding", "Severe headache", "Blurred vision", "Fever")
++
++fun ageOn(dob: LocalDate, on: LocalDate) = Period.between(dob, on).years
++
++/** Gestational age in whole weeks on [on], counting back 280 days from the due date. */
++fun gaWeeksOn(edd: LocalDate, on: LocalDate) = ((280 - ChronoUnit.DAYS.between(on, edd)) / 7).toInt()
++
++class Db(context: Context) : SQLiteOpenHelper(context, "anc.db", null, 1) {
++  override fun onCreate(db: SQLiteDatabase) {
++    db.execSQL("CREATE TABLE patient(id INTEGER PRIMARY KEY, name TEXT NOT NULL, dob TEXT NOT NULL, edd TEXT NOT NULL)")
++    db.execSQL(
++      """CREATE TABLE visit(id INTEGER PRIMARY KEY, patient_id INTEGER NOT NULL REFERENCES patient(id),
++        date TEXT NOT NULL, ga_weeks INTEGER NOT NULL, weight_kg REAL NOT NULL, systolic INTEGER NOT NULL,
++        diastolic INTEGER NOT NULL, hb REAL, danger_signs TEXT NOT NULL, notes TEXT NOT NULL)"""
++    )
++    fun seed(name: String, dob: String, edd: String, visit: String, kg: Double, sys: Int, dia: Int, hb: Double) {
++      val id = db.insert("patient", null, ContentValues().apply { put("name", name); put("dob", dob); put("edd", edd) })
++      val date = LocalDate.parse(visit)
++      insertVisit(db, id, Visit(date, gaWeeksOn(LocalDate.parse(edd), date), kg, sys, dia, hb, emptyList(), ""))
++    }
++    seed("Emily Carter", "1996-04-12", "2026-12-05", "2026-08-10", 68.5, 118, 76, 11.8)
++    seed("Sarah Mitchell", "1990-11-02", "2027-01-20", "2026-08-12", 61.2, 110, 70, 12.4)
++    seed("Grace Thompson", "2001-07-30", "2026-10-15", "2026-08-05", 72.0, 128, 84, 10.2)
++  }
++
++  override fun onUpgrade(db: SQLiteDatabase, old: Int, new: Int) = Unit
++
++  fun patients(): List<Patient> =
++    readableDatabase.rawQuery("SELECT id, name, dob, edd FROM patient ORDER BY edd", null).use { c ->
++      generateSequence { if (c.moveToNext()) Patient(c.getLong(0), c.getString(1), LocalDate.parse(c.getString(2)), LocalDate.parse(c.getString(3))) else null }.toList()
++    }
++
++  fun visits(patientId: Long): List<Visit> =
++    readableDatabase.rawQuery(
++      "SELECT date, ga_weeks, weight_kg, systolic, diastolic, hb, danger_signs, notes FROM visit WHERE patient_id = ? ORDER BY date DESC, id DESC",
++      arrayOf(patientId.toString()),
++    ).use { c ->
++      generateSequence {
++        if (!c.moveToNext()) null
++        else Visit(
++          LocalDate.parse(c.getString(0)), c.getInt(1), c.getDouble(2), c.getInt(3), c.getInt(4),
++          if (c.isNull(5)) null else c.getDouble(5),
++          c.getString(6).split('|').filter { it.isNotEmpty() }, c.getString(7),
++        )
++      }.toList()
++    }
++
++  fun addVisit(patientId: Long, v: Visit) { insertVisit(writableDatabase, patientId, v) }
++
++  private fun insertVisit(db: SQLiteDatabase, patientId: Long, v: Visit) {
++    db.insertOrThrow("visit", null, ContentValues().apply {
++      put("patient_id", patientId); put("date", v.date.toString()); put("ga_weeks", v.gaWeeks)
++      put("weight_kg", v.weightKg); put("systolic", v.systolic); put("diastolic", v.diastolic)
++      put("hb", v.hb); put("danger_signs", v.dangerSigns.joinToString("|")); put("notes", v.notes)
++    })
++  }
++}
+diff --git a/app/src/main/java/com/example/ancapp/MainActivity.kt b/app/src/main/java/com/example/ancapp/MainActivity.kt
+index b5e554b..6ad963f 100644
+--- a/app/src/main/java/com/example/ancapp/MainActivity.kt
++++ b/app/src/main/java/com/example/ancapp/MainActivity.kt
+@@ -2,14 +2,160 @@ package com.example.ancapp
+ 
+ import android.os.Bundle
+ import androidx.activity.ComponentActivity
++import androidx.activity.compose.BackHandler
+ import androidx.activity.compose.setContent
+-import androidx.compose.material3.MaterialTheme
+-import androidx.compose.material3.Surface
+-import androidx.compose.material3.Text
++import androidx.compose.foundation.clickable
++import androidx.compose.foundation.layout.*
++import androidx.compose.foundation.lazy.LazyColumn
++import androidx.compose.foundation.lazy.items
++import androidx.compose.foundation.rememberScrollState
++import androidx.compose.foundation.text.KeyboardOptions
++import androidx.compose.foundation.verticalScroll
++import androidx.compose.material.icons.Icons
++import androidx.compose.material.icons.automirrored.filled.ArrowBack
++import androidx.compose.material.icons.filled.Add
++import androidx.compose.material3.*
++import androidx.compose.runtime.*
++import androidx.compose.runtime.saveable.rememberSaveable
++import androidx.compose.ui.Alignment
++import androidx.compose.ui.Modifier
++import androidx.compose.ui.text.input.KeyboardType
++import androidx.compose.ui.unit.dp
++import java.time.LocalDate
++import java.time.format.DateTimeParseException
+ 
+ class MainActivity : ComponentActivity() {
+   override fun onCreate(savedInstanceState: Bundle?) {
+     super.onCreate(savedInstanceState)
+-    setContent { MaterialTheme { Surface { Text("Hello") } } }
++    // ponytail: DB access on main thread; fine for a few patients, move to Dispatchers.IO if it grows.
++    val db = Db(applicationContext)
++    setContent { MaterialTheme { App(db) } }
++  }
++}
++
++@Composable
++fun App(db: Db) {
++  var patientId by rememberSaveable { mutableStateOf<Long?>(null) }
++  var adding by rememberSaveable { mutableStateOf(false) }
++  val patient = patientId?.let { id -> db.patients().find { it.id == id } }
++  when {
++    patient == null -> RegisterScreen(db.patients()) { patientId = it.id }
++    adding -> {
++      BackHandler { adding = false }
++      VisitForm(patient, onCancel = { adding = false }) { db.addVisit(patient.id, it); adding = false }
++    }
++    else -> {
++      BackHandler { patientId = null }
++      DetailScreen(patient, db.visits(patient.id), onBack = { patientId = null }, onAdd = { adding = true })
++    }
++  }
++}
++
++@OptIn(ExperimentalMaterial3Api::class)
++@Composable
++fun Screen(title: String, onBack: (() -> Unit)? = null, fab: @Composable () -> Unit = {}, content: @Composable (PaddingValues) -> Unit) {
++  Scaffold(
++    topBar = {
++      TopAppBar(title = { Text(title) }, navigationIcon = {
++        if (onBack != null) IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") }
++      })
++    },
++    floatingActionButton = fab,
++    content = content,
++  )
++}
++
++@Composable
++fun RegisterScreen(patients: List<Patient>, onOpen: (Patient) -> Unit) {
++  val today = LocalDate.now()
++  Screen("ANC Register") { pad ->
++    LazyColumn(Modifier.padding(pad)) {
++      items(patients) { p ->
++        ListItem(
++          headlineContent = { Text(p.name) },
++          supportingContent = { Text("Age ${ageOn(p.dob, today)} · Due ${p.edd}") },
++          trailingContent = { Text("${gaWeeksOn(p.edd, today)} wks", style = MaterialTheme.typography.titleMedium) },
++          modifier = Modifier.clickable { onOpen(p) },
++        )
++        HorizontalDivider()
++      }
++    }
++  }
++}
++
++@Composable
++fun DetailScreen(p: Patient, visits: List<Visit>, onBack: () -> Unit, onAdd: () -> Unit) {
++  val today = LocalDate.now()
++  Screen(p.name, onBack, fab = {
++    ExtendedFloatingActionButton(onClick = onAdd, icon = { Icon(Icons.Filled.Add, null) }, text = { Text("Record visit") })
++  }) { pad ->
++    LazyColumn(Modifier.padding(pad), contentPadding = PaddingValues(16.dp, 8.dp, 16.dp, 96.dp)) {
++      item {
++        Text("Age ${ageOn(p.dob, today)} · Due ${p.edd} · ${gaWeeksOn(p.edd, today)} weeks")
++        Text("ANC visits", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 16.dp, bottom = 8.dp))
++        if (visits.isEmpty()) Text("No visits recorded.")
++      }
++      items(visits) { v ->
++        Card(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
++          Column(Modifier.padding(12.dp)) {
++            Text("${v.date} · ${v.gaWeeks} wks", style = MaterialTheme.typography.titleSmall)
++            Text("Weight ${v.weightKg} kg · BP ${v.systolic}/${v.diastolic} mmHg" + (v.hb?.let { " · Hb $it g/dL" } ?: ""))
++            if (v.dangerSigns.isNotEmpty()) Text("Danger signs: ${v.dangerSigns.joinToString()}", color = MaterialTheme.colorScheme.error)
++            if (v.notes.isNotBlank()) Text(v.notes)
++          }
++        }
++      }
++    }
++  }
++}
++
++@Composable
++fun VisitForm(p: Patient, onCancel: () -> Unit, onSave: (Visit) -> Unit) {
++  var date by rememberSaveable { mutableStateOf(LocalDate.now().toString()) }
++  var ga by rememberSaveable { mutableStateOf(gaWeeksOn(p.edd, LocalDate.now()).toString()) }
++  var weight by rememberSaveable { mutableStateOf("") }
++  var sys by rememberSaveable { mutableStateOf("") }
++  var dia by rememberSaveable { mutableStateOf("") }
++  var signs by rememberSaveable { mutableStateOf(listOf<String>()) }
++  var notes by rememberSaveable { mutableStateOf("") }
++  var error by remember { mutableStateOf<String?>(null) }
++
++  fun validate(): Visit? {
++    val d = try { LocalDate.parse(date.trim()) } catch (_: DateTimeParseException) { return null.also { error = "Visit date must be YYYY-MM-DD" } }
++    if (d.isAfter(LocalDate.now())) return null.also { error = "Visit date cannot be in the future" }
++    val g = ga.trim().toIntOrNull()?.takeIf { it in 1..45 } ?: return null.also { error = "Gestational age must be 1–45 weeks" }
++    val w = weight.trim().toDoubleOrNull()?.takeIf { it in 20.0..250.0 } ?: return null.also { error = "Weight must be 20–250 kg" }
++    val s = sys.trim().toIntOrNull()?.takeIf { it in 50..300 } ?: return null.also { error = "Systolic must be 50–300 mmHg" }
++    val di = dia.trim().toIntOrNull()?.takeIf { it in 30..200 } ?: return null.also { error = "Diastolic must be 30–200 mmHg" }
++    if (di >= s) return null.also { error = "Diastolic must be lower than systolic" }
++    return Visit(d, g, w, s, di, null, signs, notes.trim())
++  }
++
++  Screen("New visit · ${p.name}", onCancel) { pad ->
++    Column(Modifier.padding(pad).padding(16.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
++      val num = KeyboardOptions(keyboardType = KeyboardType.Number)
++      val dec = KeyboardOptions(keyboardType = KeyboardType.Decimal)
++      OutlinedTextField(date, { date = it }, label = { Text("Visit date (YYYY-MM-DD)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
++      OutlinedTextField(ga, { ga = it }, label = { Text("Gestational age (weeks)") }, singleLine = true, keyboardOptions = num, modifier = Modifier.fillMaxWidth())
++      OutlinedTextField(weight, { weight = it }, label = { Text("Weight (kg)") }, singleLine = true, keyboardOptions = dec, modifier = Modifier.fillMaxWidth())
++      Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
++        OutlinedTextField(sys, { sys = it }, label = { Text("Systolic (mmHg)") }, singleLine = true, keyboardOptions = num, modifier = Modifier.weight(1f))
++        OutlinedTextField(dia, { dia = it }, label = { Text("Diastolic (mmHg)") }, singleLine = true, keyboardOptions = num, modifier = Modifier.weight(1f))
++      }
++      Text("Danger signs", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 8.dp))
++      CheckRow("None", signs.isEmpty()) { signs = emptyList() }
++      DANGER_SIGNS.forEach { s -> CheckRow(s, s in signs) { signs = if (s in signs) signs - s else signs + s } }
++      OutlinedTextField(notes, { notes = it }, label = { Text("Notes") }, minLines = 3, modifier = Modifier.fillMaxWidth())
++      error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
++      Button(onClick = { validate()?.let(onSave) }, modifier = Modifier.fillMaxWidth()) { Text("Save visit") }
++    }
++  }
++}
++
++@Composable
++fun CheckRow(label: String, checked: Boolean, onToggle: () -> Unit) {
++  Row(Modifier.fillMaxWidth().clickable(onClick = onToggle), verticalAlignment = Alignment.CenterVertically) {
++    Checkbox(checked, { onToggle() })
++    Text(label)
+   }
+ }
+diff --git a/app/src/test/java/com/example/ancapp/DatesTest.kt b/app/src/test/java/com/example/ancapp/DatesTest.kt
+new file mode 100644
+index 0000000..07a7c73
+--- /dev/null
++++ b/app/src/test/java/com/example/ancapp/DatesTest.kt
+@@ -0,0 +1,19 @@
++package com.example.ancapp
++
++import java.time.LocalDate
++import org.junit.Assert.assertEquals
++import org.junit.Test
++
++class DatesTest {
++  @Test fun gestationalAge() {
++    val edd = LocalDate.parse("2026-12-05")
++    assertEquals(40, gaWeeksOn(edd, edd))
++    assertEquals(23, gaWeeksOn(edd, LocalDate.parse("2026-08-10"))) // 117 days before EDD
++  }
++
++  @Test fun age() {
++    val dob = LocalDate.parse("1996-04-12")
++    assertEquals(30, ageOn(dob, LocalDate.parse("2026-10-13")))
++    assertEquals(29, ageOn(dob, LocalDate.parse("2026-04-11")))
++  }
++}
