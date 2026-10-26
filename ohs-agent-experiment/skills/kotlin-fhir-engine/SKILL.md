@@ -352,13 +352,17 @@ import dev.ohs.fhir.engine.sync.CurrentSyncJobStatus
 import dev.ohs.fhir.engine.sync.Sync
 
 // 1. On app start (e.g. from the first screen's ViewModel):
-//    collect until a terminal state so you can react to the outcome
-val terminal = Sync.oneTimeSync<AppSyncWorker>(context.applicationContext).first {
-  it is CurrentSyncJobStatus.Succeeded ||
-    it is CurrentSyncJobStatus.Failed ||
-    it is CurrentSyncJobStatus.Cancelled
-}
-val ok = terminal is CurrentSyncJobStatus.Succeeded
+//    collect until a terminal state so you can react to the outcome.
+//    Wrap it: after an offline sync fails, the status flow can throw
+//    IllegalStateException ("Inconsistent terminal syncJobStatus") on the
+//    next launch. Uncaught, that crashes the app every time it opens offline.
+val ok = runCatching {
+  Sync.oneTimeSync<AppSyncWorker>(context.applicationContext).first {
+    it is CurrentSyncJobStatus.Succeeded ||
+      it is CurrentSyncJobStatus.Failed ||
+      it is CurrentSyncJobStatus.Cancelled
+  }
+}.getOrNull() is CurrentSyncJobStatus.Succeeded
 // refresh the UI from the local database after a successful sync
 
 // 2. Right after saving data, queue an upload behind any in-flight sync.
