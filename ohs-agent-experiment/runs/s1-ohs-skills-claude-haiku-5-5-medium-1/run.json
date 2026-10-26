@@ -33,8 +33,8 @@
   "cost_usd_api_rates": 0.17,
   "diff_lines_added": 459,
   "smoke_check": "pass",
-  "verified_working": null,
-  "round_trip_pass": null,
+  "verified_working": true,
+  "round_trip_pass": true,
   "notes": "gen=2 agent_exit=0",
   "verification": {
     "launched": true,

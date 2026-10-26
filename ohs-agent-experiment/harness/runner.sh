@@ -3,7 +3,7 @@
 #   agent:     always explicit, no default: claude | gemini | antigravity
 #   model:     claude <model id>-<effort> (e.g. claude-opus-5-5-medium), gemini raw names (e.g. gemini-3.7-flash),
 #              antigravity: raw `agy models` ids, gemini only (e.g. gemini-3.8-flash-high)
-#   condition: cold | ohs | ohs-skills
+#   condition: cold | fhir | ohs | ohs-skills   (fhir = FHIR server, no OHS libraries)
 #   replicate: 01, 02, ...
 # Artifacts land in ../runs/s1-<condition>-<model>-<replicate>/ and results.csv.
 set -euo pipefail
@@ -67,6 +67,7 @@ else
 fi
 case "$COND" in
   cold)              PROMPT_SRC="$POC/build-a-prompt.md" ;;
+  fhir)              PROMPT_SRC="$POC/build-c-prompt.md" ;;
   ohs|ohs-skills)    PROMPT_SRC="$POC/build-b-prompt.md" ;;
   *) echo "unknown condition $COND"; exit 2 ;;
 esac

@@ -1,0 +1,46 @@
+{
+  "run_id": "s1-fhir-claude-fable-5-1-medium-1",
+  "scenario": "s1-build",
+  "condition": "fhir",
+  "model": "claude-fable-5-1-medium",
+  "effort": "medium",
+  "replicate": 1,
+  "date": "2026-10-23",
+  "harness": "claude-code-headless",
+  "scaffold_repo": "templates/fhir",
+  "baseline_commit": "ba20121",
+  "session_id": "6f0b2dab-ec8f-4910-939a-e38f9f344cf4",
+  "model_served": {
+    "claude-fable-5-1": 27
+  },
+  "effort_served": {
+    "medium": 27
+  },
+  "wall_minutes": 6.4,
+  "user_turns": 1,
+  "corrective_turns": 0,
+  "tool_calls": 26,
+  "assistant_text_blocks": 13,
+  "tool_errors": 1,
+  "build_failures_self_fixed": 1,
+  "server_validation_incidents": 0,
+  "tokens": {
+    "input": 594,
+    "output": 21976,
+    "cache_read": 1523477,
+    "cache_write": 67032
+  },
+  "cost_usd_api_rates": 2.83,
+  "diff_lines_added": 338,
+  "smoke_check": "pass",
+  "verified_working": true,
+  "round_trip_pass": true,
+  "notes": "gen=2 agent_exit=0",
+  "verification": {
+    "launched": true,
+    "crashed": false,
+    "screenshot_after_seconds": 30,
+    "patients_in_local_db": null,
+    "note": "launched+!crashed is the smoke verdict. patients_in_local_db is a best-effort sync-success signal (0/null suggests download sync did not deliver). Whether the register visually renders is the human walk, judged from launch.png."
+  }
+}

@@ -51,6 +51,7 @@ PY
 }
 
 build cold cold
+build fhir fhir
 build ohs ohs
 build ohs-skills-claude ohs
 build ohs-skills-gemini ohs

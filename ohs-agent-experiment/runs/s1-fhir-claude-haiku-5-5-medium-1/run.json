@@ -1,0 +1,46 @@
+{
+  "run_id": "s1-fhir-claude-haiku-5-5-medium-1",
+  "scenario": "s1-build",
+  "condition": "fhir",
+  "model": "claude-haiku-5-5-medium",
+  "effort": "medium",
+  "replicate": 1,
+  "date": "2026-10-23",
+  "harness": "claude-code-headless",
+  "scaffold_repo": "templates/fhir",
+  "baseline_commit": "ba20121",
+  "session_id": "8c32ba94-b11b-4b2e-ad5c-ed584b0c2eb4",
+  "model_served": {
+    "claude-haiku-5-5": 39
+  },
+  "effort_served": {
+    "medium": 39
+  },
+  "wall_minutes": 6.1,
+  "user_turns": 1,
+  "corrective_turns": 0,
+  "tool_calls": 40,
+  "assistant_text_blocks": 19,
+  "tool_errors": 1,
+  "build_failures_self_fixed": 0,
+  "server_validation_incidents": 0,
+  "tokens": {
+    "input": 78,
+    "output": 57228,
+    "cache_read": 3511827,
+    "cache_write": 116928
+  },
+  "cost_usd_api_rates": 0.21,
+  "diff_lines_added": 484,
+  "smoke_check": "pass",
+  "verified_working": true,
+  "round_trip_pass": true,
+  "notes": "gen=2 agent_exit=0",
+  "verification": {
+    "launched": true,
+    "crashed": false,
+    "screenshot_after_seconds": 30,
+    "patients_in_local_db": null,
+    "note": "launched+!crashed is the smoke verdict. patients_in_local_db is a best-effort sync-success signal (0/null suggests download sync did not deliver). Whether the register visually renders is the human walk, judged from launch.png."
+  }
+}
