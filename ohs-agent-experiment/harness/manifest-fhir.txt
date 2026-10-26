@@ -1,0 +1,15 @@
+# FHIR without OHS campaign manifest: <agent> <model> <condition> <replicate>
+# The fair baseline a reviewer asked for: same task, same FHIR server and seed
+# data, same prompt as ohs, but no OHS libraries in the project and the agent
+# free to pick any library (build-c-prompt.md, templates/fhir).
+# Same models, effort and run count as manifest-claude.txt and the Gemini runs.
+antigravity gemini-3.8-flash-medium fhir 1
+claude claude-haiku-5-5-medium  fhir 1
+claude claude-sonnet-5-5-medium fhir 1
+claude claude-opus-5-5-medium   fhir 1
+claude claude-fable-5-1-medium  fhir 1
+antigravity gemini-3.8-flash-medium fhir 2
+claude claude-haiku-5-5-medium  fhir 2
+claude claude-sonnet-5-5-medium fhir 2
+claude claude-opus-5-5-medium   fhir 2
+claude claude-fable-5-1-medium  fhir 2

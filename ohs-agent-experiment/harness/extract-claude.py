@@ -4,7 +4,7 @@ jsonl, fills run.json with metrics, appends the results.csv row.
 
 Usage:
   extract-claude.py --jsonl PATH --run-dir runs/<run_id> --run-id ID \
-             --scenario s1-build --condition cold|ohs|ohs-skills \
+             --scenario s1-build --condition cold|fhir|ohs|ohs-skills \
              --model claude-<model>-<effort> --replicate N \
              --scaffold-repo NAME --baseline COMMIT \
              [--smoke pass|fail|skip] [--results results.csv] [--notes TEXT]
