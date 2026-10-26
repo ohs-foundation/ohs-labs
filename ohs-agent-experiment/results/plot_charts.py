@@ -1,14 +1,17 @@
-"""Cost and time per run by model and condition, from results.csv. Needs matplotlib.
+"""Cost and time per build by model and condition, from results.csv. Needs matplotlib.
 
 Usage: python results/plot_charts.py
   ->  writes results/cost-by-model.png and results/minutes-by-model.png
+
+One grouped bar chart per measure, the average of two runs, value on each bar.
+Per-run detail is in results.csv and results/walk-offline-2026-10.md.
 """
 import csv
 from decimal import ROUND_HALF_UP, Decimal
 from pathlib import Path
 
 import matplotlib.pyplot as plt
-from matplotlib.ticker import MultipleLocator
+from matplotlib.ticker import MaxNLocator
 
 HERE = Path(__file__).parent
 MODELS = [
@@ -18,52 +21,46 @@ MODELS = [
     ("claude-sonnet-5-5-medium", "Claude Sonnet 5.5"),
     ("claude-haiku-5-5-medium", "Claude Haiku 5.5"),
 ]
-CONDITIONS = [("cold", "Cold"), ("ohs", "OHS"), ("ohs-skills", "OHS +\nSkills")]
-COLORS = {"cold": "#9aa5b1", "ohs": "#e07a5f", "ohs-skills": "#3d8bfd"}
-# Apps that failed the emulator walk or keep nothing on the device
-# (results/walk-claude-2026-10.md).
-FAILED = {
-    ("claude-haiku-5-5-medium", "ohs"), ("claude-haiku-5-5-medium", "ohs-skills"),
-    ("claude-sonnet-5-5-medium", "ohs"),
-}
+# Categorical slots 1-3 of the dataviz reference palette, checked for colorblind separation.
+CONDITIONS = [("cold", "No FHIR", "#2a78d6"), ("ohs", "OHS", "#eb6834"),
+              ("ohs-skills", "OHS + Skills", "#1baf7a")]
+INK, MUTED, GRID = "#0b0b0b", "#52514e", "#e6e5e1"
 
 rows = list(csv.DictReader(open(HERE.parent / "results.csv")))
 
 
-def plot(column, fmt, ylabel, title, out):
-    fig, axes = plt.subplots(1, len(MODELS), figsize=(15, 4.2), sharey=True)
-    top = max(float(r[column]) for r in rows)
-    for ax, (model, name) in zip(axes, MODELS):
-        for i, (cond, _) in enumerate(CONDITIONS):
-            vals = [float(r[column]) for r in rows
-                    if r["model"] == model and r["condition"] == cond]
-            avg = sum(vals) / len(vals)
-            label = (sum(Decimal(str(v)) for v in vals) / len(vals)).quantize(
-                Decimal("0.01" if fmt == "$" else "0.1"), ROUND_HALF_UP)
-            ax.bar(i, avg, color=COLORS[cond], width=0.65)
-            ax.text(i, max(vals) + top * 0.02, f"${label}" if fmt == "$" else f"{label}",
-                    ha="center", va="bottom", fontsize=9, weight="bold")
-            failed = (model, cond) in FAILED
-            ax.scatter([i - 0.12, i + 0.12], vals, zorder=3, s=28,
-                       marker="x" if failed else "o",
-                       color="#c0392b" if failed else "#222")
-        ax.set_title(name, fontsize=11)
-        ax.set_xticks(range(len(CONDITIONS)), [c[1] for c in CONDITIONS], fontsize=9)
-        ax.yaxis.set_major_formatter(
-            (lambda v, _: f"${v:.2f}") if fmt == "$" else (lambda v, _: f"{v:.0f}"))
-        ax.spines[["top", "right"]].set_visible(False)
-    axes[0].set_ylim(0, top * 1.1)
-    if fmt != "$":
-        axes[0].yaxis.set_major_locator(MultipleLocator(5))
-    axes[0].set_ylabel(ylabel)
-    fig.suptitle(title, fontsize=13, weight="bold")
-    fig.text(0.5, 0.01, "Bar = average of two runs. Dot = one run. Red x = app failed.",
-             ha="center", fontsize=9, color="#555")
-    fig.tight_layout(rect=(0, 0.04, 1, 0.95))
-    fig.savefig(HERE / out, dpi=150)
+def avg(model, cond, column, step):
+    vals = [Decimal(r[column]) for r in rows if r["model"] == model and r["condition"] == cond]
+    return (sum(vals) / len(vals)).quantize(Decimal(step), ROUND_HALF_UP)
 
 
-plot("cost_usd_api_rates", "$", "API cost per run",
-     "Skills bring the cost of building on FHIR close to a custom app", "cost-by-model.png")
-plot("wall_minutes", "min", "Minutes per run",
-     "Time to finish follows the same pattern", "minutes-by-model.png")
+def plot(column, step, fmt, title, out):
+    fig, ax = plt.subplots(figsize=(11, 5.2))
+    ax.set_facecolor("#fcfcfb")
+    ax.yaxis.set_major_locator(MaxNLocator(steps=[1, 2, 5, 10]))
+    width = 0.26
+    for i, (cond, label, color) in enumerate(CONDITIONS):
+        xs = [m + (i - 1) * (width + 0.02) for m in range(len(MODELS))]
+        ys = [avg(model, cond, column, step) for model, _ in MODELS]
+        ax.bar(xs, [float(y) for y in ys], width, color=color, label=label)
+        for x, y in zip(xs, ys):
+            ax.text(x, float(y), fmt(y), ha="center", va="bottom", fontsize=10, color=INK)
+    ax.set_xticks(range(len(MODELS)), [name for _, name in MODELS], fontsize=11, color=INK)
+    ax.tick_params(axis="y", labelsize=10, colors=MUTED, length=0)
+    ax.tick_params(axis="x", length=0)
+    ax.yaxis.set_major_formatter(lambda v, _: f"${v:.2f}" if step == "0.01" else f"{v:.0f}")
+    ax.grid(axis="y", color=GRID, linewidth=1)
+    ax.set_axisbelow(True)
+    ax.spines[["top", "right", "left"]].set_visible(False)
+    ax.spines["bottom"].set_color(MUTED)
+    ax.legend(frameon=False, fontsize=11, ncols=3, loc="upper right")
+    ax.set_title(title, fontsize=14, weight="bold", loc="left", color=INK, pad=14)
+    fig.text(0.01, 0.01, "Average of two runs per model and condition.", fontsize=9, color=MUTED)
+    fig.tight_layout(rect=(0, 0.03, 1, 1))
+    fig.savefig(HERE / out, dpi=150, facecolor="#fcfcfb")
+
+
+plot("cost_usd_api_rates", "0.01", lambda v: f"${v}",
+     "API cost per build. Skills bring OHS close to the custom app", "cost-by-model.png")
+plot("wall_minutes", "0.1", lambda v: f"{v}",
+     "Minutes per build. Skills bring OHS close to the custom app", "minutes-by-model.png")
