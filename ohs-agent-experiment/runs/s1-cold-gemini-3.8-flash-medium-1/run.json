@@ -30,7 +30,7 @@
   "cost_usd_api_rates": 0.84,
   "diff_lines_added": 2265,
   "smoke_check": "pass",
-  "verified_working": null,
+  "verified_working": true,
   "round_trip_pass": null,
   "notes": "gen=2 agent_exit=0 | agy_resumes=0 | schema verified against agy v1.2.7; re-verify if the CLI is upgraded",
   "verification": {
