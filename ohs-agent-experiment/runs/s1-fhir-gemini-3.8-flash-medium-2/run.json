@@ -1,0 +1,46 @@
+{
+  "run_id": "s1-fhir-gemini-3.8-flash-medium-2",
+  "scenario": "s1-build",
+  "condition": "fhir",
+  "model": "gemini-3.8-flash-medium",
+  "replicate": 2,
+  "date": null,
+  "harness": "antigravity-cli-headless",
+  "scaffold_repo": "templates/fhir",
+  "baseline_commit": "ba20121",
+  "session_id": "0c0febbb-4660-4a6b-9351-c3c7a74aa5d8",
+  "model_reported_by_cli": "gemini-3.8-flash-medium",
+  "model_served": {
+    "gemini-3.8-flash-n": 96
+  },
+  "permission_mode": "always-proceed",
+  "final_status": "SUCCESS",
+  "resume_turns": 0,
+  "wall_minutes": 15.7,
+  "user_turns": 1,
+  "corrective_turns": 0,
+  "tool_calls": 95,
+  "assistant_text_blocks": 1,
+  "tool_errors": 1,
+  "build_failures_self_fixed": 0,
+  "server_validation_incidents": 10,
+  "tokens": {
+    "input": 338949,
+    "output": 68602,
+    "thinking": 34809,
+    "cache_read": 6819746
+  },
+  "cost_usd_api_rates": 1.02,
+  "diff_lines_added": 2569,
+  "smoke_check": "pass",
+  "verified_working": true,
+  "round_trip_pass": true,
+  "notes": "gen=2 agent_exit=0 | agy_resumes=0 | schema verified against agy v1.2.7; re-verify if the CLI is upgraded",
+  "verification": {
+    "launched": true,
+    "crashed": false,
+    "screenshot_after_seconds": 30,
+    "patients_in_local_db": null,
+    "note": "launched+!crashed is the smoke verdict. patients_in_local_db is a best-effort sync-success signal (0/null suggests download sync did not deliver). Whether the register visually renders is the human walk, judged from launch.png."
+  }
+}

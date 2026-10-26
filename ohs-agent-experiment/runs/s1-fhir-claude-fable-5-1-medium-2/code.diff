@@ -1,0 +1,413 @@
+diff --git a/app/src/main/AndroidManifest.xml b/app/src/main/AndroidManifest.xml
+index c454ae9..30a43e6 100644
+--- a/app/src/main/AndroidManifest.xml
++++ b/app/src/main/AndroidManifest.xml
+@@ -5,6 +5,7 @@
+ 
+     <application
+         android:label="ANC App"
++        android:usesCleartextTraffic="true"
+         android:theme="@android:style/Theme.Material.Light.NoActionBar">
+         <activity
+             android:name=".MainActivity"
+diff --git a/app/src/main/java/com/example/ancapp/Fhir.kt b/app/src/main/java/com/example/ancapp/Fhir.kt
+new file mode 100644
+index 0000000..5760798
+--- /dev/null
++++ b/app/src/main/java/com/example/ancapp/Fhir.kt
+@@ -0,0 +1,155 @@
++package com.example.ancapp
++
++import org.json.JSONArray
++import org.json.JSONObject
++import java.net.HttpURLConnection
++import java.net.URL
++import java.time.LocalDate
++import java.time.temporal.ChronoUnit
++import java.util.UUID
++
++const val BASE = "http://10.0.2.2:8080/fhir"
++
++data class Patient(val id: String, val name: String, val birthDate: LocalDate?, val edd: LocalDate?) {
++  val age get() = birthDate?.let { ChronoUnit.YEARS.between(it, LocalDate.now()) }
++  // Gestational weeks = weeks since LMP, LMP = EDD - 280 days (Naegele)
++  val weeks get() = edd?.let { ChronoUnit.DAYS.between(it.minusDays(280), LocalDate.now()) / 7 }
++}
++
++data class Visit(val date: String, val weight: Double?, val systolic: Double?, val diastolic: Double?, val hb: Double?)
++
++fun http(method: String, path: String, body: String? = null): JSONObject {
++  val c = URL("$BASE/$path").openConnection() as HttpURLConnection
++  c.requestMethod = method
++  c.setRequestProperty("Accept", "application/fhir+json")
++  if (body != null) {
++    c.setRequestProperty("Content-Type", "application/fhir+json")
++    c.doOutput = true
++    c.outputStream.use { it.write(body.toByteArray()) }
++  }
++  val text = (if (c.responseCode < 400) c.inputStream else c.errorStream).bufferedReader().readText()
++  if (c.responseCode >= 400) error("HTTP ${c.responseCode}: $text")
++  return JSONObject(text)
++}
++
++fun JSONObject.entries(): List<JSONObject> =
++  optJSONArray("entry")?.let { a -> List(a.length()) { a.getJSONObject(it).getJSONObject("resource") } } ?: emptyList()
++
++fun JSONArray.objs() = List(length()) { getJSONObject(it) }
++
++private fun JSONObject.loinc(): String? =
++  optJSONObject("code")?.optJSONArray("coding")?.objs()?.firstOrNull()?.optString("code")
++
++private fun JSONObject.qty(): Double? = optJSONObject("valueQuantity")?.optDouble("value")
++
++fun loadPatients(): List<Patient> {
++  val edds = http("GET", "Observation?code=http://loinc.org|11778-8&_count=200").entries()
++    .associate { it.getJSONObject("subject").getString("reference") to it.optString("valueDateTime") }
++  return http("GET", "Patient?_count=200").entries().map { p ->
++    val n = p.optJSONArray("name")?.objs()?.firstOrNull()
++    val given = n?.optJSONArray("given")?.let { g -> List(g.length()) { g.getString(it) } }?.joinToString(" ") ?: ""
++    Patient(
++      id = p.getString("id"),
++      name = "$given ${n?.optString("family") ?: ""}".trim(),
++      birthDate = p.optString("birthDate").takeIf { it.isNotEmpty() }?.let(LocalDate::parse),
++      edd = edds["Patient/${p.getString("id")}"]?.takeIf { it.isNotEmpty() }?.let { LocalDate.parse(it.take(10)) },
++    )
++  }.sortedWith(compareBy(nullsLast()) { it.edd })
++}
++
++fun loadVisits(patientId: String): List<Visit> {
++  val encounters = http("GET", "Encounter?subject=Patient/$patientId&_count=200").entries()
++  val obsByEnc = http("GET", "Observation?subject=Patient/$patientId&_count=500").entries()
++    .groupBy { it.optJSONObject("encounter")?.optString("reference") }
++  return encounters.map { e ->
++    val obs = obsByEnc["Encounter/${e.getString("id")}"] ?: emptyList()
++    val bp = obs.firstOrNull { it.loinc() == "85354-9" }?.optJSONArray("component")?.objs() ?: emptyList()
++    Visit(
++      date = e.optJSONObject("period")?.optString("start")?.take(10) ?: "",
++      weight = obs.firstOrNull { it.loinc() == "29463-7" }?.qty(),
++      systolic = bp.firstOrNull { it.loinc() == "8480-6" }?.qty(),
++      diastolic = bp.firstOrNull { it.loinc() == "8462-4" }?.qty(),
++      hb = obs.firstOrNull { it.loinc() == "718-7" }?.qty(),
++    )
++  }.sortedByDescending { it.date }
++}
++
++fun loadQuestionnaire(): JSONObject = http("GET", "Questionnaire/anc-contact")
++
++/** answers: linkId -> text for simple items, linkId -> Set<code> for choice items. */
++fun saveVisit(patientId: String, questionnaire: JSONObject, answers: Map<String, Any>) {
++  val date = answers["visit-date"] as String
++  val encUrl = "urn:uuid:${UUID.randomUUID()}"
++  val subject = JSONObject().put("reference", "Patient/$patientId")
++  val encounterRef = JSONObject().put("reference", encUrl)
++
++  fun obs(code: String, display: String, value: Double, unit: String, ucum: String) = JSONObject()
++    .put("resourceType", "Observation").put("status", "final")
++    .put("category", JSONArray().put(JSONObject().put("coding", JSONArray().put(JSONObject()
++      .put("system", "http://terminology.hl7.org/CodeSystem/observation-category").put("code", "vital-signs")))))
++    .put("code", JSONObject().put("coding", JSONArray().put(JSONObject().put("system", "http://loinc.org").put("code", code).put("display", display))))
++    .put("subject", subject).put("encounter", encounterRef).put("effectiveDateTime", date)
++    .put("valueQuantity", JSONObject().put("value", value).put("unit", unit).put("system", "http://unitsofmeasure.org").put("code", ucum))
++
++  val resources = mutableListOf<Pair<String, JSONObject>>()
++  resources += encUrl to JSONObject().put("resourceType", "Encounter").put("status", "finished")
++    .put("class", JSONObject().put("system", "http://terminology.hl7.org/CodeSystem/v3-ActCode").put("code", "AMB"))
++    .put("type", JSONArray().put(JSONObject().put("text", "Antenatal care contact")))
++    .put("subject", subject).put("period", JSONObject().put("start", date).put("end", date))
++
++  (answers["weight"] as? String)?.toDoubleOrNull()?.let {
++    resources += "urn:uuid:${UUID.randomUUID()}" to obs("29463-7", "Body weight", it, "kg", "kg")
++  }
++  val sys = (answers["bp-systolic"] as? String)?.toDoubleOrNull()
++  val dia = (answers["bp-diastolic"] as? String)?.toDoubleOrNull()
++  if (sys != null || dia != null) {
++    val comps = JSONArray()
++    sys?.let { comps.put(obs("8480-6", "Systolic blood pressure", it, "mmHg", "mm[Hg]").let { o -> JSONObject().put("code", o.get("code")).put("valueQuantity", o.get("valueQuantity")) }) }
++    dia?.let { comps.put(obs("8462-4", "Diastolic blood pressure", it, "mmHg", "mm[Hg]").let { o -> JSONObject().put("code", o.get("code")).put("valueQuantity", o.get("valueQuantity")) }) }
++    resources += "urn:uuid:${UUID.randomUUID()}" to obs("85354-9", "Blood pressure panel", 0.0, "", "")
++      .apply { remove("valueQuantity"); put("component", comps) }
++  }
++
++  // QuestionnaireResponse mirrors the Questionnaire tree
++  fun qrItems(items: JSONArray): JSONArray {
++    val out = JSONArray()
++    for (q in items.objs()) {
++      val id = q.getString("linkId")
++      val item = JSONObject().put("linkId", id).put("text", q.optString("text"))
++      when (q.getString("type")) {
++        "group" -> { val kids = qrItems(q.getJSONArray("item")); if (kids.length() > 0) out.put(item.put("item", kids)) }
++        "choice" -> {
++          val codes = answers[id] as? Set<*> ?: emptySet<Any>()
++          val opts = q.getJSONArray("answerOption").objs().map { it.getJSONObject("valueCoding") }
++          val ans = JSONArray()
++          opts.filter { it.getString("code") in codes }.forEach { ans.put(JSONObject().put("valueCoding", it)) }
++          if (ans.length() > 0) out.put(item.put("answer", ans))
++        }
++        else -> {
++          val v = (answers[id] as? String)?.trim().orEmpty()
++          if (v.isEmpty()) continue
++          val a = when (q.getString("type")) {
++            "date" -> JSONObject().put("valueDate", v)
++            "integer" -> v.toIntOrNull()?.let { JSONObject().put("valueInteger", it) }
++            "decimal" -> v.toDoubleOrNull()?.let { JSONObject().put("valueDecimal", it) }
++            else -> JSONObject().put("valueString", v)
++          } ?: continue
++          out.put(item.put("answer", JSONArray().put(a)))
++        }
++      }
++    }
++    return out
++  }
++  resources += "urn:uuid:${UUID.randomUUID()}" to JSONObject().put("resourceType", "QuestionnaireResponse")
++    .put("questionnaire", questionnaire.optString("url")).put("status", "completed")
++    .put("subject", subject).put("encounter", encounterRef).put("authored", date)
++    .put("item", qrItems(questionnaire.getJSONArray("item")))
++
++  val bundle = JSONObject().put("resourceType", "Bundle").put("type", "transaction").put("entry", JSONArray().apply {
++    resources.forEach { (url, r) ->
++      put(JSONObject().put("fullUrl", url).put("resource", r)
++        .put("request", JSONObject().put("method", "POST").put("url", r.getString("resourceType"))))
++    }
++  })
++  http("POST", "", bundle.toString())
++}
+diff --git a/app/src/main/java/com/example/ancapp/MainActivity.kt b/app/src/main/java/com/example/ancapp/MainActivity.kt
+index b5e554b..773f651 100644
+--- a/app/src/main/java/com/example/ancapp/MainActivity.kt
++++ b/app/src/main/java/com/example/ancapp/MainActivity.kt
+@@ -2,14 +2,231 @@ package com.example.ancapp
+ 
+ import android.os.Bundle
+ import androidx.activity.ComponentActivity
++import androidx.activity.compose.BackHandler
+ import androidx.activity.compose.setContent
+-import androidx.compose.material3.MaterialTheme
+-import androidx.compose.material3.Surface
+-import androidx.compose.material3.Text
++import androidx.compose.foundation.clickable
++import androidx.compose.foundation.layout.*
++import androidx.compose.foundation.lazy.LazyColumn
++import androidx.compose.foundation.lazy.items
++import androidx.compose.foundation.rememberScrollState
++import androidx.compose.foundation.text.KeyboardOptions
++import androidx.compose.foundation.verticalScroll
++import androidx.compose.material3.*
++import androidx.compose.runtime.*
++import androidx.compose.ui.Modifier
++import androidx.compose.ui.text.input.KeyboardType
++import androidx.compose.ui.unit.dp
++import kotlinx.coroutines.Dispatchers
++import kotlinx.coroutines.launch
++import kotlinx.coroutines.withContext
++import org.json.JSONArray
++import org.json.JSONObject
++import java.time.LocalDate
++import java.time.format.DateTimeParseException
+ 
+ class MainActivity : ComponentActivity() {
+   override fun onCreate(savedInstanceState: Bundle?) {
+     super.onCreate(savedInstanceState)
+-    setContent { MaterialTheme { Surface { Text("Hello") } } }
++    setContent { MaterialTheme { Surface { App() } } }
++  }
++}
++
++/** Tiny loader: runs [load] on IO, exposes result or error; [reload] re-runs. */
++@Composable
++fun <T> rememberLoaded(vararg keys: Any?, load: () -> T): Triple<T?, String?, () -> Unit> {
++  var result by remember(*keys) { mutableStateOf<T?>(null) }
++  var error by remember(*keys) { mutableStateOf<String?>(null) }
++  var tick by remember(*keys) { mutableIntStateOf(0) }
++  LaunchedEffect(tick, *keys) {
++    result = null; error = null
++    try { result = withContext(Dispatchers.IO) { load() } } catch (e: Exception) { error = e.message ?: e.toString() }
++  }
++  return Triple(result, error, { tick++ })
++}
++
++@Composable
++fun App() {
++  var patient by remember { mutableStateOf<Patient?>(null) }
++  var recording by remember { mutableStateOf(false) }
++  val p = patient
++  when {
++    p == null -> RegisterScreen { patient = it }
++    recording -> VisitFormScreen(p, onDone = { recording = false })
++    else -> DetailScreen(p, onBack = { patient = null }, onRecord = { recording = true })
++  }
++}
++
++@OptIn(ExperimentalMaterial3Api::class)
++@Composable
++fun RegisterScreen(onSelect: (Patient) -> Unit) {
++  val (patients, error, reload) = rememberLoaded { loadPatients() }
++  Scaffold(topBar = { TopAppBar(title = { Text("ANC Register") }) }) { pad ->
++    Box(Modifier.padding(pad).fillMaxSize()) {
++      when {
++        error != null -> ErrorView(error, reload)
++        patients == null -> CircularProgressIndicator(Modifier.align(androidx.compose.ui.Alignment.Center))
++        else -> LazyColumn {
++          items(patients) { pt ->
++            ListItem(
++              modifier = Modifier.clickable { onSelect(pt) },
++              headlineContent = { Text(pt.name) },
++              supportingContent = {
++                Text("Age ${pt.age ?: "?"} · EDD ${pt.edd ?: "unknown"} · ${pt.weeks?.let { "$it weeks" } ?: "GA unknown"}")
++              },
++            )
++            HorizontalDivider()
++          }
++        }
++      }
++    }
++  }
++}
++
++@OptIn(ExperimentalMaterial3Api::class)
++@Composable
++fun DetailScreen(p: Patient, onBack: () -> Unit, onRecord: () -> Unit) {
++  BackHandler(onBack = onBack)
++  val (visits, error, reload) = rememberLoaded(p.id) { loadVisits(p.id) }
++  Scaffold(
++    topBar = { TopAppBar(title = { Text(p.name) }, navigationIcon = { TextButton(onClick = onBack) { Text("Back") } }) },
++    floatingActionButton = { ExtendedFloatingActionButton(onClick = onRecord) { Text("New visit") } },
++  ) { pad ->
++    Box(Modifier.padding(pad).fillMaxSize()) {
++      when {
++        error != null -> ErrorView(error, reload)
++        visits == null -> CircularProgressIndicator(Modifier.align(androidx.compose.ui.Alignment.Center))
++        visits.isEmpty() -> Text("No visits recorded", Modifier.padding(16.dp))
++        else -> LazyColumn {
++          item { Text("Age ${p.age ?: "?"} · EDD ${p.edd ?: "unknown"} · ${p.weeks ?: "?"} weeks", Modifier.padding(16.dp)) }
++          items(visits) { v ->
++            ListItem(
++              headlineContent = { Text(v.date) },
++              supportingContent = {
++                val bp = if (v.systolic != null || v.diastolic != null) "BP ${v.systolic?.fmt() ?: "?"}/${v.diastolic?.fmt() ?: "?"}" else null
++                Text(listOfNotNull(v.weight?.let { "Weight ${it.fmt()} kg" }, bp, v.hb?.let { "Hb ${it.fmt()} g/dL" })
++                  .ifEmpty { listOf("No measurements") }.joinToString(" · "))
++              },
++            )
++            HorizontalDivider()
++          }
++        }
++      }
++    }
++  }
++}
++
++private fun Double.fmt() = if (this % 1.0 == 0.0) toLong().toString() else toString()
++
++@OptIn(ExperimentalMaterial3Api::class)
++@Composable
++fun VisitFormScreen(p: Patient, onDone: () -> Unit) {
++  BackHandler(onBack = onDone)
++  val (q, error, reload) = rememberLoaded { loadQuestionnaire() }
++  val answers = remember { mutableStateMapOf<String, Any>("visit-date" to LocalDate.now().toString()) }
++  var saving by remember { mutableStateOf(false) }
++  var saveError by remember { mutableStateOf<String?>(null) }
++  val scope = rememberCoroutineScope()
++  val snackbar = remember { SnackbarHostState() }
++
++  val validation = q?.let { validate(it.getJSONArray("item"), answers) } ?: emptyMap()
++
++  Scaffold(
++    topBar = { TopAppBar(title = { Text(q?.optString("title")?.ifEmpty { null } ?: "ANC visit") }, navigationIcon = { TextButton(onClick = onDone) { Text("Cancel") } }) },
++    snackbarHost = { SnackbarHost(snackbar) },
++  ) { pad ->
++    Box(Modifier.padding(pad).fillMaxSize()) {
++      when {
++        error != null -> ErrorView(error, reload)
++        q == null -> CircularProgressIndicator(Modifier.align(androidx.compose.ui.Alignment.Center))
++        else -> Column(Modifier.verticalScroll(rememberScrollState()).imePadding().navigationBarsPadding().padding(16.dp)) {
++          Text(p.name, style = MaterialTheme.typography.titleMedium)
++          QuestionnaireItems(q.getJSONArray("item"), answers, validation)
++          saveError?.let { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(vertical = 8.dp)) }
++          Button(
++            enabled = !saving && validation.isEmpty(),
++            modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
++            onClick = {
++              saving = true; saveError = null
++              scope.launch {
++                try {
++                  withContext(Dispatchers.IO) { saveVisit(p.id, q, answers.toMap()) }
++                  onDone()
++                } catch (e: Exception) { saveError = "Save failed: ${e.message}"; saving = false }
++              }
++            },
++          ) { Text(if (saving) "Saving…" else "Save visit") }
++        }
++      }
++    }
++  }
++}
++
++/** linkId -> error message for invalid/missing answers. */
++fun validate(items: JSONArray, answers: Map<String, Any>): Map<String, String> {
++  val errs = mutableMapOf<String, String>()
++  for (q in items.objs()) {
++    val id = q.getString("linkId")
++    val v = (answers[id] as? String)?.trim().orEmpty()
++    when (q.getString("type")) {
++      "group" -> errs += validate(q.getJSONArray("item"), answers)
++      "date" -> if (v.isNotEmpty()) try { LocalDate.parse(v) } catch (e: DateTimeParseException) { errs[id] = "Use YYYY-MM-DD" }
++      "integer" -> if (v.isNotEmpty() && v.toIntOrNull() == null) errs[id] = "Whole number required"
++      "decimal" -> if (v.isNotEmpty() && v.toDoubleOrNull() == null) errs[id] = "Number required"
++    }
++    if (q.optBoolean("required") && v.isEmpty() && q.getString("type") != "choice") errs[id] = "Required"
++  }
++  return errs
++}
++
++@Composable
++fun QuestionnaireItems(items: JSONArray, answers: MutableMap<String, Any>, errors: Map<String, String>) {
++  for (q in items.objs()) {
++    val id = q.getString("linkId")
++    val label = q.optString("text") + if (q.optBoolean("required")) " *" else ""
++    when (val type = q.getString("type")) {
++      "group" -> {
++        Text(q.optString("text"), style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 16.dp))
++        QuestionnaireItems(q.getJSONArray("item"), answers, errors)
++      }
++      "choice" -> {
++        Text(label, style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 16.dp))
++        @Suppress("UNCHECKED_CAST")
++        val selected = answers[id] as? Set<String> ?: emptySet()
++        for (opt in q.getJSONArray("answerOption").objs().map { it.getJSONObject("valueCoding") }) {
++          val code = opt.getString("code")
++          Row(Modifier.fillMaxWidth().clickable {
++            answers[id] = when {
++              code in selected -> selected - code
++              code == "none" || !q.optBoolean("repeats") -> setOf(code)
++              else -> selected - "none" + code
++            }
++          }, verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
++            Checkbox(checked = code in selected, onCheckedChange = null)
++            Text(opt.optString("display", code), Modifier.padding(start = 8.dp))
++          }
++        }
++      }
++      else -> OutlinedTextField(
++        value = answers[id] as? String ?: "",
++        onValueChange = { answers[id] = it },
++        label = { Text(label) },
++        isError = id in errors,
++        supportingText = errors[id]?.let { { Text(it) } },
++        placeholder = if (type == "date") { { Text("YYYY-MM-DD") } } else null,
++        singleLine = type != "text",
++        minLines = if (type == "text") 3 else 1,
++        keyboardOptions = KeyboardOptions(keyboardType = when (type) { "integer" -> KeyboardType.Number; "decimal" -> KeyboardType.Decimal; else -> KeyboardType.Text }),
++        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
++      )
++    }
++  }
++}
++
++@Composable
++fun ErrorView(message: String, retry: () -> Unit) {
++  Column(Modifier.padding(16.dp)) {
++    Text("Could not reach the FHIR server", style = MaterialTheme.typography.titleMedium)
++    Text(message, Modifier.padding(vertical = 8.dp))
++    Button(onClick = retry) { Text("Retry") }
+   }
+ }

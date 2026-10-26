@@ -1,0 +1,776 @@
+diff --git a/app/build.gradle.kts b/app/build.gradle.kts
+index 7df7bf7..1b42844 100644
+--- a/app/build.gradle.kts
++++ b/app/build.gradle.kts
+@@ -34,4 +34,6 @@ dependencies {
+   implementation("androidx.activity:activity-compose:1.13.0")
+   implementation("androidx.compose.ui:ui")
+   implementation("androidx.compose.material3:material3")
++  testImplementation("junit:junit:4.13.2")
++  testImplementation("org.json:json:20240303")
+ }
+diff --git a/app/src/main/AndroidManifest.xml b/app/src/main/AndroidManifest.xml
+index c454ae9..49ac89a 100644
+--- a/app/src/main/AndroidManifest.xml
++++ b/app/src/main/AndroidManifest.xml
+@@ -5,10 +5,13 @@
+ 
+     <application
+         android:label="ANC App"
++        android:usesCleartextTraffic="true"
+         android:theme="@android:style/Theme.Material.Light.NoActionBar">
+         <activity
+             android:name=".MainActivity"
+-            android:exported="true">
++            android:exported="true"
++            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|uiMode"
++            android:windowSoftInputMode="adjustResize">
+             <intent-filter>
+                 <action android:name="android.intent.action.MAIN" />
+                 <category android:name="android.intent.category.LAUNCHER" />
+diff --git a/app/src/main/java/com/example/ancapp/Fhir.kt b/app/src/main/java/com/example/ancapp/Fhir.kt
+new file mode 100644
+index 0000000..85effbd
+--- /dev/null
++++ b/app/src/main/java/com/example/ancapp/Fhir.kt
+@@ -0,0 +1,297 @@
++package com.example.ancapp
++
++import java.net.HttpURLConnection
++import java.net.URL
++import java.time.LocalDate
++import java.time.Period
++import java.time.temporal.ChronoUnit
++import java.util.UUID
++import org.json.JSONArray
++import org.json.JSONObject
++
++const val FHIR_BASE = "http://10.0.2.2:8080/fhir"
++
++private const val LOINC = "http://loinc.org"
++private const val EDD = "11778-8"
++private const val WEIGHT = "29463-7"
++private const val BP_PANEL = "85354-9"
++private const val SYSTOLIC = "8480-6"
++private const val DIASTOLIC = "8462-4"
++private const val HB = "718-7"
++private const val GEST_AGE = "18185-9"
++
++data class Patient(val id: String, val name: String, val birthDate: LocalDate?, val edd: LocalDate) {
++  fun age(today: LocalDate = LocalDate.now()) = birthDate?.let { Period.between(it, today).years }
++  /** Gestational age in days, derived from the EDD (EDD = 280 days). */
++  fun gaDays(today: LocalDate = LocalDate.now()) = 280 - ChronoUnit.DAYS.between(today, edd).toInt()
++}
++
++data class Visit(
++  val date: String,
++  val gaWeeks: Int? = null,
++  val weight: Double? = null,
++  val systolic: Int? = null,
++  val diastolic: Int? = null,
++  val hb: Double? = null,
++  val dangerSigns: List<String> = emptyList(),
++  val notes: String? = null,
++)
++
++// ---- HTTP ----
++
++private fun request(path: String, body: JSONObject? = null): JSONObject {
++  val conn = URL(if (path.isEmpty()) FHIR_BASE else "$FHIR_BASE/$path").openConnection() as HttpURLConnection
++  conn.connectTimeout = 10_000
++  conn.readTimeout = 20_000
++  conn.setRequestProperty("Accept", "application/fhir+json")
++  conn.setRequestProperty("Cache-Control", "no-cache") // HAPI otherwise reuses search results for ~60s
++  if (body != null) {
++    conn.requestMethod = "POST"
++    conn.doOutput = true
++    conn.setRequestProperty("Content-Type", "application/fhir+json")
++    conn.outputStream.use { it.write(body.toString().toByteArray()) }
++  }
++  try {
++    val code = conn.responseCode
++    val text = (if (code < 400) conn.inputStream else conn.errorStream)?.bufferedReader()?.use { it.readText() }.orEmpty()
++    if (code >= 400) error("Server returned HTTP $code ${text.take(300)}")
++    return JSONObject(text)
++  } finally {
++    conn.disconnect()
++  }
++}
++
++private fun JSONObject.resources(): List<JSONObject> =
++  optJSONArray("entry")?.objects()?.mapNotNull { it.optJSONObject("resource") }.orEmpty()
++
++private fun JSONArray.objects() = (0 until length()).map { getJSONObject(it) }
++
++private fun JSONObject.str(key: String): String? = if (has(key) && !isNull(key)) getString(key) else null
++
++private fun JSONObject.hasCode(code: String) =
++  optJSONObject("code")?.optJSONArray("coding")?.objects()?.any { it.str("code") == code } == true
++
++private fun JSONObject.quantity(): Double? = optJSONObject("valueQuantity")?.takeIf { it.has("value") }?.getDouble("value")
++
++// ---- Reads ----
++
++/** Patients with a recorded EDD (i.e. currently on the ANC register), soonest due first. */
++fun loadRegister(): List<Patient> {
++  // ponytail: single page of 500; add paging if the register outgrows it
++  val bundle = request("Observation?code=$LOINC|$EDD&_include=Observation:subject&_sort=-date&_count=500")
++  return parseRegister(bundle)
++}
++
++fun parseRegister(bundle: JSONObject): List<Patient> {
++  val all = bundle.resources()
++  val patients = all.filter { it.str("resourceType") == "Patient" }.associateBy { "Patient/" + it.getString("id") }
++  val edds = LinkedHashMap<String, LocalDate>()
++  // Sorted newest first, so the first EDD seen per patient is the latest one.
++  for (obs in all.filter { it.str("resourceType") == "Observation" }) {
++    val ref = obs.optJSONObject("subject")?.str("reference") ?: continue
++    val edd = obs.str("valueDateTime")?.take(10)?.let(LocalDate::parse) ?: continue
++    edds.putIfAbsent(ref, edd)
++  }
++  return edds.mapNotNull { (ref, edd) ->
++    val p = patients[ref] ?: return@mapNotNull null
++    val n = p.optJSONArray("name")?.optJSONObject(0)
++    val name = n?.str("text") ?: listOfNotNull(
++      n?.optJSONArray("given")?.let { g -> (0 until g.length()).joinToString(" ") { g.getString(it) } },
++      n?.str("family"),
++    ).joinToString(" ")
++    Patient(p.getString("id"), name.ifBlank { "(no name)" }, p.str("birthDate")?.let(LocalDate::parse), edd)
++  }.sortedBy { it.edd }
++}
++
++fun loadVisits(patientId: String): List<Visit> = parseVisits(
++  request(
++    "Encounter?subject=Patient/$patientId&_sort=-date&_count=200" +
++      "&_revinclude=Observation:encounter&_revinclude=QuestionnaireResponse:encounter"
++  )
++)
++
++/** Groups Observations / QuestionnaireResponses by the Encounter they reference, newest visit first. */
++fun parseVisits(bundle: JSONObject): List<Visit> {
++  val entries = bundle.optJSONArray("entry")?.objects().orEmpty()
++  fun key(e: JSONObject) = e.getJSONObject("resource").let { r ->
++    r.str("id")?.let { r.getString("resourceType") + "/" + it } ?: e.str("fullUrl")
++  }
++  val byType = entries.groupBy { it.getJSONObject("resource").getString("resourceType") }
++  val linked = (byType["Observation"].orEmpty() + byType["QuestionnaireResponse"].orEmpty())
++    .map { it.getJSONObject("resource") }
++    .groupBy { it.optJSONObject("encounter")?.str("reference") }
++
++  return byType["Encounter"].orEmpty().map { e ->
++    val enc = e.getJSONObject("resource")
++    val related = linked[key(e)].orEmpty()
++    val obs = related.filter { it.str("resourceType") == "Observation" }
++    val qr = related.firstOrNull { it.str("resourceType") == "QuestionnaireResponse" }
++    val bp = obs.firstOrNull { it.hasCode(BP_PANEL) }?.optJSONArray("component")?.objects().orEmpty()
++    Visit(
++      date = enc.optJSONObject("period")?.str("start")?.take(10)
++        ?: obs.firstNotNullOfOrNull { it.str("effectiveDateTime") }?.take(10) ?: "?",
++      gaWeeks = obs.firstOrNull { it.hasCode(GEST_AGE) }?.quantity()?.toInt(),
++      weight = obs.firstOrNull { it.hasCode(WEIGHT) }?.quantity(),
++      systolic = bp.firstOrNull { it.hasCode(SYSTOLIC) }?.quantity()?.toInt(),
++      diastolic = bp.firstOrNull { it.hasCode(DIASTOLIC) }?.quantity()?.toInt(),
++      hb = obs.firstOrNull { it.hasCode(HB) }?.quantity(),
++      dangerSigns = qr?.let { answers(it, "danger-signs") }.orEmpty()
++        .mapNotNull { it.optJSONObject("valueCoding")?.let { c -> c.str("display") ?: c.str("code") } },
++      notes = qr?.let { answers(it, "notes") }?.firstOrNull()?.str("valueString"),
++    )
++  }.sortedByDescending { it.date }
++}
++
++private fun answers(node: JSONObject, linkId: String): List<JSONObject>? {
++  for (item in node.optJSONArray("item")?.objects().orEmpty()) {
++    if (item.str("linkId") == linkId) return item.optJSONArray("answer")?.objects()
++    answers(item, linkId)?.let { return it }
++  }
++  return null
++}
++
++fun loadQuestionnaire(): JSONObject = request("Questionnaire/anc-contact")
++
++// ---- Form validation ----
++
++/** Flattened list of non-group items in the questionnaire. */
++fun leafItems(items: JSONArray?): List<JSONObject> = items?.objects().orEmpty().flatMap {
++  if (it.str("type") == "group") leafItems(it.optJSONArray("item")) else listOf(it)
++}
++
++private val plausible = mapOf(
++  "gestational-age" to 1.0..45.0,
++  "weight" to 20.0..250.0,
++  "bp-systolic" to 50.0..260.0,
++  "bp-diastolic" to 30.0..160.0,
++)
++
++/**
++ * Turns raw form input (String for text fields, Set<String> of codes for choices) into typed answers.
++ * Returns (typed answers by linkId, error messages by linkId).
++ */
++fun validate(q: JSONObject, raw: Map<String, Any>, today: LocalDate = LocalDate.now()): Pair<Map<String, Any>, Map<String, String>> {
++  val typed = mutableMapOf<String, Any>()
++  val errors = mutableMapOf<String, String>()
++  for (item in leafItems(q.optJSONArray("item"))) {
++    val id = item.getString("linkId")
++    val type = item.getString("type")
++    val v = raw[id]
++    if (type == "choice") {
++      val codes = (v as? Set<*>).orEmpty()
++      val chosen = item.optJSONArray("answerOption")?.objects().orEmpty()
++        .map { it.getJSONObject("valueCoding") }.filter { it.str("code") in codes }
++      if (chosen.isNotEmpty()) typed[id] = chosen
++      else if (item.optBoolean("required")) errors[id] = "Required"
++      continue
++    }
++    val s = (v as? String)?.trim().orEmpty()
++    if (s.isEmpty()) {
++      if (item.optBoolean("required")) errors[id] = "Required"
++      continue
++    }
++    val value: Any? = when (type) {
++      "integer" -> s.toIntOrNull()
++      "decimal" -> s.toDoubleOrNull()
++      "date" -> runCatching { LocalDate.parse(s) }.getOrNull()
++      else -> s
++    }
++    when {
++      value == null -> errors[id] = if (type == "date") "Use YYYY-MM-DD" else "Enter a number"
++      value is LocalDate && value.isAfter(today) -> errors[id] = "Cannot be in the future"
++      value is Number && plausible[id]?.contains(value.toDouble()) == false ->
++        errors[id] = "Must be between ${plausible[id]!!.start.toInt()} and ${plausible[id]!!.endInclusive.toInt()}"
++      else -> typed[id] = if (value is LocalDate) value.toString() else value
++    }
++  }
++  val sys = typed["bp-systolic"] as? Int
++  val dia = typed["bp-diastolic"] as? Int
++  if ((sys == null) != (dia == null) && "bp-systolic" !in errors && "bp-diastolic" !in errors) {
++    errors[if (sys == null) "bp-systolic" else "bp-diastolic"] = "Enter both systolic and diastolic"
++  }
++  if (sys != null && dia != null && sys <= dia) errors["bp-diastolic"] = "Must be lower than systolic"
++  return typed to errors
++}
++
++// ---- Write ----
++
++/**
++ * Transaction bundle: Encounter + QuestionnaireResponse + extracted Observations
++ * (shaped like the clinic's existing data so register/detail screens read them the same way).
++ */
++fun buildVisitBundle(patientId: String, q: JSONObject, answers: Map<String, Any>): JSONObject {
++  val subject = mapOf("reference" to "Patient/$patientId")
++  val encUrl = "urn:uuid:" + UUID.randomUUID()
++  val encRef = mapOf("reference" to encUrl)
++  val date = answers.getValue("visit-date") as String
++  fun loinc(code: String, display: String) = mapOf("coding" to listOf(mapOf("system" to LOINC, "code" to code, "display" to display)), "text" to display)
++  fun qty(v: Number, unit: String, code: String) =
++    mapOf("value" to v, "unit" to unit, "system" to "http://unitsofmeasure.org", "code" to code)
++  val vitals = listOf(mapOf("coding" to listOf(mapOf(
++    "system" to "http://terminology.hl7.org/CodeSystem/observation-category", "code" to "vital-signs", "display" to "Vital Signs",
++  ))))
++  fun obs(code: Map<String, Any>, extra: Map<String, Any>, vital: Boolean = true) = mapOf(
++    "resourceType" to "Observation", "status" to "final", "code" to code,
++    "subject" to subject, "encounter" to encRef, "effectiveDateTime" to date,
++  ) + (if (vital) mapOf("category" to vitals) else emptyMap()) + extra
++
++  val resources = mutableListOf<Map<String, Any>>()
++  resources += mapOf(
++    "resourceType" to "Encounter", "status" to "finished",
++    "class" to mapOf("system" to "http://terminology.hl7.org/CodeSystem/v3-ActCode", "code" to "AMB", "display" to "ambulatory"),
++    "type" to listOf(mapOf("text" to "Antenatal care contact")),
++    "subject" to subject, "period" to mapOf("start" to date, "end" to date),
++  )
++  fun qrItems(items: JSONArray?): List<Map<String, Any>> = items?.objects().orEmpty().mapNotNull { item ->
++    val id = item.getString("linkId")
++    if (item.str("type") == "group") {
++      qrItems(item.optJSONArray("item")).takeIf { it.isNotEmpty() }?.let { mapOf("linkId" to id, "item" to it) }
++    } else {
++      val a = answers[id] ?: return@mapNotNull null
++      val list = when (item.getString("type")) {
++        "choice" -> (a as List<*>).map { mapOf("valueCoding" to it) }
++        "integer" -> listOf(mapOf("valueInteger" to a))
++        "decimal" -> listOf(mapOf("valueDecimal" to a))
++        "date" -> listOf(mapOf("valueDate" to a))
++        else -> listOf(mapOf("valueString" to a))
++      }
++      mapOf("linkId" to id, "text" to item.optString("text"), "answer" to list)
++    }
++  }
++  resources += mapOf(
++    "resourceType" to "QuestionnaireResponse", "status" to "completed",
++    "questionnaire" to q.optString("url").ifEmpty { "Questionnaire/anc-contact" },
++    "subject" to subject, "encounter" to encRef, "authored" to java.time.OffsetDateTime.now().toString(),
++    "item" to qrItems(q.optJSONArray("item")),
++  )
++  (answers["gestational-age"] as? Int)?.let {
++    resources += obs(loinc(GEST_AGE, "Gestational age"), mapOf("valueQuantity" to qty(it, "wk", "wk")), vital = false)
++  }
++  (answers["weight"] as? Double)?.let {
++    resources += obs(loinc(WEIGHT, "Body weight"), mapOf("valueQuantity" to qty(it, "kg", "kg")))
++  }
++  val sys = answers["bp-systolic"] as? Int
++  val dia = answers["bp-diastolic"] as? Int
++  if (sys != null && dia != null) {
++    resources += obs(
++      loinc(BP_PANEL, "Blood pressure panel with all children optional") + ("text" to "Blood pressure"),
++      mapOf("component" to listOf(
++        mapOf("code" to loinc(SYSTOLIC, "Systolic blood pressure"), "valueQuantity" to qty(sys, "mmHg", "mm[Hg]")),
++        mapOf("code" to loinc(DIASTOLIC, "Diastolic blood pressure"), "valueQuantity" to qty(dia, "mmHg", "mm[Hg]")),
++      )),
++    )
++  }
++  val entries = resources.mapIndexed { i, r ->
++    val type = r.getValue("resourceType")
++    mapOf(
++      "fullUrl" to if (i == 0) encUrl else "urn:uuid:" + UUID.randomUUID(),
++      "resource" to r,
++      "request" to mapOf("method" to "POST", "url" to type),
++    )
++  }
++  return JSONObject(mapOf("resourceType" to "Bundle", "type" to "transaction", "entry" to entries))
++}
++
++fun saveVisit(patientId: String, q: JSONObject, answers: Map<String, Any>) {
++  request("", buildVisitBundle(patientId, q, answers))
++}
+diff --git a/app/src/main/java/com/example/ancapp/MainActivity.kt b/app/src/main/java/com/example/ancapp/MainActivity.kt
+index b5e554b..b8499e2 100644
+--- a/app/src/main/java/com/example/ancapp/MainActivity.kt
++++ b/app/src/main/java/com/example/ancapp/MainActivity.kt
+@@ -2,14 +2,295 @@ package com.example.ancapp
+ 
+ import android.os.Bundle
+ import androidx.activity.ComponentActivity
++import androidx.activity.compose.BackHandler
+ import androidx.activity.compose.setContent
++import androidx.compose.foundation.clickable
++import androidx.compose.foundation.layout.Arrangement
++import androidx.compose.foundation.layout.Box
++import androidx.compose.foundation.layout.Column
++import androidx.compose.foundation.layout.Row
++import androidx.compose.foundation.layout.fillMaxSize
++import androidx.compose.foundation.layout.fillMaxWidth
++import androidx.compose.foundation.layout.imePadding
++import androidx.compose.foundation.layout.padding
++import androidx.compose.foundation.lazy.LazyColumn
++import androidx.compose.foundation.lazy.items
++import androidx.compose.foundation.rememberScrollState
++import androidx.compose.foundation.selection.toggleable
++import androidx.compose.foundation.text.KeyboardOptions
++import androidx.compose.foundation.verticalScroll
++import androidx.compose.material3.Button
++import androidx.compose.material3.Card
++import androidx.compose.material3.Checkbox
++import androidx.compose.material3.CircularProgressIndicator
++import androidx.compose.material3.ExperimentalMaterial3Api
++import androidx.compose.material3.ExtendedFloatingActionButton
++import androidx.compose.material3.HorizontalDivider
++import androidx.compose.material3.ListItem
+ import androidx.compose.material3.MaterialTheme
+-import androidx.compose.material3.Surface
++import androidx.compose.material3.OutlinedTextField
++import androidx.compose.material3.Scaffold
+ import androidx.compose.material3.Text
++import androidx.compose.material3.TextButton
++import androidx.compose.material3.TopAppBar
++import androidx.compose.runtime.Composable
++import androidx.compose.runtime.LaunchedEffect
++import androidx.compose.runtime.getValue
++import androidx.compose.runtime.mutableIntStateOf
++import androidx.compose.runtime.mutableStateMapOf
++import androidx.compose.runtime.mutableStateOf
++import androidx.compose.runtime.remember
++import androidx.compose.runtime.rememberCoroutineScope
++import androidx.compose.runtime.setValue
++import androidx.compose.runtime.snapshots.SnapshotStateMap
++import androidx.compose.ui.Alignment
++import androidx.compose.ui.Modifier
++import androidx.compose.ui.semantics.Role
++import androidx.compose.ui.text.input.KeyboardType
++import androidx.compose.ui.unit.dp
++import java.time.LocalDate
++import kotlinx.coroutines.Dispatchers
++import kotlinx.coroutines.launch
++import kotlinx.coroutines.withContext
++import org.json.JSONObject
+ 
+ class MainActivity : ComponentActivity() {
+   override fun onCreate(savedInstanceState: Bundle?) {
+     super.onCreate(savedInstanceState)
+-    setContent { MaterialTheme { Surface { Text("Hello") } } }
++    setContent { MaterialTheme { App() } }
++  }
++}
++
++@Composable
++fun App() {
++  var patient by remember { mutableStateOf<Patient?>(null) }
++  var recording by remember { mutableStateOf(false) }
++  val p = patient
++  when {
++    p == null -> RegisterScreen { patient = it }
++    recording -> {
++      BackHandler { recording = false }
++      VisitFormScreen(p, onBack = { recording = false })
++    }
++    else -> {
++      BackHandler { patient = null }
++      DetailScreen(p, onBack = { patient = null }, onRecord = { recording = true })
++    }
++  }
++}
++
++@OptIn(ExperimentalMaterial3Api::class)
++@Composable
++private fun Screen(
++  title: String,
++  onBack: (() -> Unit)? = null,
++  action: @Composable () -> Unit = {},
++  fab: @Composable () -> Unit = {},
++  content: @Composable (Modifier) -> Unit,
++) {
++  Scaffold(
++    topBar = {
++      TopAppBar(
++        title = { Text(title) },
++        navigationIcon = { if (onBack != null) TextButton(onBack) { Text("‹ Back") } },
++        actions = { action() },
++      )
++    },
++    floatingActionButton = fab,
++  ) { padding -> content(Modifier.padding(padding).fillMaxSize()) }
++}
++
++/** Runs [load] off the main thread; shows a spinner, then [content] or an error with Retry. */
++@Composable
++private fun <T> Loading(key: Any?, modifier: Modifier, load: () -> T, content: @Composable (T) -> Unit) {
++  var attempt by remember { mutableIntStateOf(0) }
++  var result by remember(key, attempt) { mutableStateOf<Result<T>?>(null) }
++  LaunchedEffect(key, attempt) { result = withContext(Dispatchers.IO) { runCatching(load) } }
++  val r = result
++  when {
++    r == null -> Box(modifier, Alignment.Center) { CircularProgressIndicator() }
++    r.isSuccess -> content(r.getOrThrow())
++    else -> Column(modifier.padding(24.dp), Arrangement.Center, Alignment.CenterHorizontally) {
++      Text("Could not reach the FHIR server.\n${r.exceptionOrNull()?.message}")
++      Button({ attempt++ }, Modifier.padding(top = 16.dp)) { Text("Retry") }
++    }
++  }
++}
++
++private fun weeks(days: Int) = "${days / 7}w ${days % 7}d"
++
++@Composable
++fun RegisterScreen(onOpen: (Patient) -> Unit) {
++  var refresh by remember { mutableIntStateOf(0) }
++  Screen("ANC register", action = { TextButton({ refresh++ }) { Text("Refresh") } }) { modifier ->
++    Loading(refresh, modifier, ::loadRegister) { patients ->
++      if (patients.isEmpty()) Box(modifier, Alignment.Center) { Text("No pregnant patients on file") }
++      else LazyColumn(modifier) {
++        items(patients, key = { it.id }) { p ->
++          val ga = p.gaDays()
++          ListItem(
++            headlineContent = { Text(p.name) },
++            supportingContent = { Text("Age ${p.age() ?: "?"} · Due ${p.edd}") },
++            trailingContent = {
++              Text(
++                if (ga > 280) "${weeks(ga)}\npast due" else weeks(ga),
++                color = if (ga > 280) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
++              )
++            },
++            modifier = Modifier.clickable { onOpen(p) },
++          )
++          HorizontalDivider()
++        }
++      }
++    }
++  }
++}
++
++@Composable
++fun DetailScreen(patient: Patient, onBack: () -> Unit, onRecord: () -> Unit) {
++  Screen(
++    patient.name,
++    onBack = onBack,
++    fab = { ExtendedFloatingActionButton(onClick = onRecord) { Text("Record visit") } },
++  ) { modifier ->
++    Loading(patient.id, modifier, { loadVisits(patient.id) }) { visits ->
++      LazyColumn(modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
++        item {
++          Text(
++            "Age ${patient.age() ?: "?"} · Due ${patient.edd} · ${weeks(patient.gaDays())} today",
++            Modifier.padding(vertical = 8.dp),
++          )
++          Text("ANC visits", style = MaterialTheme.typography.titleMedium)
++        }
++        if (visits.isEmpty()) item { Text("No visits recorded") }
++        items(visits) { v -> VisitCard(v) }
++        item { Box(Modifier.padding(40.dp)) } // room for the FAB
++      }
++    }
++  }
++}
++
++@Composable
++private fun VisitCard(v: Visit) {
++  Card(Modifier.fillMaxWidth()) {
++    Column(Modifier.padding(16.dp)) {
++      Text(v.date + (v.gaWeeks?.let { " · GA $it weeks" } ?: ""), style = MaterialTheme.typography.titleSmall)
++      Text("Weight: ${v.weight?.let { "$it kg" } ?: "—"}")
++      Text("BP: ${if (v.systolic != null && v.diastolic != null) "${v.systolic}/${v.diastolic} mmHg" else "—"}")
++      v.hb?.let { Text("Hb: $it g/dL") }
++      if (v.dangerSigns.isNotEmpty()) {
++        val none = v.dangerSigns.all { it.equals("None", true) }
++        Text(
++          "Danger signs: ${v.dangerSigns.joinToString()}",
++          color = if (none) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.error,
++        )
++      }
++      v.notes?.let { Text("Notes: $it") }
++    }
++  }
++}
++
++@Composable
++fun VisitFormScreen(patient: Patient, onBack: () -> Unit) {
++  Screen("New visit · ${patient.name}", onBack = onBack) { modifier ->
++    Loading(Unit, modifier, ::loadQuestionnaire) { q -> QuestionnaireForm(q, patient, modifier, onBack) }
++  }
++}
++
++/** Renders the FHIR Questionnaire generically; raw values are String (text fields) or Set<String> (choice codes). */
++@Composable
++private fun QuestionnaireForm(q: JSONObject, patient: Patient, modifier: Modifier, onSaved: () -> Unit) {
++  val values = remember {
++    mutableStateMapOf<String, Any>(
++      "visit-date" to LocalDate.now().toString(),
++      "gestational-age" to (patient.gaDays() / 7).toString(),
++    )
++  }
++  var errors by remember { mutableStateOf(emptyMap<String, String>()) }
++  var saving by remember { mutableStateOf(false) }
++  var saveError by remember { mutableStateOf<String?>(null) }
++  val scope = rememberCoroutineScope()
++
++  Column(modifier.imePadding().verticalScroll(rememberScrollState()).padding(16.dp), Arrangement.spacedBy(8.dp)) {
++    q.optString("title").takeIf { it.isNotEmpty() }?.let { Text(it, style = MaterialTheme.typography.titleLarge) }
++    val items = q.getJSONArray("item")
++    for (i in 0 until items.length()) QItem(items.getJSONObject(i), values, errors)
++    saveError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
++    Button(
++      enabled = !saving,
++      modifier = Modifier.fillMaxWidth(),
++      onClick = {
++        val (typed, errs) = validate(q, values)
++        errors = errs
++        if (errs.isNotEmpty()) return@Button
++        saving = true
++        saveError = null
++        scope.launch {
++          val r = withContext(Dispatchers.IO) { runCatching { saveVisit(patient.id, q, typed) } }
++          saving = false
++          if (r.isSuccess) onSaved() else saveError = "Not saved: ${r.exceptionOrNull()?.message}"
++        }
++      },
++    ) { Text(if (saving) "Saving…" else "Save visit") }
++    if (errors.isNotEmpty()) Text("Please fix the highlighted fields", color = MaterialTheme.colorScheme.error)
++  }
++}
++
++@Composable
++private fun QItem(item: JSONObject, values: SnapshotStateMap<String, Any>, errors: Map<String, String>) {
++  val id = item.getString("linkId")
++  val type = item.getString("type")
++  val label = item.optString("text", id) + if (item.optBoolean("required")) " *" else ""
++  val error = errors[id]
++  when (type) {
++    "group" -> {
++      Text(label, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 8.dp))
++      val children = item.getJSONArray("item")
++      for (i in 0 until children.length()) QItem(children.getJSONObject(i), values, errors)
++    }
++    "choice" -> {
++      Text(label, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 8.dp))
++      @Suppress("UNCHECKED_CAST") val selected = values[id] as? Set<String> ?: emptySet()
++      val options = item.optJSONArray("answerOption")
++      for (i in 0 until (options?.length() ?: 0)) {
++        val coding = options!!.getJSONObject(i).getJSONObject("valueCoding")
++        val code = coding.getString("code")
++        val checked = code in selected
++        Row(
++          Modifier.fillMaxWidth().toggleable(checked, role = Role.Checkbox) { on ->
++            values[id] = when {
++              !item.optBoolean("repeats") -> if (on) setOf(code) else emptySet()
++              // "None" is exclusive with the actual signs
++              on && code == "none" -> setOf(code)
++              on -> selected - "none" + code
++              else -> selected - code
++            }
++          },
++          verticalAlignment = Alignment.CenterVertically,
++        ) {
++          Checkbox(checked, onCheckedChange = null)
++          Text(coding.optString("display", code), Modifier.padding(start = 8.dp))
++        }
++      }
++      error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
++    }
++    else -> OutlinedTextField(
++      value = values[id] as? String ?: "",
++      onValueChange = { values[id] = it },
++      label = { Text(label) },
++      placeholder = if (type == "date") ({ Text("YYYY-MM-DD") }) else null,
++      singleLine = type != "text",
++      minLines = if (type == "text") 3 else 1,
++      isError = error != null,
++      supportingText = error?.let { { Text(it) } },
++      keyboardOptions = KeyboardOptions(
++        keyboardType = when (type) {
++          "integer" -> KeyboardType.Number
++          "decimal" -> KeyboardType.Decimal
++          else -> KeyboardType.Text
++        }
++      ),
++      modifier = Modifier.fillMaxWidth(),
++    )
+   }
+ }
+diff --git a/app/src/test/java/com/example/ancapp/FhirTest.kt b/app/src/test/java/com/example/ancapp/FhirTest.kt
+new file mode 100644
+index 0000000..b4028c4
+--- /dev/null
++++ b/app/src/test/java/com/example/ancapp/FhirTest.kt
+@@ -0,0 +1,32 @@
++package com.example.ancapp
++
++import java.time.LocalDate
++import org.json.JSONObject
++import org.junit.Assert.assertEquals
++import org.junit.Test
++
++class FhirTest {
++  private val q = JSONObject(javaClass.getResource("/anc-contact.json")!!.readText())
++  private val today = LocalDate.parse("2026-10-23")
++
++  @Test fun formRoundTripsThroughBundle() {
++    val raw = mapOf(
++      "visit-date" to "2026-10-20", "gestational-age" to "34", "weight" to "70.5",
++      "bp-systolic" to "120", "bp-diastolic" to "80",
++      "danger-signs" to setOf("fever", "severe-headache"), "notes" to "tired",
++    )
++    val (typed, errors) = validate(q, raw, today)
++    assertEquals(emptyMap<String, String>(), errors)
++    val visits = parseVisits(buildVisitBundle("p1", q, typed))
++    assertEquals(listOf(Visit("2026-10-20", 34, 70.5, 120, 80, null, listOf("Severe headache", "Fever"), "tired")), visits)
++  }
++
++  @Test fun rejectsBadInput() {
++    val (_, errors) = validate(q, mapOf("visit-date" to "2026-12-01", "bp-systolic" to "80", "bp-diastolic" to "90", "weight" to "x"), today)
++    assertEquals(setOf("visit-date", "bp-diastolic", "weight"), errors.keys)
++  }
++
++  @Test fun gestationalAgeFromEdd() {
++    assertEquals(281 + 7, Patient("x", "x", null, LocalDate.parse("2026-10-15")).gaDays(today))
++  }
++}
+diff --git a/app/src/test/resources/anc-contact.json b/app/src/test/resources/anc-contact.json
+new file mode 100644
+index 0000000..fc1e030
+--- /dev/null
++++ b/app/src/test/resources/anc-contact.json
+@@ -0,0 +1,96 @@
++{
++  "resourceType": "Questionnaire",
++  "id": "anc-contact",
++  "meta": {
++    "versionId": "1",
++    "lastUpdated": "2026-10-23T07:47:28.268+00:00"
++  },
++  "url": "http://example.org/fhir/Questionnaire/anc-contact",
++  "version": "0.1.0",
++  "name": "AncContact",
++  "title": "ANC Contact Visit",
++  "status": "active",
++  "subjectType": [ "Patient" ],
++  "item": [ {
++    "linkId": "visit-date",
++    "text": "Visit date",
++    "type": "date",
++    "required": true
++  }, {
++    "linkId": "gestational-age",
++    "text": "Gestational age (weeks)",
++    "type": "integer"
++  }, {
++    "linkId": "vitals",
++    "text": "Vital signs",
++    "type": "group",
++    "item": [ {
++      "linkId": "weight",
++      "code": [ {
++        "system": "http://loinc.org",
++        "code": "29463-7",
++        "display": "Body weight"
++      } ],
++      "text": "Weight (kg)",
++      "type": "decimal"
++    }, {
++      "linkId": "bp-systolic",
++      "code": [ {
++        "system": "http://loinc.org",
++        "code": "8480-6",
++        "display": "Systolic blood pressure"
++      } ],
++      "text": "Systolic blood pressure (mmHg)",
++      "type": "integer"
++    }, {
++      "linkId": "bp-diastolic",
++      "code": [ {
++        "system": "http://loinc.org",
++        "code": "8462-4",
++        "display": "Diastolic blood pressure"
++      } ],
++      "text": "Diastolic blood pressure (mmHg)",
++      "type": "integer"
++    } ]
++  }, {
++    "linkId": "danger-signs",
++    "text": "Danger signs present",
++    "type": "choice",
++    "repeats": true,
++    "answerOption": [ {
++      "valueCoding": {
++        "system": "urn:example:anc-danger-signs",
++        "code": "none",
++        "display": "None"
++      }
++    }, {
++      "valueCoding": {
++        "system": "urn:example:anc-danger-signs",
++        "code": "vaginal-bleeding",
++        "display": "Vaginal bleeding"
++      }
++    }, {
++      "valueCoding": {
++        "system": "urn:example:anc-danger-signs",
++        "code": "severe-headache",
++        "display": "Severe headache"
++      }
++    }, {
++      "valueCoding": {
++        "system": "urn:example:anc-danger-signs",
++        "code": "blurred-vision",
++        "display": "Blurred vision"
++      }
++    }, {
++      "valueCoding": {
++        "system": "urn:example:anc-danger-signs",
++        "code": "fever",
++        "display": "Fever"
++      }
++    } ]
++  }, {
++    "linkId": "notes",
++    "text": "Notes",
++    "type": "text"
++  } ]
++}
+\ No newline at end of file
