@@ -39,3 +39,16 @@ s1-fhir-claude-haiku-5-5-medium-2,s1-build,fhir,claude-haiku-5-5-medium,2,2026-1
 s1-fhir-claude-sonnet-5-5-medium-2,s1-build,fhir,claude-sonnet-5-5-medium,2,2026-10-23,8.9,0,55,0,,0,26605,2558059,0.97,378,true,true
 s1-fhir-claude-opus-5-5-medium-2,s1-build,fhir,claude-opus-5-5-medium,2,2026-10-23,5.2,0,29,0,,0,25977,1293599,1.37,714,true,true
 s1-fhir-claude-fable-5-1-medium-2,s1-build,fhir,claude-fable-5-1-medium,2,2026-10-23,12.7,0,17,0,,0,23278,916995,2.28,377,true,true
+s1-ohs-skills-gemini-3.8-flash-medium-12,s1-build,ohs-skills,gemini-3.8-flash-medium,12,,29.6,0,219,1,,3,89773,33611215,3.31,1588,,
+s1-ohs-skills-claude-haiku-5-5-medium-8,s1-build,ohs-skills,claude-haiku-5-5-medium,8,2026-10-27,6.5,0,41,1,,1,53644,3518394,0.28,394,true,true
+s1-ohs-skills-claude-sonnet-5-5-medium-8,s1-build,ohs-skills,claude-sonnet-5-5-medium,8,2026-10-27,3.6,0,30,3,,1,15687,1211198,0.59,413,true,true
+s1-ohs-skills-claude-opus-5-5-medium-8,s1-build,ohs-skills,claude-opus-5-5-medium,8,2026-10-27,5.3,0,23,0,,1,18532,1534591,1.28,494,true,true
+s1-ohs-skills-claude-fable-5-1-medium-8,s1-build,ohs-skills,claude-fable-5-1-medium,8,2026-10-27,5.1,0,27,0,,1,15623,1587793,2.92,360,true,true
+s1-ohs-skills-gemini-3.8-flash-medium-9,s1-build,ohs-skills,gemini-3.8-flash-medium,9,,22.5,0,153,2,,2,70195,16940939,1.86,1664,,
+s1-ohs-skills-claude-haiku-5-5-medium-9,s1-build,ohs-skills,claude-haiku-5-5-medium,9,2026-10-27,4.9,0,32,1,,0,52345,2033996,0.16,453,true,true
+s1-ohs-skills-claude-sonnet-5-5-medium-9,s1-build,ohs-skills,claude-sonnet-5-5-medium,9,2026-10-27,2.8,0,20,1,,0,13366,721485,0.48,391,true,true
+s1-ohs-skills-claude-opus-5-5-medium-9,s1-build,ohs-skills,claude-opus-5-5-medium,9,2026-10-27,4.0,0,24,0,,0,14678,845066,1.06,474,true,true
+s1-ohs-skills-claude-fable-5-1-medium-9,s1-build,ohs-skills,claude-fable-5-1-medium,9,2026-10-27,5.2,0,24,0,,0,13749,1179521,2.53,326,true,true
+s1-ohs-skills-gemini-3.8-flash-medium-13,s1-build,ohs-skills,gemini-3.8-flash-medium,13,,16.8,0,110,2,,2,66666,10339692,1.35,1689,true,true
+s1-ohs-skills-gemini-3.8-flash-medium-15,s1-build,ohs-skills,gemini-3.8-flash-medium,15,,13.5,0,109,1,,2,61755,9865550,1.22,1440,true,true
+s1-ohs-skills-gemini-3.8-flash-medium-16,s1-build,ohs-skills,gemini-3.8-flash-medium,16,,20.0,0,142,2,,7,72500,15539288,1.75,1652,,
