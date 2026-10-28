@@ -34,6 +34,10 @@ class MyApplication : Application() {
       ),
       this,   // the platformContext; on Android pass the application Context
     )
+    // Call getInstance straight after init. It creates the server connection the
+    // sync worker needs; a worker that starts before this fails with
+    // "FhirEngineConfiguration.ServerConfiguration is not set".
+    FhirEngineProvider.getInstance(this)
   }
 }
 ```
@@ -235,6 +239,11 @@ section before wiring it. Three rules cover most failures.
    workers (`DemoFhirSyncWorker`) use `forBundleRequest`, and that
    bundle upload is rejected by strict servers in 2.0.0-alpha02. Do not
    copy the sample; use `forIndividualRequest` (details below).
+4. The status flows from `Sync.oneTimeSync` and `Sync.periodicSync` can
+   throw `IllegalStateException: Inconsistent terminal syncJobStatus`.
+   The sync itself is fine, only the status flow throws. Uncaught, this
+   crashes the app on an offline relaunch. Follow "Sync without crashes"
+   below.
 
 ### The sync worker
 
@@ -344,47 +353,98 @@ resources updated since the saved timestamp. Two consequences to know:
 
 ### Triggering a one-time sync (this is on you)
 
-The engine ships the worker but nothing schedules it. Wire two triggers
-as a baseline:
+The engine ships the worker but nothing schedules it. Trigger a sync on
+app start, after every save, and from a "sync now" button. One ViewModel
+covers all three:
 
 ```kotlin
 import dev.ohs.fhir.engine.sync.CurrentSyncJobStatus
 import dev.ohs.fhir.engine.sync.Sync
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.flow.transformWhile
 
-// 1. On app start (e.g. from the first screen's ViewModel):
-//    collect until a terminal state so you can react to the outcome.
-//    Wrap it: after an offline sync fails, the status flow can throw
-//    IllegalStateException ("Inconsistent terminal syncJobStatus") on the
-//    next launch. Uncaught, that crashes the app every time it opens offline.
-val ok = runCatching {
-  Sync.oneTimeSync<AppSyncWorker>(context.applicationContext).first {
-    it is CurrentSyncJobStatus.Succeeded ||
-      it is CurrentSyncJobStatus.Failed ||
-      it is CurrentSyncJobStatus.Cancelled
+private fun CurrentSyncJobStatus.isFinal() =
+  this is CurrentSyncJobStatus.Succeeded ||
+    this is CurrentSyncJobStatus.Failed ||
+    this is CurrentSyncJobStatus.Cancelled
+
+class SyncViewModel(app: Application) : AndroidViewModel(app) {
+  val syncState = MutableStateFlow<String?>(null)
+  private var syncJob: Job? = null
+
+  // App start, "sync now", and after every save.
+  // Stops at the final state, errors caught.
+  fun syncNow() {
+    if (syncJob?.isActive == true) return
+    syncJob = viewModelScope.launch {
+      var ran = false
+      Sync.oneTimeSync<AppSyncWorker>(getApplication())
+        .transformWhile { emit(it); !it.isFinal() }
+        .catch { syncState.value = "Sync status unknown" }
+        .collect { status ->
+          syncState.value = when (status) {
+            is CurrentSyncJobStatus.Enqueued ->
+              if (ran) "Waiting to retry" else "Waiting to sync"
+            is CurrentSyncJobStatus.Running -> {
+              ran = true
+              "Syncing…"
+            }
+            is CurrentSyncJobStatus.Succeeded -> "Synced"
+            is CurrentSyncJobStatus.Failed -> "Sync failed, will try again later"
+            else -> syncState.value
+          }
+        }
+    }
   }
-}.getOrNull() is CurrentSyncJobStatus.Succeeded
-// refresh the UI from the local database after a successful sync
 
-// 2. Right after saving data, queue an upload behind any in-flight sync.
-//    existingWorkPolicy MUST be named: oneTimeSync's signature is
-//    oneTimeSync(context, retryConfiguration = ..., existingWorkPolicy = ...),
-//    so a positional second argument would bind to retryConfiguration.
-Sync.oneTimeSync<AppSyncWorker>(
-  context.applicationContext,
-  existingWorkPolicy = ExistingWorkPolicy.APPEND_OR_REPLACE,
-)
+  // Wait for one sync to finish. null means unknown or still retrying.
+  suspend fun syncAndWait(): CurrentSyncJobStatus? =
+    withTimeoutOrNull(5.minutes) {
+      Sync.oneTimeSync<AppSyncWorker>(getApplication())
+        .catch { }
+        .firstOrNull { it.isFinal() }
+    }
+}
 ```
 
 The signature is
 `oneTimeSync<W>(context, retryConfiguration = defaultRetryConfiguration,
 existingWorkPolicy = ExistingWorkPolicy.KEEP): Flow<CurrentSyncJobStatus>`.
-So the default policy is `KEEP` (see the retry note below for why that
-matters). Collect the returned flow with a terminal-state filter as above;
-an open-ended `collect { }` on it never returns and silently hangs the
-calling coroutine.
+Keep both defaults (see "Sync without crashes"). If you ever pass
+`existingWorkPolicy`, pass it by name: a positional second argument binds
+to `retryConfiguration`.
 
 `CurrentSyncJobStatus` states: `Enqueued`, `Running(inProgressSyncJob)`,
 `Succeeded(timestamp)`, `Failed(timestamp)`, `Cancelled`, `Blocked`.
+
+### Sync without crashes
+
+1. Keep the defaults for `retryConfiguration` and `existingWorkPolicy`.
+   - Never pass `retryConfiguration = null`. The flow always throws when
+     the sync ends.
+   - Never use `ExistingWorkPolicy.APPEND`. Tested: online then offline
+     sync throws the crash above.
+   - Never use `APPEND_OR_REPLACE`. Tested: no crash, but it can report an
+     old job's result, such as `Succeeded` for a sync that failed offline.
+2. Always put `.catch { }` on the status flow, before `collect` or
+   `firstOrNull`. Treat a caught error as "sync status unknown", not as a
+   crash. Never follow `.catch { }` with `.first { }`; an empty flow makes
+   `first` throw. Use `firstOrNull { }`.
+3. Stop collecting a one-time sync at its final state (`transformWhile` or
+   `firstOrNull`). The flow never ends on its own, so an open-ended
+   `collect { }` hangs the calling coroutine.
+4. With the default retry, an offline sync shows `Enqueued` between
+   attempts. `Failed` comes only after all 3 retries, about 3 minutes
+   later. Do not show "failed" on `Enqueued`.
+5. After a save, call `syncNow()`. If a sync is already running or waiting
+   to retry, no new one starts. Changes saved after its upload step go up
+   on the next sync, and periodic sync covers that.
+6. Never block app launch on sync. Show local data first and sync in the
+   background.
+7. A failed sync keeps local changes. They upload on the next sync that
+   succeeds. Use `periodicSync` with the default `NetworkType.CONNECTED`
+   so sync runs when the network comes back.
 
 ### Progress
 
@@ -413,15 +473,32 @@ For recurring background sync use `Sync.periodicSync` with a
 import dev.ohs.fhir.engine.sync.Sync
 import dev.ohs.fhir.engine.sync.PeriodicSyncConfiguration
 import dev.ohs.fhir.engine.sync.RepeatInterval
-import kotlin.time.Duration.Companion.hours
+import kotlin.time.Duration.Companion.minutes
 
-Sync.periodicSync<AppSyncWorker>(
-  context.applicationContext,
-  PeriodicSyncConfiguration(
-    repeat = RepeatInterval(interval = 6.hours),
-    // syncConstraints = SyncConstraints(requiredNetworkType = NetworkType.UNMETERED),
-  ),
-)   // returns Flow<PeriodicSyncJobStatus>
+// Call once at startup, e.g. from the SyncViewModel.
+fun startPeriodicSync() = viewModelScope.launch {
+  Sync.periodicSync<AppSyncWorker>(
+    getApplication(),
+    PeriodicSyncConfiguration(
+      repeat = RepeatInterval(interval = 15.minutes),
+      // syncConstraints default to NetworkType.CONNECTED
+    ),
+  )
+    .catch { }   // the status flow can throw too, the sync still runs
+    .collect { /* update UI from it.lastSyncJobStatus */ }
+}
+```
+
+### Desktop / iOS (`runSync`)
+
+There is no WorkManager, so the app calls `runSync` itself. It reports an
+offline failure as a return value, not an exception. Check the type it
+returns, and still wrap the call in case of an error.
+
+```kotlin
+val status = runCatching { syncTask.runSync("app-sync") {} }.getOrNull()
+// false means offline or failed, data stays local
+val ok = status is SyncJobStatus.Succeeded
 ```
 
 ### Retry behavior when uploads fail
@@ -456,6 +533,9 @@ exactly which element the server refused and why.
 | Download returns nothing although the server has data | Stale `_lastUpdated` watermark from an earlier sync | Clear app data or the watermark prefs, re-sync |
 | Saved visit shown in app but missing on server | Upload failed and is retrying (or retries exhausted) | Check logcat for the `OperationOutcome`; restart the app or enqueue a new sync |
 | `existingWorkPolicy` seems ignored | Passed positionally, so it bound to `retryConfiguration` | Pass it by name |
-| Sync coroutine never completes | Open-ended `collect { }` on the status flow | Collect with a terminal-state filter (`first { ... }`) |
+| Sync coroutine never completes | Open-ended `collect { }` on the status flow | Stop at the final state with `transformWhile` or `firstOrNull { }` |
+| App crashes on launch while offline, `IllegalStateException: Inconsistent terminal syncJobStatus` | The status flow threw and nothing caught it | Add `.catch { }` before `collect` / `firstOrNull`; keep default `retryConfiguration` and `KEEP` |
+| Status says `Succeeded` for a sync that failed offline | `ExistingWorkPolicy.APPEND_OR_REPLACE` reports an old job's result | Keep the default `KEEP` |
+| Worker fails with "ServerConfiguration is not set" | Sync ran before `FhirEngineProvider.getInstance` was called | Call `getInstance` right after `init` in `Application.onCreate` |
 | All requests fail instantly on emulator | Wrong host or cleartext HTTP blocked | Use `http://10.0.2.2:<port>/fhir/` and enable cleartext traffic |
 | 401 / auth failures against a real server | No `authenticator` on `ServerConfiguration` | Supply `HttpAuthenticator { HttpAuthenticationMethod.Bearer(token) }` |

@@ -24,7 +24,9 @@ RESPONSE="$(curl -s -X POST \
   --data @"$DIR/seed/anc-seed-bundle.json" \
   "$BASE")"
 
-if echo "$RESPONSE" | grep -q '"resourceType": *"OperationOutcome"' && ! echo "$RESPONSE" | grep -q '"type": *"transaction-response"'; then
+# here-strings, not echo | grep -q: with pipefail, grep -q exiting early can SIGPIPE echo
+# and fail the check at random on a large response.
+if grep -q '"resourceType": *"OperationOutcome"' <<<"$RESPONSE" && ! grep -q '"type": *"transaction-response"' <<<"$RESPONSE"; then
   echo "Seed load FAILED. Server response:" >&2
   echo "$RESPONSE" >&2
   exit 1

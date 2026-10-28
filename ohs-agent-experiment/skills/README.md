@@ -109,3 +109,15 @@ versioned here and runs are only comparable within a version.
   at the engine as the driver. Also softened an over-broad claim that
   every unqualified String field is the FHIR String (a resource id is
   kotlin.String).
+- **v2.5** (2026-10-27). kotlin-fhir-engine skill: sync without crashes.
+  The offline test found that `Sync.oneTimeSync`'s status flow throws
+  `IllegalStateException: Inconsistent terminal syncJobStatus` after a
+  failed offline sync, and five ohs-skills apps that collected it
+  unguarded on launch crashed when reopened offline. Added a "Sync
+  without crashes" section (`.catch` on every status flow, stop at the
+  final state, keep default retry and `KEEP`, no `APPEND` or
+  `APPEND_OR_REPLACE`, `Enqueued` means waiting to retry), replaced the
+  one-time sync example with a `SyncViewModel`, call `getInstance` right
+  after `init`, added a `runSync` section for Desktop and iOS, and new
+  troubleshooting rows. ohs-skills runs from this date use v2.5 and
+  should not be pooled with earlier runs.
