@@ -1,0 +1,46 @@
+{
+  "run_id": "s1-ohs-skills-claude-haiku-5-5-medium-8",
+  "scenario": "s1-build",
+  "condition": "ohs-skills",
+  "model": "claude-haiku-5-5-medium",
+  "effort": "medium",
+  "replicate": 8,
+  "date": "2026-10-27",
+  "harness": "claude-code-headless",
+  "scaffold_repo": "templates/ohs-skills-claude",
+  "baseline_commit": "a44cdfb",
+  "session_id": "58e370d8-6b62-4d24-9257-f8433e5720e5",
+  "model_served": {
+    "claude-haiku-5-5": 34
+  },
+  "effort_served": {
+    "medium": 34
+  },
+  "wall_minutes": 6.5,
+  "user_turns": 1,
+  "corrective_turns": 0,
+  "tool_calls": 41,
+  "assistant_text_blocks": 26,
+  "tool_errors": 0,
+  "build_failures_self_fixed": 1,
+  "server_validation_incidents": 1,
+  "tokens": {
+    "input": 68,
+    "output": 53644,
+    "cache_read": 3518394,
+    "cache_write": 132894
+  },
+  "cost_usd_api_rates": 0.28,
+  "diff_lines_added": 394,
+  "smoke_check": "pass",
+  "verified_working": true,
+  "round_trip_pass": true,
+  "notes": "gen=2 agent_exit=0",
+  "verification": {
+    "launched": true,
+    "crashed": false,
+    "screenshot_after_seconds": 30,
+    "patients_in_local_db": null,
+    "note": "launched+!crashed is the smoke verdict. patients_in_local_db is a best-effort sync-success signal (0/null suggests download sync did not deliver). Whether the register visually renders is the human walk, judged from launch.png."
+  }
+}
