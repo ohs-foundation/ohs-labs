@@ -121,6 +121,122 @@ Average 5.5/9.
 - **Fable run 2 was rerun.** The first attempt hung on a broken heredoc and a
   wait loop that matched itself. It was killed after 19 min and removed.
 
+## OHS + skills rerun with skills v2.5 (2026-10-28)
+
+The kotlin-fhir-engine skill was updated to v2.5 ("Sync without crashes",
+see `skills/README.md`) after the offline test above found the crash. The
+ohs-skills condition was rerun with the same prompt, templates, models and
+effort (`harness/manifest-skills-v25.txt`), then walked with the same 9
+checks. Claude models are replicates 8 and 9. Gemini uses replicates 13 and
+15: run 8 was discarded (a second emulator broke the harness), runs 10, 11
+and 14 were cancelled or interrupted, and runs 9, 12 and 16 were not walked
+(9 and 12 were slowed by heavy self-testing and API latency, 16 has no
+archived build).
+
+| App | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | Score |
+|---|---|---|---|---|---|---|---|---|---|---|
+| ohs-skills-gemini-13 | pass | pass | pass | pass | pass | pass | pass | pass | pass | 9/9 |
+| ohs-skills-gemini-15 | pass | pass | pass | pass | pass | pass | pass | pass | pass | 9/9 |
+| ohs-skills-haiku-8 | pass | pass | pass | pass | pass | pass | FAIL | FAIL | FAIL | 6/9 |
+| ohs-skills-haiku-9 | pass | pass | pass | pass | pass | pass | FAIL | FAIL | FAIL | 6/9 |
+| ohs-skills-sonnet-8 | pass | pass | pass | pass | pass | pass | pass | pass | pass | 9/9 |
+| ohs-skills-sonnet-9 | pass | pass | pass | pass | pass | pass | pass | pass | pass | 9/9 |
+| ohs-skills-opus-8 | pass | pass | pass | pass | pass | pass | pass | pass | pass | 9/9 |
+| ohs-skills-opus-9 | pass | pass | pass | pass | pass | pass | pass | pass | pass | 9/9 |
+| ohs-skills-fable-8 | pass | pass | pass | pass | pass | pass | pass | pass | pass | 9/9 |
+| ohs-skills-fable-9 | pass | pass | pass | pass | pass | pass | pass | pass | pass | 9/9 |
+
+Average 8.4/9 (skills v2.4: 7.9/9).
+
+- **The offline crash is gone.** Every app that uses FHIR Engine reopened
+  offline without crashing, showing a status such as "Waiting to sync" or
+  "Sync: Enqueued". The crash buffer stayed empty.
+- **Offline visits upload by themselves.** In all eight FHIR Engine apps the
+  visit saved offline reached the server within 60 seconds of reconnecting,
+  without relaunching the app (WorkManager retry). With skills v2.4 most
+  apps needed a relaunch.
+- **Haiku still never uses FHIR Engine.** Both apps send visits straight to
+  the server over HTTP, so they cannot load or save anything offline.
+- **Sonnet's apps do not upload the QuestionnaireResponse.** The Encounter
+  and Observations reach the server, which is all the checks require.
+- **Walk notes.** Fable 9 and Gemini 15 needed the offline visit entered a
+  second time by hand because the automated input missed; both apps then
+  passed. Haiku 9 and some others show a new visit only after reopening the
+  patient; counted as a pass for check 4, as before.
+
+Cost and time per build, average of the two walked runs, at API prices:
+
+| Model | Skills v2.4 | Skills v2.5 |
+|---|---|---|
+| Gemini 3.8 Flash | $1.46, 6.5 min | $1.29, 15.2 min |
+| Claude Fable 5.1 | $2.66, 6.1 min | $2.73, 5.2 min |
+| Claude Opus 5.5 | $1.31, 4.3 min | $1.17, 4.7 min |
+| Claude Sonnet 5.5 | $0.52, 3.5 min | $0.54, 3.2 min |
+| Claude Haiku 5.5 | $0.20, 5.8 min | $0.22, 5.7 min |
+
+The blog uses Gemini run 15 alone for OHS + skills ($1.22, 13.5 min). Cost barely changed. Gemini's time is not comparable: its steps took about
+twice as long per action (8 to 9 s, against about 4 s before) while the
+amount of work stayed the same, which points to slower API responses on the
+day of the rerun.
+
+## Stricter sync checks: strict upload check and check 10 (2026-10-28)
+
+Several apps without skills passed the upload check (check 7 in this file, check 8 in the blog) only because the test reopened
+them, which triggered their sync. Two stricter checks separate sync that
+keeps working on its own from sync that only runs while the app is open.
+
+- **Strict upload check, "uploads by itself".** The offline visit reaches the
+  server once the network is back, without reopening the app or tapping
+  anything. Re-scored from the offline test above, no new runs.
+- **Check 10, "uploads even if the app is closed".** Fresh server and
+  install, open online, airplane mode on, save a visit, press Home and
+  `am kill` the app (ends the process but keeps scheduled WorkManager work,
+  unlike force-stop), network back within 30 s, never reopen the app, watch
+  the server for 5 minutes. The script first confirms the save went through
+  (form closed) so a missed tap cannot show up as a fail.
+
+Check 10 was run on the 12 apps that can save offline. Every other app
+already fails the offline save check, so it fails both stricter checks too.
+
+| App | Strict upload | Check 10 | How it syncs |
+|---|---|---|---|
+| ohs-skills-gemini-13 (v2.5) | pass | pass, within 30 s | WorkManager retry (`FhirSyncWorker`) |
+| ohs-skills-gemini-15 (v2.5) | pass | pass, within 30 s | same |
+| ohs-skills-sonnet-8 (v2.5) | pass | pass, within 30 s | same |
+| ohs-skills-sonnet-9 (v2.5) | pass | pass, within 30 s | same |
+| ohs-skills-opus-8 (v2.5) | pass | pass, within 30 s | same |
+| ohs-skills-opus-9 (v2.5) | pass | pass, within 30 s | same |
+| ohs-skills-fable-8 (v2.5) | pass | pass, within 30 s | same |
+| ohs-skills-fable-9 (v2.5) | pass | pass, within 30 s | same |
+| ohs-opus-1 | FAIL | FAIL | `runSync` inside the app process, no scheduled work |
+| ohs-opus-2 | FAIL | FAIL | `runSync` tied to the screen |
+| ohs-fable-1 | FAIL | FAIL | sync worker enqueued with no retries, failed at once offline |
+| ohs-fable-2 | FAIL | FAIL | own HTTP PUT that runs only while the app is open |
+
+In check 10 every v2.5 app showed a sync job that failed offline with
+`RETRY`, then WorkManager restarted the app process in the background and
+uploaded the visit. The four apps without skills scheduled no retryable
+work, so nothing ran until the app was opened again.
+
+Test notes: the first check 10 attempt on ohs-skills-opus-8 was invalid
+(the save never happened) and was redone with the save confirmed. One
+attempt on ohs-fable-1 froze the app with an ANR during the scripted typing
+and was redone with gentler input.
+
+### Scores out of 10 (strict upload check plus check 10)
+
+| Model | OHS (libraries only) | OHS + Skills, v2.5 |
+|---|---|---|
+| Gemini 3.8 Flash | 8 | 10 |
+| Claude Fable 5.1 | 8 | 10 |
+| Claude Opus 5.5 | 8 | 10 |
+| Claude Sonnet 5.5 | 6 | 10 |
+| Claude Haiku 5.5 | 4 | 6 |
+| **Average** | 6.8 | 9.2 |
+
+With the stricter checks no app built without skills is fully working, and
+every v2.5 skills app except Haiku's is.
+
 ## Limits
 
 - One visit per app, one offline period.

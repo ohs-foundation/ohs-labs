@@ -19,14 +19,25 @@ MODELS = [
     ("claude-fable-5-1-medium", "Claude Fable 5.1"),
     ("claude-opus-5-5-medium", "Claude Opus 5.5"),
     ("claude-sonnet-5-5-medium", "Claude Sonnet 5.5"),
-    ("claude-haiku-5-5-medium", "Claude Haiku 5.5"),
 ]
 # Categorical slots 1-3 of the dataviz reference palette, checked for colorblind separation.
 CONDITIONS = [("cold", "No FHIR", "#2a78d6"), ("ohs", "OHS", "#eb6834"),
               ("ohs-skills", "OHS + Skills", "#1baf7a")]
 INK, MUTED, GRID = "#0b0b0b", "#52514e", "#e6e5e1"
 
-rows = list(csv.DictReader(open(HERE.parent / "results.csv")))
+# OHS + Skills uses the rerun with the fixed skill (skills v2.5); the other
+# conditions use the original runs 1 and 2. Haiku never built a working
+# offline app and is left out (see results/walk-offline-2026-10.md).
+SKILLS_RERUN = {"gemini-3.8-flash-medium": {"15"}}  # Claude models: runs 8 and 9
+
+
+def used(r):
+    if r["condition"] == "ohs-skills":
+        return r["replicate"] in SKILLS_RERUN.get(r["model"], {"8", "9"})
+    return r["condition"] in ("cold", "ohs") and r["replicate"] in ("1", "2")
+
+
+rows = [r for r in csv.DictReader(open(HERE.parent / "results.csv")) if used(r)]
 
 
 def avg(model, cond, column, step):
@@ -55,7 +66,7 @@ def plot(column, step, fmt, title, out):
     ax.spines["bottom"].set_color(MUTED)
     ax.legend(frameon=False, fontsize=11, ncols=3, loc="upper right")
     ax.set_title(title, fontsize=14, weight="bold", loc="left", color=INK, pad=14)
-    fig.text(0.01, 0.01, "Average of two runs per model and condition.", fontsize=9, color=MUTED)
+    fig.text(0.01, 0.01, "Average of two runs per model and condition (one run for Gemini OHS + Skills).", fontsize=9, color=MUTED)
     fig.tight_layout(rect=(0, 0.03, 1, 1))
     fig.savefig(HERE / out, dpi=150, facecolor="#fcfcfb")
 
