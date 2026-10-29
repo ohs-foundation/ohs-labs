@@ -57,4 +57,4 @@ s1-ohs-skills-gemini-4-argon-medium-2,s1-build,ohs-skills,gemini-4-argon-medium,
 s1-ohs-skills-gemini-3.8-flash-medium-18,s1-build,ohs-skills,gemini-3.8-flash-medium,18,,15.5,0,90,2,,2,63406,8816789,1.12,1534,,
 s1-ohs-skills-gemini-3.8-flash-low-19,s1-build,ohs-skills,gemini-3.8-flash-low,19,,14.3,0,105,1,,2,22117,6815335,0.86,1227,,
 s1-ohs-skills-gemini-3.8-flash-medium-20,s1-build,ohs-skills,gemini-3.8-flash-medium,20,,27.1,0,199,1,,7,90385,26772149,2.92,1783,,
-s1-ohs-skills-gemini-3.8-flash-low-21,s1-build,ohs-skills,gemini-3.8-flash-low,21,,8.2,0,94,3,,2,19185,5750532,0.76,1072,,
+s1-ohs-skills-gemini-3.8-flash-low-21,s1-build,ohs-skills,gemini-3.8-flash-low,21,,8.2,0,94,3,,2,19185,5750532,0.76,1072,true,true

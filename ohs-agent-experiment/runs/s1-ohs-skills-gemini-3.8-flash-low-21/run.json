@@ -1,0 +1,30 @@
+{
+  "run_id": "s1-ohs-skills-gemini-3.8-flash-low-21",
+  "scenario": "s1-build",
+  "condition": "ohs-skills",
+  "model": "gemini-3.8-flash-low",
+  "replicate": 21,
+  "date": "2026-10-29",
+  "harness": "antigravity-cli",
+  "scaffold_repo": "templates/ohs-skills-antigravity",
+  "baseline_commit": "587e95b",
+  "session_id": "36b96b68-34fa-4a92-9c4a-cb155980a1cc",
+  "final_status": "SUCCESS",
+  "wall_minutes": 8.2,
+  "corrective_turns": 0,
+  "tool_calls": 94,
+  "build_failures_self_fixed": 3,
+  "server_validation_incidents": 2,
+  "tokens": {
+    "input": 340000,
+    "output": 19185,
+    "thinking": 0,
+    "cache_read": 5750532
+  },
+  "cost_usd_api_rates": 0.76,
+  "diff_lines_added": 1072,
+  "smoke_check": "pass",
+  "verified_working": true,
+  "round_trip_pass": true,
+  "notes": "RECONSTRUCTED 2026-10-29: the original run folder was deleted. code.diff was regenerated from harness/archive (baseline 587e95b to result commit) and transcript_full.jsonl was recovered from agy's conversation store. The stream transcript (transcript.jsonl, transcript.md), verification.json, logcat.txt and launch.png are lost. Metrics come from the surviving results.csv row and harness log; input tokens are approximate (340k, read before deletion). Walked by hand: 10/10 checks including offline save, auto upload, offline reopen and upload with the app closed."
+}
