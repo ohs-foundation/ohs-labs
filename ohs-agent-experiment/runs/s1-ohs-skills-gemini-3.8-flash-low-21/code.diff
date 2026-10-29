@@ -1,0 +1,1149 @@
+diff --git a/app/build.gradle.kts b/app/build.gradle.kts
+index 298c2c3..73d6296 100644
+--- a/app/build.gradle.kts
++++ b/app/build.gradle.kts
+@@ -19,21 +19,26 @@ android {
+   }
+ 
+   compileOptions {
+-    sourceCompatibility = JavaVersion.VERSION_17
+-    targetCompatibility = JavaVersion.VERSION_17
++    sourceCompatibility = JavaVersion.VERSION_21
++    targetCompatibility = JavaVersion.VERSION_21
+   }
+ 
+   buildFeatures { compose = true }
+ }
+ 
+-kotlin { compilerOptions { jvmTarget.set(JvmTarget.JVM_17) } }
++kotlin { compilerOptions { jvmTarget.set(JvmTarget.JVM_21) } }
+ 
+ dependencies {
+   implementation(platform("androidx.compose:compose-bom:2026.03.01"))
+   implementation("androidx.core:core-ktx:1.18.0")
+   implementation("androidx.activity:activity-compose:1.13.0")
++  implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
+   implementation("androidx.compose.ui:ui")
+   implementation("androidx.compose.material3:material3")
++  implementation("androidx.compose.material:material-icons-extended")
++
++  implementation("androidx.work:work-runtime-ktx:2.8.1")
++  implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")
+ 
+   implementation("dev.ohs.fhir:fhir-model:1.0.0-beta05")
+   implementation("dev.ohs.fhir:fhir-engine:2.0.0-alpha02")
+diff --git a/app/src/main/AndroidManifest.xml b/app/src/main/AndroidManifest.xml
+index c454ae9..98172c1 100644
+--- a/app/src/main/AndroidManifest.xml
++++ b/app/src/main/AndroidManifest.xml
+@@ -2,9 +2,12 @@
+ <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+ 
+     <uses-permission android:name="android.permission.INTERNET" />
++    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+ 
+     <application
++        android:name=".AncApplication"
+         android:label="ANC App"
++        android:usesCleartextTraffic="true"
+         android:theme="@android:style/Theme.Material.Light.NoActionBar">
+         <activity
+             android:name=".MainActivity"
+diff --git a/app/src/main/java/com/example/ancapp/AncApplication.kt b/app/src/main/java/com/example/ancapp/AncApplication.kt
+new file mode 100644
+index 0000000..ed87328
+--- /dev/null
++++ b/app/src/main/java/com/example/ancapp/AncApplication.kt
+@@ -0,0 +1,81 @@
++package com.example.ancapp
++
++import android.content.Context
++import dev.ohs.fhir.datacapture.DataCapture
++import dev.ohs.fhir.engine.FhirEngineConfiguration
++import dev.ohs.fhir.engine.FhirEngineProvider
++import dev.ohs.fhir.engine.ServerConfiguration
++import dev.ohs.fhir.engine.sync.AcceptLocalConflictResolver
++import dev.ohs.fhir.engine.sync.ConflictResolver
++import dev.ohs.fhir.engine.sync.DownloadWorkManager
++import dev.ohs.fhir.engine.sync.FhirSyncWorker
++import dev.ohs.fhir.engine.sync.download.ResourceParamsBasedDownloadWorkManager
++import dev.ohs.fhir.engine.sync.remote.HttpLogger
++import dev.ohs.fhir.engine.sync.upload.HttpCreateMethod
++import dev.ohs.fhir.engine.sync.upload.HttpUpdateMethod
++import dev.ohs.fhir.engine.sync.upload.UploadStrategy
++import dev.ohs.fhir.model.r4.terminologies.ResourceType
++import androidx.work.WorkerParameters
++
++class AncApplication : android.app.Application() {
++  override fun onCreate() {
++    super.onCreate()
++
++    // 1. Initialize DataCapture before first use
++    DataCapture.initialize(this)
++
++    // 2. Initialize FhirEngineProvider
++    FhirEngineProvider.init(
++      FhirEngineConfiguration(
++        serverConfiguration = ServerConfiguration(
++          baseUrl = "http://10.0.2.2:8080/fhir/",
++          httpLogger = HttpLogger(level = HttpLogger.Level.BASIC)
++        ),
++      ),
++      this,
++    )
++    // Create server connection immediately
++    FhirEngineProvider.getInstance(this)
++  }
++}
++
++class AncSyncTimestampContext(private val context: Context) :
++  ResourceParamsBasedDownloadWorkManager.TimestampContext {
++  private val prefs
++    get() = context.getSharedPreferences("anc_sync_timestamps", Context.MODE_PRIVATE)
++
++  override suspend fun saveLastUpdatedTimestamp(resourceType: ResourceType, timestamp: String?) {
++    prefs.edit().putString(resourceType.name, timestamp).apply()
++  }
++
++  // Note: spelling in interface is getLasUpdateTimestamp
++  override suspend fun getLasUpdateTimestamp(resourceType: ResourceType): String? =
++    prefs.getString(resourceType.name, null)
++}
++
++class AncSyncWorker(appContext: Context, params: WorkerParameters) :
++  FhirSyncWorker(appContext, params) {
++
++  override fun getFhirEngine() = FhirEngineProvider.getInstance(applicationContext)
++
++  override fun getDownloadWorkManager(): DownloadWorkManager =
++    ResourceParamsBasedDownloadWorkManager(
++      syncParams = mapOf(
++        ResourceType.Patient to emptyMap(),
++        ResourceType.Encounter to emptyMap(),
++        ResourceType.Observation to emptyMap(),
++        ResourceType.Questionnaire to emptyMap(),
++        ResourceType.QuestionnaireResponse to emptyMap(),
++      ),
++      context = AncSyncTimestampContext(applicationContext),
++    )
++
++  override fun getConflictResolver(): ConflictResolver = AcceptLocalConflictResolver
++
++  override fun getUploadStrategy(): UploadStrategy =
++    UploadStrategy.forIndividualRequest(
++      methodForCreate = HttpCreateMethod.PUT,
++      methodForUpdate = HttpUpdateMethod.PATCH,
++      squash = true,
++    )
++}
+diff --git a/app/src/main/java/com/example/ancapp/AncViewModel.kt b/app/src/main/java/com/example/ancapp/AncViewModel.kt
+new file mode 100644
+index 0000000..a5116c7
+--- /dev/null
++++ b/app/src/main/java/com/example/ancapp/AncViewModel.kt
+@@ -0,0 +1,503 @@
++package com.example.ancapp
++
++import android.app.Application
++import android.util.Log
++import androidx.lifecycle.AndroidViewModel
++import androidx.lifecycle.viewModelScope
++import dev.ohs.fhir.engine.FhirEngine
++import dev.ohs.fhir.engine.FhirEngineProvider
++import dev.ohs.fhir.engine.get
++import dev.ohs.fhir.engine.search.ReferenceClientParam
++import dev.ohs.fhir.engine.search.Search
++import dev.ohs.fhir.engine.sync.CurrentSyncJobStatus
++import dev.ohs.fhir.engine.sync.Sync
++import dev.ohs.fhir.model.r4.Canonical
++import dev.ohs.fhir.model.r4.Code
++import dev.ohs.fhir.model.r4.CodeableConcept
++import dev.ohs.fhir.model.r4.Coding
++import dev.ohs.fhir.model.r4.Date
++import dev.ohs.fhir.model.r4.DateTime
++import dev.ohs.fhir.model.r4.Decimal
++import dev.ohs.fhir.model.r4.Encounter
++import dev.ohs.fhir.model.r4.Enumeration
++import dev.ohs.fhir.model.r4.FhirDate
++import dev.ohs.fhir.model.r4.FhirDateTime
++import dev.ohs.fhir.model.r4.Integer
++import dev.ohs.fhir.model.r4.Observation
++import dev.ohs.fhir.model.r4.Patient
++import dev.ohs.fhir.model.r4.Period
++import dev.ohs.fhir.model.r4.Quantity
++import dev.ohs.fhir.model.r4.Questionnaire
++import dev.ohs.fhir.model.r4.QuestionnaireResponse
++import dev.ohs.fhir.model.r4.Reference
++import dev.ohs.fhir.model.r4.Resource
++import dev.ohs.fhir.model.r4.String as FhirString
++import dev.ohs.fhir.model.r4.Uri
++import dev.ohs.fhir.model.r4.terminologies.ResourceType
++import kotlinx.coroutines.Job
++import kotlinx.coroutines.flow.MutableStateFlow
++import kotlinx.coroutines.flow.asStateFlow
++import kotlinx.coroutines.flow.catch
++import kotlinx.coroutines.flow.transformWhile
++import kotlinx.coroutines.launch
++import kotlinx.serialization.json.Json
++import java.time.LocalDate
++import java.util.UUID
++import com.ionspin.kotlin.bignum.decimal.BigDecimal
++
++private fun CurrentSyncJobStatus.isFinal() =
++  this is CurrentSyncJobStatus.Succeeded ||
++    this is CurrentSyncJobStatus.Failed ||
++    this is CurrentSyncJobStatus.Cancelled
++
++class AncViewModel(app: Application) : AndroidViewModel(app) {
++  private val fhirEngine: FhirEngine = FhirEngineProvider.getInstance(app)
++
++  private val _patients = MutableStateFlow<List<PatientItem>>(emptyList())
++  val patients = _patients.asStateFlow()
++
++  private val _patientVisits = MutableStateFlow<List<VisitItem>>(emptyList())
++  val patientVisits = _patientVisits.asStateFlow()
++
++  private val _selectedPatient = MutableStateFlow<PatientItem?>(null)
++  val selectedPatient = _selectedPatient.asStateFlow()
++
++  private val _questionnaireJson = MutableStateFlow<String?>(null)
++  val questionnaireJson = _questionnaireJson.asStateFlow()
++
++  private val _syncStatus = MutableStateFlow<String?>("Not synced")
++  val syncStatus = _syncStatus.asStateFlow()
++
++  private val _isLoading = MutableStateFlow(false)
++  val isLoading = _isLoading.asStateFlow()
++
++  private var syncJob: Job? = null
++
++  private val json = Json {
++    explicitNulls = false
++    encodeDefaults = false
++    ignoreUnknownKeys = true
++  }
++
++  init {
++    loadLocalPatients()
++    syncNow()
++  }
++
++  fun syncNow() {
++    if (syncJob?.isActive == true) return
++    syncJob = viewModelScope.launch {
++      var ran = false
++      _isLoading.value = true
++      Sync.oneTimeSync<AncSyncWorker>(getApplication())
++        .transformWhile { emit(it); !it.isFinal() }
++        .catch { e ->
++          Log.e("AncViewModel", "Sync status error", e)
++          _syncStatus.value = "Sync status unknown"
++          _isLoading.value = false
++        }
++        .collect { status ->
++          _syncStatus.value = when (status) {
++            is CurrentSyncJobStatus.Enqueued ->
++              if (ran) "Waiting to retry" else "Waiting to sync"
++            is CurrentSyncJobStatus.Running -> {
++              ran = true
++              "Syncing…"
++            }
++            is CurrentSyncJobStatus.Succeeded -> {
++              _isLoading.value = false
++              loadLocalPatients()
++              _selectedPatient.value?.let { loadVisitsForPatient(it.id) }
++              "Synced"
++            }
++            is CurrentSyncJobStatus.Failed -> {
++              _isLoading.value = false
++              "Sync failed, offline mode"
++            }
++            else -> _syncStatus.value
++          }
++        }
++    }
++  }
++
++  fun loadLocalPatients() {
++    viewModelScope.launch {
++      try {
++        val patientResults = fhirEngine.search<Patient>(Search(ResourceType.Patient))
++        val eddResults = fhirEngine.search<Observation>(Search(ResourceType.Observation))
++
++        // Map EDD by patient id
++        val eddMap = mutableMapOf<String, LocalDate>()
++        eddResults.forEach { res ->
++          val obs = res.resource
++          val code = obs.code.coding.firstOrNull()?.code?.value
++          if (code == "11778-8") { // Delivery date Estimated
++            val pId = obs.subject?.reference?.value?.substringAfter("Patient/")
++            val eddString = obs.value?.asDateTime()?.value?.value?.toString()?.substringBefore("T")
++            if (pId != null && eddString != null) {
++              runCatching { LocalDate.parse(eddString) }.getOrNull()?.let {
++                eddMap[pId] = it
++              }
++            }
++          }
++        }
++
++        val items = patientResults.map { searchResult ->
++          val patient = searchResult.resource
++          val id = patient.id ?: ""
++          val name = patient.name.firstOrNull()
++          val fullName = listOfNotNull(
++            name?.given?.mapNotNull { it.value }?.joinToString(" "),
++            name?.family?.value
++          ).filter { it.isNotBlank() }.joinToString(" ")
++
++          val dobString = patient.birthDate?.value?.toString()
++          val dob = dobString?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
++          val age = dob?.let { calculateAge(it) }
++
++          val edd = eddMap[id]
++          val weeks = edd?.let { calculateGestationalAgeWeeks(it) }
++
++          PatientItem(
++            id = id,
++            name = if (fullName.isNotBlank()) fullName else "Unknown",
++            birthDate = dob,
++            age = age,
++            estimatedDueDate = edd,
++            currentWeeks = weeks
++          )
++        }.sortedWith(compareBy(nullsLast()) { it.estimatedDueDate })
++
++        _patients.value = items
++      } catch (e: Exception) {
++        Log.e("AncViewModel", "Failed to load patients", e)
++      }
++    }
++  }
++
++  fun selectPatient(patient: PatientItem) {
++    _selectedPatient.value = patient
++    loadVisitsForPatient(patient.id)
++  }
++
++  fun loadVisitsForPatient(patientId: String) {
++    viewModelScope.launch {
++      try {
++        // Search Encounters for this patient
++        val encounters = fhirEngine.search<Encounter>(
++          Search(ResourceType.Encounter).apply {
++            filter(ReferenceClientParam("subject"), { value = "Patient/$patientId" })
++          }
++        ).map { it.resource }
++
++        // Search Observations for this patient
++        val observations = fhirEngine.search<Observation>(
++          Search(ResourceType.Observation).apply {
++            filter(ReferenceClientParam("subject"), { value = "Patient/$patientId" })
++          }
++        ).map { it.resource }
++
++        // Group observations by encounter reference
++        val obsByEncounter = observations.groupBy {
++          it.encounter?.reference?.value?.substringAfter("Encounter/") ?: ""
++        }
++
++        // Also search QuestionnaireResponses for this patient
++        val qrList = try {
++          fhirEngine.search<QuestionnaireResponse>(
++            Search(ResourceType.QuestionnaireResponse).apply {
++              filter(ReferenceClientParam("subject"), { value = "Patient/$patientId" })
++            }
++          ).map { it.resource }
++        } catch (e: Exception) {
++          emptyList<QuestionnaireResponse>()
++        }
++
++        val qrByEncounter = qrList.groupBy {
++          it.encounter?.reference?.value?.substringAfter("Encounter/") ?: ""
++        }
++
++        val visits = encounters.map { enc ->
++          val encId = enc.id ?: ""
++          val dateStr = enc.period?.start?.value?.toString()?.substringBefore("T")
++          val visitDate = dateStr?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
++
++          val relatedObs = obsByEncounter[encId].orEmpty()
++          var weightStr: String? = null
++          var bpStr: String? = null
++          var hbStr: String? = null
++          val dangerSigns = mutableListOf<String>()
++          var notes: String? = null
++
++          for (obs in relatedObs) {
++            val code = obs.code.coding.firstOrNull()?.code?.value
++            when (code) {
++              "29463-7" -> { // Weight
++                val w = obs.value?.asQuantity()?.value?.value?.value?.toPlainString()
++                if (w != null) weightStr = "$w kg"
++              }
++              "85354-9" -> { // Blood pressure panel
++                val systolic = obs.component.firstOrNull { comp ->
++                  comp.code.coding.firstOrNull()?.code?.value == "8480-6"
++                }?.value?.asQuantity()?.value?.value?.value?.toPlainString()
++
++                val diastolic = obs.component.firstOrNull { comp ->
++                  comp.code.coding.firstOrNull()?.code?.value == "8462-4"
++                }?.value?.asQuantity()?.value?.value?.value?.toPlainString()
++
++                if (systolic != null && diastolic != null) {
++                  bpStr = "$systolic/$diastolic"
++                }
++              }
++              "718-7" -> { // Hemoglobin
++                val hb = obs.value?.asQuantity()?.value?.value?.value?.toPlainString()
++                if (hb != null) hbStr = "$hb g/dL"
++              }
++            }
++          }
++
++          // Check if QuestionnaireResponse has extra info (notes, danger signs)
++          val qr = qrByEncounter[encId]?.firstOrNull()
++          if (qr != null) {
++            val answers = mutableMapOf<String, MutableList<QuestionnaireResponse.Item.Answer>>()
++            fun collectAnswers(items: List<QuestionnaireResponse.Item>) {
++              items.forEach { item ->
++                item.linkId.value?.let { linkId ->
++                  answers.getOrPut(linkId) { mutableListOf() }.addAll(item.answer)
++                }
++                collectAnswers(item.item)
++                item.answer.forEach { collectAnswers(it.item) }
++              }
++            }
++            collectAnswers(qr.item)
++
++            notes = answers["notes"]?.firstOrNull()?.value?.asString()?.value?.value
++            val signs = answers["danger-signs"].orEmpty().mapNotNull {
++              it.value?.asCoding()?.value?.display?.value ?: it.value?.asCoding()?.value?.code?.value
++            }
++            dangerSigns.addAll(signs)
++          }
++
++          VisitItem(
++            encounterId = encId,
++            date = visitDate,
++            weightKg = weightStr,
++            bloodPressure = bpStr,
++            hemoglobin = hbStr,
++            dangerSigns = dangerSigns,
++            notes = notes
++          )
++        }.sortedWith(compareByDescending(nullsLast()) { it.date })
++
++        _patientVisits.value = visits
++      } catch (e: Exception) {
++        Log.e("AncViewModel", "Failed to load visits", e)
++      }
++    }
++  }
++
++  fun loadQuestionnaire() {
++    viewModelScope.launch {
++      try {
++        val questionnaire = try {
++          fhirEngine.get<Questionnaire>("anc-contact")
++        } catch (e: Exception) {
++          null
++        }
++
++        if (questionnaire != null) {
++          _questionnaireJson.value = json.encodeToString(questionnaire)
++        } else {
++          // If not in local db yet, try to search or wait for sync
++          val list = fhirEngine.search<Questionnaire>(Search(ResourceType.Questionnaire)).map { it.resource }
++          val q = list.firstOrNull { it.id == "anc-contact" } ?: list.firstOrNull()
++          if (q != null) {
++            _questionnaireJson.value = json.encodeToString(q)
++          }
++        }
++      } catch (e: Exception) {
++        Log.e("AncViewModel", "Failed to load questionnaire", e)
++      }
++    }
++  }
++
++  suspend fun saveAncVisit(patientId: String, response: QuestionnaireResponse) {
++    try {
++      val answers = mutableMapOf<String, MutableList<QuestionnaireResponse.Item.Answer>>()
++      fun collect(items: List<QuestionnaireResponse.Item>) {
++        items.forEach { item ->
++          item.linkId.value?.let { answers.getOrPut(it) { mutableListOf() }.addAll(item.answer) }
++          collect(item.item)
++          item.answer.forEach { collect(it.item) }
++        }
++      }
++      collect(response.item)
++
++      val visitDateStr = answers["visit-date"]?.firstOrNull()?.value?.asDate()?.value?.value?.toString()
++        ?: LocalDate.now().toString()
++      val weightVal = answers["weight"]?.firstOrNull()?.value?.asDecimal()?.value?.value
++      val bpSysVal = answers["bp-systolic"]?.firstOrNull()?.value?.asInteger()?.value?.value
++      val bpDiaVal = answers["bp-diastolic"]?.firstOrNull()?.value?.asInteger()?.value?.value
++
++      val encounterId = UUID.randomUUID().toString()
++      val encounterRef = Reference(reference = FhirString(value = "Encounter/$encounterId"))
++      val patientRef = Reference(reference = FhirString(value = "Patient/$patientId"))
++
++      val newResources = mutableListOf<Resource>()
++
++      val encounter = Encounter(
++        id = encounterId,
++        status = Enumeration(value = Encounter.EncounterStatus.Finished),
++        `class` = Coding(
++          system = Uri(value = "http://terminology.hl7.org/CodeSystem/v3-ActCode"),
++          code = Code(value = "AMB"),
++          display = FhirString(value = "ambulatory")
++        ),
++        type = listOf(
++          CodeableConcept(
++            text = FhirString(value = "Antenatal care contact")
++          )
++        ),
++        subject = patientRef,
++        period = Period(
++          start = DateTime(value = FhirDateTime.fromString(visitDateStr)),
++          end = DateTime(value = FhirDateTime.fromString(visitDateStr))
++        )
++      )
++      newResources.add(encounter)
++
++      if (weightVal != null) {
++        val weightObs = Observation(
++          id = UUID.randomUUID().toString(),
++          status = Enumeration(value = Observation.ObservationStatus.Final),
++          category = listOf(
++            CodeableConcept(
++              coding = listOf(
++                Coding(
++                  system = Uri(value = "http://terminology.hl7.org/CodeSystem/observation-category"),
++                  code = Code(value = "vital-signs"),
++                  display = FhirString(value = "Vital Signs")
++                )
++              )
++            )
++          ),
++          code = CodeableConcept(
++            coding = listOf(
++              Coding(
++                system = Uri(value = "http://loinc.org"),
++                code = Code(value = "29463-7"),
++                display = FhirString(value = "Body weight")
++              )
++            ),
++            text = FhirString(value = "Body weight")
++          ),
++          subject = patientRef,
++          encounter = encounterRef,
++          effective = Observation.Effective.DateTime(DateTime(value = FhirDateTime.fromString(visitDateStr))),
++          value = Observation.Value.Quantity(
++            Quantity(
++              value = Decimal(value = weightVal),
++              unit = FhirString(value = "kg"),
++              system = Uri(value = "http://unitsofmeasure.org"),
++              code = Code(value = "kg")
++            )
++          )
++        )
++        newResources.add(weightObs)
++      }
++
++      if (bpSysVal != null && bpDiaVal != null) {
++        val bpObs = Observation(
++          id = UUID.randomUUID().toString(),
++          status = Enumeration(value = Observation.ObservationStatus.Final),
++          category = listOf(
++            CodeableConcept(
++              coding = listOf(
++                Coding(
++                  system = Uri(value = "http://terminology.hl7.org/CodeSystem/observation-category"),
++                  code = Code(value = "vital-signs"),
++                  display = FhirString(value = "Vital Signs")
++                )
++              )
++            )
++          ),
++          code = CodeableConcept(
++            coding = listOf(
++              Coding(
++                system = Uri(value = "http://loinc.org"),
++                code = Code(value = "85354-9"),
++                display = FhirString(value = "Blood pressure panel with all children optional")
++              )
++            ),
++            text = FhirString(value = "Blood pressure")
++          ),
++          subject = patientRef,
++          encounter = encounterRef,
++          effective = Observation.Effective.DateTime(DateTime(value = FhirDateTime.fromString(visitDateStr))),
++          component = listOf(
++            Observation.Component(
++              code = CodeableConcept(
++                coding = listOf(
++                  Coding(
++                    system = Uri(value = "http://loinc.org"),
++                    code = Code(value = "8480-6"),
++                    display = FhirString(value = "Systolic blood pressure")
++                  )
++                )
++              ),
++              value = Observation.Component.Value.Quantity(
++                Quantity(
++                  value = Decimal(value = BigDecimal.fromInt(bpSysVal)),
++                  unit = FhirString(value = "mmHg"),
++                  system = Uri(value = "http://unitsofmeasure.org"),
++                  code = Code(value = "mm[Hg]")
++                )
++              )
++            ),
++            Observation.Component(
++              code = CodeableConcept(
++                coding = listOf(
++                  Coding(
++                    system = Uri(value = "http://loinc.org"),
++                    code = Code(value = "8462-4"),
++                    display = FhirString(value = "Diastolic blood pressure")
++                  )
++                )
++              ),
++              value = Observation.Component.Value.Quantity(
++                Quantity(
++                  value = Decimal(value = BigDecimal.fromInt(bpDiaVal)),
++                  unit = FhirString(value = "mmHg"),
++                  system = Uri(value = "http://unitsofmeasure.org"),
++                  code = Code(value = "mm[Hg]")
++                )
++              )
++            )
++          )
++        )
++        newResources.add(bpObs)
++      }
++
++      val completedResponse = response.copy(
++        id = UUID.randomUUID().toString(),
++        status = Enumeration(value = QuestionnaireResponse.QuestionnaireResponseStatus.Completed),
++        subject = patientRef,
++        encounter = encounterRef,
++        questionnaire = Canonical(value = "http://example.org/fhir/Questionnaire/anc-contact")
++      )
++      newResources.add(completedResponse)
++
++      // Save all resources locally
++      fhirEngine.create(*newResources.toTypedArray())
++
++      // Refresh visits locally
++      loadVisitsForPatient(patientId)
++
++      // Trigger sync in background
++      syncNow()
++    } catch (e: Exception) {
++      Log.e("AncViewModel", "Failed to save ANC visit", e)
++      throw e
++    }
++  }
++}
+diff --git a/app/src/main/java/com/example/ancapp/MainActivity.kt b/app/src/main/java/com/example/ancapp/MainActivity.kt
+index b5e554b..96ef3c9 100644
+--- a/app/src/main/java/com/example/ancapp/MainActivity.kt
++++ b/app/src/main/java/com/example/ancapp/MainActivity.kt
+@@ -2,14 +2,454 @@ package com.example.ancapp
+ 
+ import android.os.Bundle
+ import androidx.activity.ComponentActivity
++import androidx.activity.compose.BackHandler
+ import androidx.activity.compose.setContent
+-import androidx.compose.material3.MaterialTheme
+-import androidx.compose.material3.Surface
+-import androidx.compose.material3.Text
++import androidx.activity.viewModels
++import androidx.compose.foundation.clickable
++import androidx.compose.foundation.layout.*
++import androidx.compose.foundation.lazy.LazyColumn
++import androidx.compose.foundation.lazy.items
++import androidx.compose.material.icons.Icons
++import androidx.compose.material.icons.automirrored.filled.ArrowBack
++import androidx.compose.material.icons.filled.Add
++import androidx.compose.material.icons.filled.Refresh
++import androidx.compose.material3.*
++import androidx.compose.runtime.*
++import androidx.compose.ui.Alignment
++import androidx.compose.ui.Modifier
++import androidx.compose.ui.graphics.Color
++import androidx.compose.ui.text.font.FontWeight
++import androidx.compose.ui.unit.dp
++import dev.ohs.fhir.datacapture.Questionnaire
++import dev.ohs.fhir.datacapture.QuestionnaireConfig
++import dev.ohs.fhir.model.r4.QuestionnaireResponse
++import kotlinx.coroutines.CancellationException
++import kotlinx.coroutines.launch
++
++sealed class Screen {
++  object PatientList : Screen()
++  data class PatientDetail(val patient: PatientItem) : Screen()
++  data class NewVisitForm(val patient: PatientItem) : Screen()
++}
+ 
+ class MainActivity : ComponentActivity() {
++  private val viewModel: AncViewModel by viewModels()
++
+   override fun onCreate(savedInstanceState: Bundle?) {
+     super.onCreate(savedInstanceState)
+-    setContent { MaterialTheme { Surface { Text("Hello") } } }
++    setContent {
++      MaterialTheme {
++        Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
++          AncAppNavHost(viewModel)
++        }
++      }
++    }
++  }
++}
++
++@Composable
++fun AncAppNavHost(viewModel: AncViewModel) {
++  var currentScreen by remember { mutableStateOf<Screen>(Screen.PatientList) }
++
++  when (val screen = currentScreen) {
++    is Screen.PatientList -> {
++      PatientListScreen(
++        viewModel = viewModel,
++        onPatientClick = { patient ->
++          viewModel.selectPatient(patient)
++          currentScreen = Screen.PatientDetail(patient)
++        }
++      )
++    }
++    is Screen.PatientDetail -> {
++      BackHandler {
++        currentScreen = Screen.PatientList
++      }
++      PatientDetailScreen(
++        viewModel = viewModel,
++        patient = screen.patient,
++        onBack = { currentScreen = Screen.PatientList },
++        onRecordNewVisit = {
++          viewModel.loadQuestionnaire()
++          currentScreen = Screen.NewVisitForm(screen.patient)
++        }
++      )
++    }
++    is Screen.NewVisitForm -> {
++      BackHandler {
++        currentScreen = Screen.PatientDetail(screen.patient)
++      }
++      NewVisitFormScreen(
++        viewModel = viewModel,
++        patient = screen.patient,
++        onClose = {
++          currentScreen = Screen.PatientDetail(screen.patient)
++        }
++      )
++    }
++  }
++}
++
++@OptIn(ExperimentalMaterial3Api::class)
++@Composable
++fun PatientListScreen(
++  viewModel: AncViewModel,
++  onPatientClick: (PatientItem) -> Unit
++) {
++  val patients by viewModel.patients.collectAsState()
++  val syncStatus by viewModel.syncStatus.collectAsState()
++  val isLoading by viewModel.isLoading.collectAsState()
++
++  Scaffold(
++    topBar = {
++      TopAppBar(
++        title = {
++          Column {
++            Text("ANC Register", fontWeight = FontWeight.Bold)
++            Text(
++              text = syncStatus ?: "",
++              style = MaterialTheme.typography.bodySmall,
++              color = MaterialTheme.colorScheme.onSurfaceVariant
++            )
++          }
++        },
++        actions = {
++          IconButton(onClick = { viewModel.syncNow() }) {
++            Icon(Icons.Default.Refresh, contentDescription = "Sync now")
++          }
++        }
++      )
++    }
++  ) { paddingValues ->
++    Box(
++      modifier = Modifier
++        .fillMaxSize()
++        .padding(paddingValues)
++    ) {
++      if (patients.isEmpty() && isLoading) {
++        CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
++      } else if (patients.isEmpty()) {
++        Column(
++          modifier = Modifier.align(Alignment.Center),
++          horizontalAlignment = Alignment.CenterHorizontally
++        ) {
++          Text("No registered pregnant patients found.")
++          Spacer(modifier = Modifier.height(8.dp))
++          Button(onClick = { viewModel.syncNow() }) {
++            Text("Retry Sync")
++          }
++        }
++      } else {
++        LazyColumn(
++          modifier = Modifier.fillMaxSize(),
++          contentPadding = PaddingValues(16.dp),
++          verticalArrangement = Arrangement.spacedBy(12.dp)
++        ) {
++          items(patients, key = { it.id }) { patient ->
++            PatientCard(patient = patient, onClick = { onPatientClick(patient) })
++          }
++        }
++      }
++    }
++  }
++}
++
++@Composable
++fun PatientCard(
++  patient: PatientItem,
++  onClick: () -> Unit
++) {
++  Card(
++    modifier = Modifier
++      .fillMaxWidth()
++      .clickable(onClick = onClick),
++    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
++  ) {
++    Column(modifier = Modifier.padding(16.dp)) {
++      Row(
++        modifier = Modifier.fillMaxWidth(),
++        horizontalArrangement = Arrangement.SpaceBetween,
++        verticalAlignment = Alignment.CenterVertically
++      ) {
++        Text(
++          text = patient.name,
++          style = MaterialTheme.typography.titleMedium,
++          fontWeight = FontWeight.Bold
++        )
++        if (patient.age != null) {
++          Text(
++            text = "${patient.age} yrs",
++            style = MaterialTheme.typography.bodyMedium,
++            color = MaterialTheme.colorScheme.onSurfaceVariant
++          )
++        }
++      }
++
++      Spacer(modifier = Modifier.height(8.dp))
++
++      Row(
++        modifier = Modifier.fillMaxWidth(),
++        horizontalArrangement = Arrangement.SpaceBetween
++      ) {
++        Column {
++          Text(
++            text = "Est. Due Date",
++            style = MaterialTheme.typography.labelSmall,
++            color = MaterialTheme.colorScheme.onSurfaceVariant
++          )
++          Text(
++            text = patient.estimatedDueDate?.toString() ?: "Not recorded",
++            style = MaterialTheme.typography.bodyMedium,
++            fontWeight = FontWeight.Medium
++          )
++        }
++
++        Column(horizontalAlignment = Alignment.End) {
++          Text(
++            text = "Gestational Age",
++            style = MaterialTheme.typography.labelSmall,
++            color = MaterialTheme.colorScheme.onSurfaceVariant
++          )
++          Text(
++            text = if (patient.currentWeeks != null) "${patient.currentWeeks} weeks" else "--",
++            style = MaterialTheme.typography.bodyMedium,
++            fontWeight = FontWeight.Medium,
++            color = MaterialTheme.colorScheme.primary
++          )
++        }
++      }
++    }
++  }
++}
++
++@OptIn(ExperimentalMaterial3Api::class)
++@Composable
++fun PatientDetailScreen(
++  viewModel: AncViewModel,
++  patient: PatientItem,
++  onBack: () -> Unit,
++  onRecordNewVisit: () -> Unit
++) {
++  val visits by viewModel.patientVisits.collectAsState()
++
++  Scaffold(
++    topBar = {
++      TopAppBar(
++        title = { Text(patient.name) },
++        navigationIcon = {
++          IconButton(onClick = onBack) {
++            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
++          }
++        }
++      )
++    },
++    floatingActionButton = {
++      ExtendedFloatingActionButton(
++        onClick = onRecordNewVisit,
++        icon = { Icon(Icons.Default.Add, contentDescription = null) },
++        text = { Text("Record ANC Visit") }
++      )
++    }
++  ) { paddingValues ->
++    Column(
++      modifier = Modifier
++        .fillMaxSize()
++        .padding(paddingValues)
++        .padding(16.dp)
++    ) {
++      // Patient Summary Header Card
++      Card(
++        modifier = Modifier.fillMaxWidth(),
++        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
++      ) {
++        Column(modifier = Modifier.padding(16.dp)) {
++          Text(
++            text = "Patient Info",
++            style = MaterialTheme.typography.labelMedium,
++            fontWeight = FontWeight.Bold
++          )
++          Spacer(modifier = Modifier.height(4.dp))
++          Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
++            Text("Age: ${patient.age ?: "--"} yrs (${patient.birthDate ?: "--"})")
++            Text("Gestational Age: ${patient.currentWeeks ?: "--"} wks")
++          }
++          Spacer(modifier = Modifier.height(2.dp))
++          Text("Estimated Due Date: ${patient.estimatedDueDate ?: "--"}")
++        }
++      }
++
++      Spacer(modifier = Modifier.height(16.dp))
++
++      Text(
++        text = "Past ANC Visits",
++        style = MaterialTheme.typography.titleMedium,
++        fontWeight = FontWeight.Bold
++      )
++
++      Spacer(modifier = Modifier.height(8.dp))
++
++      if (visits.isEmpty()) {
++        Box(
++          modifier = Modifier
++            .fillMaxWidth()
++            .weight(1f),
++          contentAlignment = Alignment.Center
++        ) {
++          Text("No past visits recorded.", color = MaterialTheme.colorScheme.onSurfaceVariant)
++        }
++      } else {
++        LazyColumn(
++          modifier = Modifier
++            .fillMaxWidth()
++            .weight(1f),
++          verticalArrangement = Arrangement.spacedBy(10.dp)
++        ) {
++          items(visits, key = { it.encounterId }) { visit ->
++            VisitCard(visit = visit)
++          }
++        }
++      }
++    }
++  }
++}
++
++@Composable
++fun VisitCard(visit: VisitItem) {
++  Card(
++    modifier = Modifier.fillMaxWidth(),
++    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
++  ) {
++    Column(modifier = Modifier.padding(14.dp)) {
++      Row(
++        modifier = Modifier.fillMaxWidth(),
++        horizontalArrangement = Arrangement.SpaceBetween
++      ) {
++        Text(
++          text = "Visit Date: ${visit.date ?: "Unknown"}",
++          style = MaterialTheme.typography.bodyMedium,
++          fontWeight = FontWeight.Bold
++        )
++      }
++
++      Spacer(modifier = Modifier.height(6.dp))
++
++      Row(
++        modifier = Modifier.fillMaxWidth(),
++        horizontalArrangement = Arrangement.SpaceBetween
++      ) {
++        Text("Weight: ${visit.weightKg ?: "--"}", style = MaterialTheme.typography.bodyMedium)
++        Text("BP: ${visit.bloodPressure ?: "--"}", style = MaterialTheme.typography.bodyMedium)
++        if (visit.hemoglobin != null) {
++          Text("Hb: ${visit.hemoglobin}", style = MaterialTheme.typography.bodyMedium)
++        }
++      }
++
++      if (visit.dangerSigns.isNotEmpty()) {
++        Spacer(modifier = Modifier.height(6.dp))
++        Text(
++          text = "Danger signs: ${visit.dangerSigns.joinToString(", ")}",
++          style = MaterialTheme.typography.bodySmall,
++          color = MaterialTheme.colorScheme.error,
++          fontWeight = FontWeight.Medium
++        )
++      }
++
++      if (!visit.notes.isNullOrBlank()) {
++        Spacer(modifier = Modifier.height(4.dp))
++        Text(
++          text = "Notes: ${visit.notes}",
++          style = MaterialTheme.typography.bodySmall,
++          color = MaterialTheme.colorScheme.onSurfaceVariant
++        )
++      }
++    }
++  }
++}
++
++@OptIn(ExperimentalMaterial3Api::class)
++@Composable
++fun NewVisitFormScreen(
++  viewModel: AncViewModel,
++  patient: PatientItem,
++  onClose: () -> Unit
++) {
++  val questionnaireJson by viewModel.questionnaireJson.collectAsState()
++  val scope = rememberCoroutineScope()
++  var isSaving by remember { mutableStateOf(false) }
++  var saveError by remember { mutableStateOf<String?>(null) }
++
++  Scaffold(
++    topBar = {
++      TopAppBar(
++        title = { Text("New ANC Visit - ${patient.name}") },
++        navigationIcon = {
++          IconButton(onClick = onClose) {
++            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Cancel")
++          }
++        }
++      )
++    }
++  ) { paddingValues ->
++    Box(
++      modifier = Modifier
++        .fillMaxSize()
++        .padding(paddingValues)
++    ) {
++      val jsonStr = questionnaireJson
++      if (jsonStr == null) {
++        CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
++      } else {
++        Questionnaire(
++          questionnaireJson = jsonStr,
++          config = QuestionnaireConfig(
++            showSubmitButton = true,
++            showCancelButton = true,
++            submitButtonText = "Save Visit"
++          ),
++          onSubmit = { getResponse ->
++            scope.launch {
++              try {
++                isSaving = true
++                val response: QuestionnaireResponse = getResponse()
++                viewModel.saveAncVisit(patient.id, response)
++                isSaving = false
++                onClose()
++              } catch (e: CancellationException) {
++                // Answer validation failed, questionnaire displays errors internally
++                isSaving = false
++              } catch (e: Exception) {
++                isSaving = false
++                saveError = e.message ?: "Failed to save visit"
++              }
++            }
++          },
++          onCancel = onClose
++        )
++      }
++
++      if (isSaving) {
++        Surface(
++          modifier = Modifier.fillMaxSize(),
++          color = Color.Black.copy(alpha = 0.3f)
++        ) {
++          Box(contentAlignment = Alignment.Center) {
++            CircularProgressIndicator()
++          }
++        }
++      }
++
++      saveError?.let { err ->
++        AlertDialog(
++          onDismissRequest = { saveError = null },
++          title = { Text("Error") },
++          text = { Text(err) },
++          confirmButton = {
++            Button(onClick = { saveError = null }) {
++              Text("OK")
++            }
++          }
++        )
++      }
++    }
+   }
+ }
+diff --git a/app/src/main/java/com/example/ancapp/Models.kt b/app/src/main/java/com/example/ancapp/Models.kt
+new file mode 100644
+index 0000000..72393f1
+--- /dev/null
++++ b/app/src/main/java/com/example/ancapp/Models.kt
+@@ -0,0 +1,33 @@
++package com.example.ancapp
++
++import java.time.LocalDate
++import java.time.temporal.ChronoUnit
++
++data class PatientItem(
++  val id: String,
++  val name: String,
++  val birthDate: LocalDate?,
++  val age: Int?,
++  val estimatedDueDate: LocalDate?,
++  val currentWeeks: Int?
++)
++
++data class VisitItem(
++  val encounterId: String,
++  val date: LocalDate?,
++  val weightKg: String?,
++  val bloodPressure: String?,
++  val hemoglobin: String?,
++  val dangerSigns: List<String> = emptyList(),
++  val notes: String? = null
++)
++
++fun calculateGestationalAgeWeeks(edd: LocalDate, today: LocalDate = LocalDate.now()): Int {
++  val daysUntilDue = ChronoUnit.DAYS.between(today, edd)
++  val totalDays = 280 - daysUntilDue
++  return (totalDays / 7).toInt().coerceAtLeast(0)
++}
++
++fun calculateAge(birthDate: LocalDate, today: LocalDate = LocalDate.now()): Int {
++  return ChronoUnit.YEARS.between(birthDate, today).toInt()
++}
