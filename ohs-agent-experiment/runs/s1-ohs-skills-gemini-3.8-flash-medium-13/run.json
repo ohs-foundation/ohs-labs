@@ -1,0 +1,46 @@
+{
+  "run_id": "s1-ohs-skills-gemini-3.8-flash-medium-13",
+  "scenario": "s1-build",
+  "condition": "ohs-skills",
+  "model": "gemini-3.8-flash-medium",
+  "replicate": 13,
+  "date": null,
+  "harness": "antigravity-cli-headless",
+  "scaffold_repo": "templates/ohs-skills-antigravity",
+  "baseline_commit": "587e95b",
+  "session_id": "1ff57637-4f0e-4eaf-8a80-a0a52c51d9f9",
+  "model_reported_by_cli": "gemini-3.8-flash-medium",
+  "model_served": {
+    "gemini-3.8-flash-n": 111
+  },
+  "permission_mode": "always-proceed",
+  "final_status": "SUCCESS",
+  "resume_turns": 0,
+  "wall_minutes": 16.8,
+  "user_turns": 1,
+  "corrective_turns": 0,
+  "tool_calls": 110,
+  "assistant_text_blocks": 1,
+  "tool_errors": 0,
+  "build_failures_self_fixed": 2,
+  "server_validation_incidents": 2,
+  "tokens": {
+    "input": 433735,
+    "output": 66666,
+    "thinking": 38272,
+    "cache_read": 10339692
+  },
+  "cost_usd_api_rates": 1.35,
+  "diff_lines_added": 1689,
+  "smoke_check": "pass",
+  "verified_working": true,
+  "round_trip_pass": true,
+  "notes": "gen=2 agent_exit=0 | agy_resumes=0 | schema verified against agy v1.2.7; re-verify if the CLI is upgraded",
+  "verification": {
+    "launched": true,
+    "crashed": false,
+    "screenshot_after_seconds": 30,
+    "patients_in_local_db": 3,
+    "note": "launched+!crashed is the smoke verdict. patients_in_local_db is a best-effort sync-success signal (0/null suggests download sync did not deliver). Whether the register visually renders is the human walk, judged from launch.png."
+  }
+}
