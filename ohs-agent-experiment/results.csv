@@ -51,10 +51,10 @@ s1-ohs-skills-claude-opus-5-5-medium-9,s1-build,ohs-skills,claude-opus-5-5-mediu
 s1-ohs-skills-claude-fable-5-1-medium-9,s1-build,ohs-skills,claude-fable-5-1-medium,9,2026-10-27,5.2,0,24,0,,0,13749,1179521,2.53,326,true,true
 s1-ohs-skills-gemini-3.8-flash-medium-13,s1-build,ohs-skills,gemini-3.8-flash-medium,13,,16.8,0,110,2,,2,66666,10339692,1.35,1689,true,true
 s1-ohs-skills-gemini-3.8-flash-medium-15,s1-build,ohs-skills,gemini-3.8-flash-medium,15,,13.5,0,109,1,,2,61755,9865550,1.22,1440,true,true
-s1-ohs-skills-gemini-3.8-flash-medium-16,s1-build,ohs-skills,gemini-3.8-flash-medium,16,,20.0,0,142,2,,7,72500,15539288,1.75,1652,,
-s1-ohs-skills-gemini-4-argon-medium-1,s1-build,ohs-skills,gemini-4-argon-medium,1,,8.7,0,27,0,,2,33264,1017731,,1416,,
-s1-ohs-skills-gemini-4-argon-medium-2,s1-build,ohs-skills,gemini-4-argon-medium,2,,8.3,0,31,1,,2,30071,1331355,,1175,,
-s1-ohs-skills-gemini-3.8-flash-medium-18,s1-build,ohs-skills,gemini-3.8-flash-medium,18,,15.5,0,90,2,,2,63406,8816789,1.12,1534,,
-s1-ohs-skills-gemini-3.8-flash-low-19,s1-build,ohs-skills,gemini-3.8-flash-low,19,,14.3,0,105,1,,2,22117,6815335,0.86,1227,,
-s1-ohs-skills-gemini-3.8-flash-medium-20,s1-build,ohs-skills,gemini-3.8-flash-medium,20,,27.1,0,199,1,,7,90385,26772149,2.92,1783,,
 s1-ohs-skills-gemini-3.8-flash-low-21,s1-build,ohs-skills,gemini-3.8-flash-low,21,,8.2,0,94,3,,2,19185,5750532,0.76,1072,true,true
+s1-ohs-skills-gemini-4-argon-medium-3,s1-build,ohs-skills,gemini-4-argon-medium,3,,9.0,0,33,1,,2,30243,1343919,0.83,1277,true,true
+s1-ohs-skills-gemini-4-argon-medium-4,s1-build,ohs-skills,gemini-4-argon-medium,4,,8.7,0,29,1,,2,35381,1039835,0.77,1378,true,true
+s1-ohs-gemini-4-argon-medium-2,s1-build,ohs,gemini-4-argon-medium,2,,34.8,0,179,1,,2,105237,17087552,5.61,2550,true,true
+s1-cold-gemini-4-argon-medium-1,s1-build,cold,gemini-4-argon-medium,1,,7.4,0,24,0,,0,26189,508502,0.51,1621,true,n/a
+s1-cold-gemini-4-argon-medium-2,s1-build,cold,gemini-4-argon-medium,2,,9.9,0,26,0,,0,41065,784405,0.74,2006,true,n/a
+s1-ohs-gemini-4-argon-medium-3,s1-build,ohs,gemini-4-argon-medium,3,,11.8,0,84,1,,2,27855,8064593,2.48,1880,true,true

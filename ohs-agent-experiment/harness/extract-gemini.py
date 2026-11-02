@@ -37,6 +37,7 @@ GEMINI_RATES = {
     "gemini-3.6-flash": (0.75, 3.75),
     "gemini-3-flash": (0.50, 3.0),
     "gemini-3.1-pro": (2.0, 12.0),
+    "gemini-4-argon": (2.0, 10.0),
     # previous generation (2.5-flash-lite retires 2026-10-16)
     "gemini-2.5-pro": (1.25, 10.0),
     "gemini-2.5-flash": (0.30, 2.50),

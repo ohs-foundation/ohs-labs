@@ -1,27 +1,71 @@
-# Offline test and quality checklist
+# App quality checks and scores
 
-As of 2026-10-23. The 20 OHS and OHS + skills apps from `results.csv`
-(Gemini 3.8 Flash, Haiku 5.5, Sonnet 5.5, Opus 5.5, Fable 5.1, two runs
-each). Checks 1 to 5 and 8 come from the earlier walks
-(`walk-claude-2026-10.md` and the Gemini walk). Checks 6, 7 and 9 come from
-this offline test.
+Every app in the blog was installed on an Android emulator and scored
+on 10 checks, one point each. This file is the reference for the checks
+and the scores. The dated sections after "Final scores" are the test
+log, in the order the tests were run.
 
-## The 9 checks
+## The 10 checks
 
-1. Lists the patients.
-2. Shows a patient's past visits.
-3. Uses the clinic's visit form (the server's `anc-contact` Questionnaire).
-4. Saves a new visit.
-5. The visit survives a restart.
-6. Saves a visit while offline.
-7. The offline visit uploads once back online.
-8. The server accepts the data as valid FHIR.
-9. The app reopens while offline.
+The commands are the scripts in `../harness/walk/`. Start each app with
+`./prep.sh <run_id>`, which gives a fresh server and device and launches
+the app online.
 
-The prompt never asked for offline use. Checks 6, 7 and 9 are our own bar,
+| # | Check | How to test |
+|---|---|---|
+| 1 | Lists the patients | The register shows the three seed patients |
+| 2 | Shows a patient's past visits | Open a patient and see the seeded visit |
+| 3 | Uses the clinic's visit form | The form shows the items of the server's `anc-contact` Questionnaire |
+| 4 | Saves a new visit | Save a visit and see it in the list |
+| 5 | Keeps the visit after a restart | `./input.sh restart` and the visit is still there |
+| 6 | Sends data the server accepts as valid FHIR | `./counts.sh` goes up after the save and the server rejected nothing |
+| 7 | Saves a visit with no network | `./input.sh offline`, then save a visit |
+| 8 | Uploads it by itself once the network is back | `./input.sh online`, wait 60 s without touching the app, `./counts.sh` goes up |
+| 9 | Still opens offline | `./input.sh offline`, `./input.sh restart`, the register opens |
+| 10 | Still uploads it after the app is closed | `./prep.sh <run_id>`, let the register load, then `./check10.sh` |
+
+The prompt never asked for offline use. Checks 7 to 10 are our own bar,
 because frontline clinics lose signal.
 
-## How the offline test was run
+## Final scores
+
+The runs used in the blog (see `../README.md`). Two runs per cell, one
+for Gemini 3.8 Flash with skills.
+
+| Model | No FHIR (`cold`) | OHS | OHS + Skills (v2.5) |
+|---|---|---|---|
+| Gemini 3.8 Flash | 6 | 8 | 10 |
+| Gemini 4 Argon | 6 | 8 | 10 |
+| Claude Fable 5.1 | 6 | 8 | 10 |
+| Claude Opus 5.5 | 6 | 8 | 10 |
+| Claude Sonnet 5.5 | 6 | 6 | 10 |
+| Claude Haiku 5.5 | not tested offline | 4 | 6 |
+
+The custom apps pass 1, 2, 4, 5, 7 and 9. They have no server and their
+own visit form, so 3, 6, 8 and 10 fail. The `fhir` (FHIR without OHS)
+apps were scored on the earlier 9 checks only, see "FHIR without OHS"
+below.
+
+## Test log
+
+The first test used 9 checks with a different numbering. Checks 8 and 10
+were added on 2026-10-28.
+
+| Log number | 10-check number |
+|---|---|
+| 1 to 5 | 1 to 5 |
+| 6, saves offline | 7 |
+| 7, offline visit uploads | 8 (the strict version is "uploads by itself") |
+| 8, valid FHIR | 6 |
+| 9, opens offline | 9 |
+| check 10 | 10 |
+
+The first test ran on 2026-10-23 on the 20 OHS and OHS + skills apps
+from `results.csv` (two runs each for five models). Checks 1 to 5 and 8
+came from the basic walk of each app right after its build. Checks 6, 7
+and 9 came from this offline test.
+
+### How the offline test was run
 
 Each app got a fresh HAPI server with the seed data and a clean emulator.
 
@@ -38,7 +82,7 @@ about a minute, and stale counts hide uploads.
 Grace's due date (2026-10-15) has passed, so three apps hide her from the
 register. Emily Carter was used there.
 
-## Results
+### Offline test results (2026-10-23)
 
 | App | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | Score |
 |---|---|---|---|---|---|---|---|---|---|---|
@@ -66,7 +110,7 @@ register. Emily Carter was used there.
 Average: OHS 7.2/9, OHS + skills 7.9/9. Gemini runs map to the archive as
 ohs-medium-2/3 and ohs-skills-medium-6/7.
 
-## Problems found
+### Problems found
 
 - **Gemini OHS never uploads offline visits.** Run 1 stores the visit in FHIR
   Engine but uploads with a one-shot HTTP PUT on save. Offline, the PUT fails,
@@ -87,7 +131,7 @@ ohs-medium-2/3 and ohs-skills-medium-6/7.
   upload within 60s of reconnecting. The other passing apps upload on the next
   launch. Opus OHS also has a Sync button.
 
-## FHIR without OHS (2026-10-24)
+### FHIR without OHS (2026-10-24)
 
 The fair baseline: same prompt and FHIR server as ohs, but no OHS libraries
 in the project and the agent free to use any library (`build-c-prompt.md`,
@@ -121,7 +165,7 @@ Average 5.5/9.
 - **Fable run 2 was rerun.** The first attempt hung on a broken heredoc and a
   wait loop that matched itself. It was killed after 19 min and removed.
 
-## OHS + skills rerun with skills v2.5 (2026-10-28)
+### OHS + skills rerun with skills v2.5 (2026-10-28)
 
 The kotlin-fhir-engine skill was updated to v2.5 ("Sync without crashes",
 see `skills/README.md`) after the offline test above found the crash. The
@@ -160,9 +204,9 @@ Average 8.4/9 (skills v2.4: 7.9/9).
 - **Sonnet's apps do not upload the QuestionnaireResponse.** The Encounter
   and Observations reach the server, which is all the checks require.
 - **Walk notes.** Fable 9 and Gemini 15 needed the offline visit entered a
-  second time by hand because the automated input missed; both apps then
+  second time by hand because the automated input missed. Both apps then
   passed. Haiku 9 and some others show a new visit only after reopening the
-  patient; counted as a pass for check 4, as before.
+  patient. Counted as a pass for check 4, as before.
 
 Cost and time per build, average of the two walked runs, at API prices:
 
@@ -179,7 +223,7 @@ twice as long per action (8 to 9 s, against about 4 s before) while the
 amount of work stayed the same, which points to slower API responses on the
 day of the rerun.
 
-## Stricter sync checks: strict upload check and check 10 (2026-10-28)
+### Stricter sync checks: strict upload check and check 10 (2026-10-28)
 
 Several apps without skills passed the upload check (check 7 in this file, check 8 in the blog) only because the test reopened
 them, which triggered their sync. Two stricter checks separate sync that
@@ -223,7 +267,7 @@ Test notes: the first check 10 attempt on ohs-skills-opus-8 was invalid
 attempt on ohs-fable-1 froze the app with an ANR during the scripted typing
 and was redone with gentler input.
 
-### Scores out of 10 (strict upload check plus check 10)
+#### Scores out of 10 (strict upload check plus check 10)
 
 | Model | OHS (libraries only) | OHS + Skills, v2.5 |
 |---|---|---|
@@ -237,8 +281,39 @@ and was redone with gentler input.
 With the stricter checks no app built without skills is fully working, and
 every v2.5 skills app except Haiku's is.
 
+### Custom (No FHIR) apps offline (2026-11-02)
+
+The eight custom apps (Gemini 3.8 Flash, Fable, Opus and Sonnet, runs 1
+and 2) were installed fresh with airplane mode on. Each one opened and listed
+the patients offline, saved a new visit offline, and still showed it after a
+restart. All eight pass checks 7 and 9.
+
+They have no server and no Questionnaire, so checks 3, 6, 8 and 10 fail. That
+gives every custom app 6 out of 10.
+
+### Gemini 4 Argon (2026-11-02)
+
+Six runs at medium effort in Antigravity CLI, walked on all 10 checks
+with the scripts in `../harness/walk/`.
+
+| App | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | Score |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| cold-argon-1 | pass | pass | FAIL | pass | pass | FAIL | pass | FAIL | pass | FAIL | 6/10 |
+| cold-argon-2 | pass | pass | FAIL | pass | pass | FAIL | pass | FAIL | pass | FAIL | 6/10 |
+| ohs-argon-2 | pass | pass | pass | pass | pass | pass | pass | FAIL | pass | FAIL | 8/10 |
+| ohs-argon-3 | pass | pass | pass | pass | pass | pass | pass | FAIL | pass | FAIL | 8/10 |
+| ohs-skills-argon-3 | pass | pass | pass | pass | pass | pass | pass | pass | pass | pass | 10/10 |
+| ohs-skills-argon-4 | pass | pass | pass | pass | pass | pass | pass | pass | pass | pass | 10/10 |
+
+- **The OHS apps sync only while open.** Both call FHIR Engine's
+  `runSync` from the app and schedule no background work. An offline
+  visit uploads only when the app is reopened, so checks 8 and 10 fail,
+  the same as Opus and Fable without skills.
+- **The skills apps upload in the background.** The offline visit
+  reached the server within 60 s of the network coming back, and within
+  30 s after the app was closed.
+
 ## Limits
 
 - One visit per app, one offline period.
-- Cold apps were not tested offline. They never use the network.
 - Conflicts and duplicate handling were not tested.

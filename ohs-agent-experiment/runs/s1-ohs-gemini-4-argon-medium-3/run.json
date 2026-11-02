@@ -1,0 +1,46 @@
+{
+  "run_id": "s1-ohs-gemini-4-argon-medium-3",
+  "scenario": "s1-build",
+  "condition": "ohs",
+  "model": "gemini-4-argon-medium",
+  "replicate": 3,
+  "date": null,
+  "harness": "antigravity-cli-headless",
+  "scaffold_repo": "templates/ohs",
+  "baseline_commit": "71f3d4e",
+  "session_id": "886ceefa-7e4e-450a-8401-ebab0963d2ea",
+  "model_reported_by_cli": "gemini-4-argon-medium",
+  "model_served": {
+    "gemini-4-argon-trial": 56
+  },
+  "permission_mode": "always-proceed",
+  "final_status": "SUCCESS",
+  "resume_turns": 0,
+  "wall_minutes": 11.8,
+  "user_turns": 1,
+  "corrective_turns": 0,
+  "tool_calls": 84,
+  "assistant_text_blocks": 3,
+  "tool_errors": 2,
+  "build_failures_self_fixed": 1,
+  "server_validation_incidents": 2,
+  "tokens": {
+    "input": 294639,
+    "output": 27855,
+    "thinking": 0,
+    "cache_read": 8064593
+  },
+  "cost_usd_api_rates": 2.48,
+  "diff_lines_added": 1880,
+  "smoke_check": "pass",
+  "verified_working": true,
+  "round_trip_pass": true,
+  "notes": "gen=2 agent_exit=0 | agy_resumes=0 | schema verified against agy v1.2.7; re-verify if the CLI is upgraded",
+  "verification": {
+    "launched": true,
+    "crashed": false,
+    "screenshot_after_seconds": 30,
+    "patients_in_local_db": 3,
+    "note": "launched+!crashed is the smoke verdict. patients_in_local_db is a best-effort sync-success signal (0/null suggests download sync did not deliver). Whether the register visually renders is the human walk, judged from launch.png."
+  }
+}
