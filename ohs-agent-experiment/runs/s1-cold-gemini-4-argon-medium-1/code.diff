@@ -1,0 +1,1669 @@
+diff --git a/app/src/main/java/com/example/ancapp/MainActivity.kt b/app/src/main/java/com/example/ancapp/MainActivity.kt
+index b5e554b..d269120 100644
+--- a/app/src/main/java/com/example/ancapp/MainActivity.kt
++++ b/app/src/main/java/com/example/ancapp/MainActivity.kt
+@@ -3,13 +3,29 @@ package com.example.ancapp
+ import android.os.Bundle
+ import androidx.activity.ComponentActivity
+ import androidx.activity.compose.setContent
++import androidx.activity.viewModels
++import androidx.compose.foundation.layout.fillMaxSize
+ import androidx.compose.material3.MaterialTheme
+ import androidx.compose.material3.Surface
+-import androidx.compose.material3.Text
++import androidx.compose.ui.Modifier
++import com.example.ancapp.ui.AncApp
++import com.example.ancapp.ui.AncAppTheme
++import com.example.ancapp.ui.AncViewModel
+ 
+ class MainActivity : ComponentActivity() {
++  private val ancViewModel: AncViewModel by viewModels()
++
+   override fun onCreate(savedInstanceState: Bundle?) {
+     super.onCreate(savedInstanceState)
+-    setContent { MaterialTheme { Surface { Text("Hello") } } }
++    setContent {
++      AncAppTheme {
++        Surface(
++          modifier = Modifier.fillMaxSize(),
++          color = MaterialTheme.colorScheme.background
++        ) {
++          AncApp(viewModel = ancViewModel)
++        }
++      }
++    }
+   }
+ }
+diff --git a/app/src/main/java/com/example/ancapp/data/AncDatabaseHelper.kt b/app/src/main/java/com/example/ancapp/data/AncDatabaseHelper.kt
+new file mode 100644
+index 0000000..26c8d2a
+--- /dev/null
++++ b/app/src/main/java/com/example/ancapp/data/AncDatabaseHelper.kt
+@@ -0,0 +1,294 @@
++package com.example.ancapp.data
++
++import android.content.ContentValues
++import android.content.Context
++import android.database.sqlite.SQLiteDatabase
++import android.database.sqlite.SQLiteOpenHelper
++import com.example.ancapp.model.AncVisit
++import com.example.ancapp.model.DangerSign
++import com.example.ancapp.model.Patient
++import com.example.ancapp.model.PatientWithVisits
++import java.time.LocalDate
++
++class AncDatabaseHelper(context: Context) :
++  SQLiteOpenHelper(context.applicationContext, DATABASE_NAME, null, DATABASE_VERSION) {
++
++  override fun onConfigure(db: SQLiteDatabase) {
++    super.onConfigure(db)
++    db.setForeignKeyConstraintsEnabled(true)
++  }
++
++  override fun onCreate(db: SQLiteDatabase) {
++    db.execSQL(
++      """
++      CREATE TABLE $TABLE_PATIENTS (
++        $COL_PATIENT_ID INTEGER PRIMARY KEY AUTOINCREMENT,
++        $COL_PATIENT_NAME TEXT NOT NULL,
++        $COL_PATIENT_DOB TEXT NOT NULL,
++        $COL_PATIENT_EDD TEXT NOT NULL
++      )
++      """.trimIndent()
++    )
++
++    db.execSQL(
++      """
++      CREATE TABLE $TABLE_VISITS (
++        $COL_VISIT_ID INTEGER PRIMARY KEY AUTOINCREMENT,
++        $COL_VISIT_PATIENT_ID INTEGER NOT NULL,
++        $COL_VISIT_DATE TEXT NOT NULL,
++        $COL_VISIT_GA_WEEKS INTEGER NOT NULL,
++        $COL_VISIT_WEIGHT_KG REAL NOT NULL,
++        $COL_VISIT_SYSTOLIC_BP INTEGER NOT NULL,
++        $COL_VISIT_DIASTOLIC_BP INTEGER NOT NULL,
++        $COL_VISIT_HEMOGLOBIN REAL,
++        $COL_VISIT_DANGER_SIGNS TEXT NOT NULL,
++        $COL_VISIT_NOTES TEXT NOT NULL,
++        FOREIGN KEY($COL_VISIT_PATIENT_ID) REFERENCES $TABLE_PATIENTS($COL_PATIENT_ID) ON DELETE CASCADE
++      )
++      """.trimIndent()
++    )
++
++    seedInitialData(db)
++  }
++
++  override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
++    db.execSQL("DROP TABLE IF EXISTS $TABLE_VISITS")
++    db.execSQL("DROP TABLE IF EXISTS $TABLE_PATIENTS")
++    onCreate(db)
++  }
++
++  private fun seedInitialData(db: SQLiteDatabase) {
++    data class SeedRecord(
++      val name: String,
++      val dob: String,
++      val edd: String,
++      val visitDate: String,
++      val weightKg: Double,
++      val systolic: Int,
++      val diastolic: Int,
++      val hb: Double
++    )
++
++    val initialRecords = listOf(
++      SeedRecord(
++        name = "Emily Carter",
++        dob = "1996-04-12",
++        edd = "2026-12-05",
++        visitDate = "2026-08-10",
++        weightKg = 68.5,
++        systolic = 118,
++        diastolic = 76,
++        hb = 11.8
++      ),
++      SeedRecord(
++        name = "Sarah Mitchell",
++        dob = "1990-11-02",
++        edd = "2027-01-20",
++        visitDate = "2026-08-12",
++        weightKg = 61.2,
++        systolic = 110,
++        diastolic = 70,
++        hb = 12.4
++      ),
++      SeedRecord(
++        name = "Grace Thompson",
++        dob = "2001-07-30",
++        edd = "2026-10-15",
++        visitDate = "2026-08-05",
++        weightKg = 72.0,
++        systolic = 128,
++        diastolic = 84,
++        hb = 10.2
++      )
++    )
++
++    for (record in initialRecords) {
++      val patientValues = ContentValues().apply {
++        put(COL_PATIENT_NAME, record.name)
++        put(COL_PATIENT_DOB, record.dob)
++        put(COL_PATIENT_EDD, record.edd)
++      }
++      val patientId = db.insert(TABLE_PATIENTS, null, patientValues)
++
++      val eddDate = LocalDate.parse(record.edd)
++      val visitLocalDate = LocalDate.parse(record.visitDate)
++      val gaWeeks = Patient.calculateGestationalWeeks(eddDate, visitLocalDate)
++
++      val visitValues = ContentValues().apply {
++        put(COL_VISIT_PATIENT_ID, patientId)
++        put(COL_VISIT_DATE, record.visitDate)
++        put(COL_VISIT_GA_WEEKS, gaWeeks)
++        put(COL_VISIT_WEIGHT_KG, record.weightKg)
++        put(COL_VISIT_SYSTOLIC_BP, record.systolic)
++        put(COL_VISIT_DIASTOLIC_BP, record.diastolic)
++        put(COL_VISIT_HEMOGLOBIN, record.hb)
++        put(COL_VISIT_DANGER_SIGNS, DangerSign.NONE.name)
++        put(COL_VISIT_NOTES, "Initial clinic visit on file.")
++      }
++      db.insert(TABLE_VISITS, null, visitValues)
++    }
++  }
++
++  fun getAllPatientsSortedByDueDate(): List<PatientWithVisits> {
++    val db = writableDatabase
++    val patients = mutableListOf<Patient>()
++
++    db.query(
++      TABLE_PATIENTS,
++      arrayOf(COL_PATIENT_ID, COL_PATIENT_NAME, COL_PATIENT_DOB, COL_PATIENT_EDD),
++      null,
++      null,
++      null,
++      null,
++      "$COL_PATIENT_EDD ASC, $COL_PATIENT_NAME ASC"
++    ).use { cursor ->
++      val idIdx = cursor.getColumnIndexOrThrow(COL_PATIENT_ID)
++      val nameIdx = cursor.getColumnIndexOrThrow(COL_PATIENT_NAME)
++      val dobIdx = cursor.getColumnIndexOrThrow(COL_PATIENT_DOB)
++      val eddIdx = cursor.getColumnIndexOrThrow(COL_PATIENT_EDD)
++
++      while (cursor.moveToNext()) {
++        patients.add(
++          Patient(
++            id = cursor.getLong(idIdx),
++            name = cursor.getString(nameIdx),
++            dateOfBirth = LocalDate.parse(cursor.getString(dobIdx)),
++            estimatedDueDate = LocalDate.parse(cursor.getString(eddIdx))
++          )
++        )
++      }
++    }
++
++    return patients
++      .sortedWith(compareBy<Patient> { it.estimatedDueDate }.thenBy { it.name })
++      .map { patient ->
++        PatientWithVisits(
++          patient = patient,
++          visits = getVisitsForPatient(db, patient.id)
++        )
++      }
++  }
++
++  fun getPatientWithVisits(patientId: Long): PatientWithVisits? {
++    val db = readableDatabase
++    var patient: Patient? = null
++
++    db.query(
++      TABLE_PATIENTS,
++      arrayOf(COL_PATIENT_ID, COL_PATIENT_NAME, COL_PATIENT_DOB, COL_PATIENT_EDD),
++      "$COL_PATIENT_ID = ?",
++      arrayOf(patientId.toString()),
++      null,
++      null,
++      null
++    ).use { cursor ->
++      if (cursor.moveToFirst()) {
++        patient = Patient(
++          id = cursor.getLong(cursor.getColumnIndexOrThrow(COL_PATIENT_ID)),
++          name = cursor.getString(cursor.getColumnIndexOrThrow(COL_PATIENT_NAME)),
++          dateOfBirth = LocalDate.parse(cursor.getString(cursor.getColumnIndexOrThrow(COL_PATIENT_DOB))),
++          estimatedDueDate = LocalDate.parse(cursor.getString(cursor.getColumnIndexOrThrow(COL_PATIENT_EDD)))
++        )
++      }
++    }
++
++    val foundPatient = patient ?: return null
++    val visits = getVisitsForPatient(db, foundPatient.id)
++    return PatientWithVisits(foundPatient, visits)
++  }
++
++  private fun getVisitsForPatient(db: SQLiteDatabase, patientId: Long): List<AncVisit> {
++    val visits = mutableListOf<AncVisit>()
++    db.query(
++      TABLE_VISITS,
++      null,
++      "$COL_VISIT_PATIENT_ID = ?",
++      arrayOf(patientId.toString()),
++      null,
++      null,
++      "$COL_VISIT_DATE DESC, $COL_VISIT_ID DESC"
++    ).use { cursor ->
++      val idIdx = cursor.getColumnIndexOrThrow(COL_VISIT_ID)
++      val patIdIdx = cursor.getColumnIndexOrThrow(COL_VISIT_PATIENT_ID)
++      val dateIdx = cursor.getColumnIndexOrThrow(COL_VISIT_DATE)
++      val gaIdx = cursor.getColumnIndexOrThrow(COL_VISIT_GA_WEEKS)
++      val weightIdx = cursor.getColumnIndexOrThrow(COL_VISIT_WEIGHT_KG)
++      val sysIdx = cursor.getColumnIndexOrThrow(COL_VISIT_SYSTOLIC_BP)
++      val diaIdx = cursor.getColumnIndexOrThrow(COL_VISIT_DIASTOLIC_BP)
++      val hbIdx = cursor.getColumnIndexOrThrow(COL_VISIT_HEMOGLOBIN)
++      val signsIdx = cursor.getColumnIndexOrThrow(COL_VISIT_DANGER_SIGNS)
++      val notesIdx = cursor.getColumnIndexOrThrow(COL_VISIT_NOTES)
++
++      while (cursor.moveToNext()) {
++        val hb = if (cursor.isNull(hbIdx)) null else cursor.getDouble(hbIdx)
++        visits.add(
++          AncVisit(
++            id = cursor.getLong(idIdx),
++            patientId = cursor.getLong(patIdIdx),
++            visitDate = LocalDate.parse(cursor.getString(dateIdx)),
++            gestationalAgeWeeks = cursor.getInt(gaIdx),
++            weightKg = cursor.getDouble(weightIdx),
++            systolicBp = cursor.getInt(sysIdx),
++            diastolicBp = cursor.getInt(diaIdx),
++            hemoglobinGdl = hb,
++            dangerSigns = DangerSign.deserializeList(cursor.getString(signsIdx)),
++            notes = cursor.getString(notesIdx) ?: ""
++          )
++        )
++      }
++    }
++    return visits
++  }
++
++  fun insertVisit(visit: AncVisit): Long {
++    val db = writableDatabase
++    val values = ContentValues().apply {
++      put(COL_VISIT_PATIENT_ID, visit.patientId)
++      put(COL_VISIT_DATE, visit.visitDate.toString())
++      put(COL_VISIT_GA_WEEKS, visit.gestationalAgeWeeks)
++      put(COL_VISIT_WEIGHT_KG, visit.weightKg)
++      put(COL_VISIT_SYSTOLIC_BP, visit.systolicBp)
++      put(COL_VISIT_DIASTOLIC_BP, visit.diastolicBp)
++      if (visit.hemoglobinGdl != null) {
++        put(COL_VISIT_HEMOGLOBIN, visit.hemoglobinGdl)
++      } else {
++        putNull(COL_VISIT_HEMOGLOBIN)
++      }
++      put(COL_VISIT_DANGER_SIGNS, DangerSign.serializeList(visit.dangerSigns))
++      put(COL_VISIT_NOTES, visit.notes.trim())
++    }
++    return db.insertOrThrow(TABLE_VISITS, null, values)
++  }
++
++  companion object {
++    private const val DATABASE_NAME = "anc_clinic.db"
++    private const val DATABASE_VERSION = 1
++
++    const val TABLE_PATIENTS = "patients"
++    const val COL_PATIENT_ID = "id"
++    const val COL_PATIENT_NAME = "name"
++    const val COL_PATIENT_DOB = "date_of_birth"
++    const val COL_PATIENT_EDD = "estimated_due_date"
++
++    const val TABLE_VISITS = "anc_visits"
++    const val COL_VISIT_ID = "id"
++    const val COL_VISIT_PATIENT_ID = "patient_id"
++    const val COL_VISIT_DATE = "visit_date"
++    const val COL_VISIT_GA_WEEKS = "gestational_age_weeks"
++    const val COL_VISIT_WEIGHT_KG = "weight_kg"
++    const val COL_VISIT_SYSTOLIC_BP = "systolic_bp"
++    const val COL_VISIT_DIASTOLIC_BP = "diastolic_bp"
++    const val COL_VISIT_HEMOGLOBIN = "hemoglobin_gdl"
++    const val COL_VISIT_DANGER_SIGNS = "danger_signs"
++    const val COL_VISIT_NOTES = "notes"
++
++    @Volatile
++    private var instance: AncDatabaseHelper? = null
++
++    fun getInstance(context: Context): AncDatabaseHelper {
++      return instance ?: synchronized(this) {
++        instance ?: AncDatabaseHelper(context).also { instance = it }
++      }
++    }
++  }
++}
+diff --git a/app/src/main/java/com/example/ancapp/model/Models.kt b/app/src/main/java/com/example/ancapp/model/Models.kt
+new file mode 100644
+index 0000000..6e5d8cb
+--- /dev/null
++++ b/app/src/main/java/com/example/ancapp/model/Models.kt
+@@ -0,0 +1,94 @@
++package com.example.ancapp.model
++
++import java.time.LocalDate
++import java.time.Period
++import java.time.temporal.ChronoUnit
++
++enum class DangerSign(val label: String) {
++  NONE("None"),
++  VAGINAL_BLEEDING("Vaginal bleeding"),
++  SEVERE_HEADACHE("Severe headache"),
++  BLURRED_VISION("Blurred vision"),
++  FEVER("Fever");
++
++  companion object {
++    fun fromNameOrNull(name: String): DangerSign? =
++      entries.find { it.name.equals(name.trim(), ignoreCase = true) }
++
++    fun serializeList(signs: List<DangerSign>): String {
++      val normalized = if (signs.isEmpty()) listOf(NONE) else signs
++      return normalized.joinToString(",") { it.name }
++    }
++
++    fun deserializeList(serialized: String?): List<DangerSign> {
++      if (serialized.isNullOrBlank()) return listOf(NONE)
++      val parsed = serialized.split(",")
++        .mapNotNull { fromNameOrNull(it) }
++        .distinct()
++      return if (parsed.isEmpty()) listOf(NONE) else parsed
++    }
++  }
++}
++
++data class AncVisit(
++  val id: Long = 0L,
++  val patientId: Long,
++  val visitDate: LocalDate,
++  val gestationalAgeWeeks: Int,
++  val weightKg: Double,
++  val systolicBp: Int,
++  val diastolicBp: Int,
++  val hemoglobinGdl: Double? = null,
++  val dangerSigns: List<DangerSign> = listOf(DangerSign.NONE),
++  val notes: String = ""
++) {
++  val formattedBp: String
++    get() = "$systolicBp/$diastolicBp mmHg"
++
++  val hasActiveDangerSigns: Boolean
++    get() = dangerSigns.any { it != DangerSign.NONE }
++
++  val formattedDangerSigns: String
++    get() = if (dangerSigns.isEmpty() || (dangerSigns.size == 1 && dangerSigns.first() == DangerSign.NONE)) {
++      DangerSign.NONE.label
++    } else {
++      dangerSigns.filter { it != DangerSign.NONE }.joinToString(", ") { it.label }
++    }
++}
++
++data class Patient(
++  val id: Long = 0L,
++  val name: String,
++  val dateOfBirth: LocalDate,
++  val estimatedDueDate: LocalDate
++) {
++  fun ageYears(referenceDate: LocalDate = LocalDate.now()): Int {
++    return Period.between(dateOfBirth, referenceDate).years.coerceAtLeast(0)
++  }
++
++  fun currentPregnancyWeeks(referenceDate: LocalDate = LocalDate.now()): Int {
++    return Companion.calculateGestationalWeeks(estimatedDueDate, referenceDate)
++  }
++
++  companion object {
++    /**
++     * Standard 40-week (280-day) gestation calculation based on Estimated Due Date (EDD).
++     */
++    fun calculateGestationalWeeks(
++      estimatedDueDate: LocalDate,
++      onDate: LocalDate = LocalDate.now()
++    ): Int {
++      val daysUntilDue = ChronoUnit.DAYS.between(onDate, estimatedDueDate)
++      val gestationalDays = 280L - daysUntilDue
++      return (gestationalDays / 7L).toInt().coerceIn(1, 45)
++    }
++  }
++}
++
++data class PatientWithVisits(
++  val patient: Patient,
++  val visits: List<AncVisit>
++) {
++  val lastVisit: AncVisit?
++    get() = visits.maxWithOrNull(compareBy<AncVisit> { it.visitDate }.thenBy { it.id })
++}
+diff --git a/app/src/main/java/com/example/ancapp/ui/AncViewModel.kt b/app/src/main/java/com/example/ancapp/ui/AncViewModel.kt
+new file mode 100644
+index 0000000..7d7ced6
+--- /dev/null
++++ b/app/src/main/java/com/example/ancapp/ui/AncViewModel.kt
+@@ -0,0 +1,96 @@
++package com.example.ancapp.ui
++
++import android.app.Application
++import androidx.lifecycle.AndroidViewModel
++import com.example.ancapp.data.AncDatabaseHelper
++import com.example.ancapp.model.AncVisit
++import com.example.ancapp.model.PatientWithVisits
++import kotlinx.coroutines.flow.MutableStateFlow
++import kotlinx.coroutines.flow.StateFlow
++import kotlinx.coroutines.flow.asStateFlow
++import kotlinx.coroutines.flow.update
++
++sealed interface Screen {
++  data object Register : Screen
++  data class PatientDetail(val patientId: Long) : Screen
++  data class RecordVisit(val patientId: Long) : Screen
++}
++
++data class AncUiState(
++  val patients: List<PatientWithVisits> = emptyList(),
++  val currentScreen: Screen = Screen.Register,
++  val lastSavedMessage: String? = null
++) {
++  fun selectedPatient(patientId: Long): PatientWithVisits? =
++    patients.find { it.patient.id == patientId }
++}
++
++class AncViewModel(application: Application) : AndroidViewModel(application) {
++  private val dbHelper = AncDatabaseHelper.getInstance(application)
++
++  private val _uiState = MutableStateFlow(AncUiState())
++  val uiState: StateFlow<AncUiState> = _uiState.asStateFlow()
++
++  init {
++    refreshPatients()
++  }
++
++  fun refreshPatients() {
++    val allPatients = dbHelper.getAllPatientsSortedByDueDate()
++    _uiState.update { it.copy(patients = allPatients) }
++  }
++
++  fun openPatientDetail(patientId: Long) {
++    _uiState.update {
++      it.copy(
++        currentScreen = Screen.PatientDetail(patientId),
++        lastSavedMessage = null
++      )
++    }
++  }
++
++  fun openRecordVisit(patientId: Long) {
++    _uiState.update {
++      it.copy(
++        currentScreen = Screen.RecordVisit(patientId),
++        lastSavedMessage = null
++      )
++    }
++  }
++
++  fun navigateBack(): Boolean {
++    val current = _uiState.value.currentScreen
++    return when (current) {
++      is Screen.RecordVisit -> {
++        _uiState.update { it.copy(currentScreen = Screen.PatientDetail(current.patientId)) }
++        true
++      }
++      is Screen.PatientDetail -> {
++        _uiState.update {
++          it.copy(
++            currentScreen = Screen.Register,
++            lastSavedMessage = null
++          )
++        }
++        true
++      }
++      Screen.Register -> false
++    }
++  }
++
++  fun clearMessage() {
++    _uiState.update { it.copy(lastSavedMessage = null) }
++  }
++
++  fun saveVisit(visit: AncVisit) {
++    dbHelper.insertVisit(visit)
++    val updatedPatients = dbHelper.getAllPatientsSortedByDueDate()
++    _uiState.update {
++      it.copy(
++        patients = updatedPatients,
++        currentScreen = Screen.PatientDetail(visit.patientId),
++        lastSavedMessage = "Visit on ${visit.visitDate} recorded."
++      )
++    }
++  }
++}
+diff --git a/app/src/main/java/com/example/ancapp/ui/Screens.kt b/app/src/main/java/com/example/ancapp/ui/Screens.kt
+new file mode 100644
+index 0000000..d69597f
+--- /dev/null
++++ b/app/src/main/java/com/example/ancapp/ui/Screens.kt
+@@ -0,0 +1,1080 @@
++package com.example.ancapp.ui
++
++import android.app.DatePickerDialog
++import androidx.activity.compose.BackHandler
++import androidx.compose.foundation.BorderStroke
++import androidx.compose.foundation.clickable
++import androidx.compose.foundation.layout.Arrangement
++import androidx.compose.foundation.layout.Box
++import androidx.compose.foundation.layout.Column
++import androidx.compose.foundation.layout.ExperimentalLayoutApi
++import androidx.compose.foundation.layout.FlowRow
++import androidx.compose.foundation.layout.PaddingValues
++import androidx.compose.foundation.layout.Row
++import androidx.compose.foundation.layout.Spacer
++import androidx.compose.foundation.layout.fillMaxSize
++import androidx.compose.foundation.layout.fillMaxWidth
++import androidx.compose.foundation.layout.height
++import androidx.compose.foundation.layout.padding
++import androidx.compose.foundation.layout.size
++import androidx.compose.foundation.layout.width
++import androidx.compose.foundation.lazy.LazyColumn
++import androidx.compose.foundation.lazy.items
++import androidx.compose.foundation.rememberScrollState
++import androidx.compose.foundation.shape.RoundedCornerShape
++import androidx.compose.foundation.text.KeyboardOptions
++import androidx.compose.foundation.verticalScroll
++import androidx.compose.material.icons.Icons
++import androidx.compose.material.icons.automirrored.filled.ArrowBack
++import androidx.compose.material.icons.filled.Add
++import androidx.compose.material.icons.filled.CalendarMonth
++import androidx.compose.material.icons.filled.CheckCircle
++import androidx.compose.material.icons.filled.Favorite
++import androidx.compose.material.icons.filled.LocalHospital
++import androidx.compose.material.icons.filled.MonitorWeight
++import androidx.compose.material.icons.filled.Person
++import androidx.compose.material.icons.filled.Warning
++import androidx.compose.material3.Button
++import androidx.compose.material3.Card
++import androidx.compose.material3.CardDefaults
++import androidx.compose.material3.Checkbox
++import androidx.compose.material3.ExperimentalMaterial3Api
++import androidx.compose.material3.HorizontalDivider
++import androidx.compose.material3.Icon
++import androidx.compose.material3.IconButton
++import androidx.compose.material3.MaterialTheme
++import androidx.compose.material3.OutlinedButton
++import androidx.compose.material3.OutlinedTextField
++import androidx.compose.material3.Scaffold
++import androidx.compose.material3.Surface
++import androidx.compose.material3.Text
++import androidx.compose.material3.TopAppBar
++import androidx.compose.material3.TopAppBarDefaults
++import androidx.compose.runtime.Composable
++import androidx.compose.runtime.collectAsState
++import androidx.compose.runtime.getValue
++import androidx.compose.runtime.mutableStateListOf
++import androidx.compose.runtime.mutableStateOf
++import androidx.compose.runtime.remember
++import androidx.compose.runtime.saveable.rememberSaveable
++import androidx.compose.runtime.setValue
++import androidx.compose.ui.Alignment
++import androidx.compose.ui.Modifier
++import androidx.compose.ui.platform.LocalContext
++import androidx.compose.ui.platform.testTag
++import androidx.compose.ui.semantics.Role
++import androidx.compose.ui.text.font.FontWeight
++import androidx.compose.ui.text.input.KeyboardType
++import androidx.compose.ui.unit.dp
++import com.example.ancapp.model.AncVisit
++import com.example.ancapp.model.DangerSign
++import com.example.ancapp.model.Patient
++import com.example.ancapp.model.PatientWithVisits
++import java.time.LocalDate
++import java.time.format.DateTimeFormatter
++import java.util.Locale
++
++@Composable
++fun AncApp(viewModel: AncViewModel) {
++  val uiState by viewModel.uiState.collectAsState()
++
++  BackHandler(enabled = uiState.currentScreen != Screen.Register) {
++    viewModel.navigateBack()
++  }
++
++  when (val screen = uiState.currentScreen) {
++    Screen.Register -> {
++      RegisterScreen(
++        patients = uiState.patients,
++        onPatientClick = { patientId -> viewModel.openPatientDetail(patientId) }
++      )
++    }
++
++    is Screen.PatientDetail -> {
++      val patientWithVisits = uiState.selectedPatient(screen.patientId)
++      if (patientWithVisits != null) {
++        PatientDetailScreen(
++          patientWithVisits = patientWithVisits,
++          savedMessage = uiState.lastSavedMessage,
++          onBackClick = { viewModel.navigateBack() },
++          onRecordNewVisitClick = { viewModel.openRecordVisit(screen.patientId) }
++        )
++      } else {
++        viewModel.navigateBack()
++      }
++    }
++
++    is Screen.RecordVisit -> {
++      val patientWithVisits = uiState.selectedPatient(screen.patientId)
++      if (patientWithVisits != null) {
++        RecordVisitScreen(
++          patientWithVisits = patientWithVisits,
++          onCancelClick = { viewModel.navigateBack() },
++          onSaveVisit = { visit -> viewModel.saveVisit(visit) }
++        )
++      } else {
++        viewModel.navigateBack()
++      }
++    }
++  }
++}
++
++@OptIn(ExperimentalMaterial3Api::class)
++@Composable
++fun RegisterScreen(
++  patients: List<PatientWithVisits>,
++  onPatientClick: (Long) -> Unit
++) {
++  val today = remember { LocalDate.now() }
++
++  Scaffold(
++    topBar = {
++      TopAppBar(
++        title = {
++          Column {
++            Text(
++              text = "ANC Clinic Register",
++              style = MaterialTheme.typography.titleLarge,
++              fontWeight = FontWeight.Bold
++            )
++            Text(
++              text = "Pregnant patients sorted by due date (soonest first)",
++              style = MaterialTheme.typography.labelMedium,
++              color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.85f)
++            )
++          }
++        },
++        colors = TopAppBarDefaults.topAppBarColors(
++          containerColor = MaterialTheme.colorScheme.primary,
++          titleContentColor = MaterialTheme.colorScheme.onPrimary
++        )
++      )
++    }
++  ) { innerPadding ->
++    LazyColumn(
++      modifier = Modifier
++        .fillMaxSize()
++        .padding(innerPadding)
++        .testTag("register_patient_list"),
++      contentPadding = PaddingValues(16.dp),
++      verticalArrangement = Arrangement.spacedBy(12.dp)
++    ) {
++      item {
++        Surface(
++          color = MaterialTheme.colorScheme.secondaryContainer,
++          shape = RoundedCornerShape(10.dp),
++          modifier = Modifier.fillMaxWidth()
++        ) {
++          Row(
++            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
++            verticalAlignment = Alignment.CenterVertically,
++            horizontalArrangement = Arrangement.SpaceBetween
++          ) {
++            Text(
++              text = "Active Pregnant Patients (${patients.size})",
++              style = MaterialTheme.typography.titleSmall,
++              fontWeight = FontWeight.SemiBold,
++              color = MaterialTheme.colorScheme.onSecondaryContainer
++            )
++            Text(
++              text = "Sorted by Est. Due Date",
++              style = MaterialTheme.typography.bodySmall,
++              color = MaterialTheme.colorScheme.onSecondaryContainer
++            )
++          }
++        }
++      }
++
++      items(patients, key = { it.patient.id }) { item ->
++        PatientRegisterCard(
++          patientWithVisits = item,
++          referenceDate = today,
++          onClick = { onPatientClick(item.patient.id) }
++        )
++      }
++    }
++  }
++}
++
++@Composable
++private fun PatientRegisterCard(
++  patientWithVisits: PatientWithVisits,
++  referenceDate: LocalDate,
++  onClick: () -> Unit
++) {
++  val patient = patientWithVisits.patient
++  val age = patient.ageYears(referenceDate)
++  val weeks = patient.currentPregnancyWeeks(referenceDate)
++  val lastVisit = patientWithVisits.lastVisit
++
++  Card(
++    modifier = Modifier
++      .fillMaxWidth()
++      .clickable(onClick = onClick)
++      .testTag("patient_card_${patient.id}"),
++    shape = RoundedCornerShape(14.dp),
++    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
++    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
++    border = BorderStroke(1.dp, MaterialTheme.colorScheme.surfaceVariant)
++  ) {
++    Column(modifier = Modifier.padding(16.dp)) {
++      Row(
++        modifier = Modifier.fillMaxWidth(),
++        horizontalArrangement = Arrangement.SpaceBetween,
++        verticalAlignment = Alignment.CenterVertically
++      ) {
++        Row(verticalAlignment = Alignment.CenterVertically) {
++          Icon(
++            imageVector = Icons.Default.Person,
++            contentDescription = null,
++            tint = MaterialTheme.colorScheme.primary,
++            modifier = Modifier.size(24.dp)
++          )
++          Spacer(modifier = Modifier.width(8.dp))
++          Text(
++            text = patient.name,
++            style = MaterialTheme.typography.titleMedium,
++            fontWeight = FontWeight.Bold,
++            color = MaterialTheme.colorScheme.onSurface
++          )
++        }
++
++        Surface(
++          color = MaterialTheme.colorScheme.primaryContainer,
++          shape = RoundedCornerShape(20.dp)
++        ) {
++          Text(
++            text = "$weeks weeks pregnant",
++            style = MaterialTheme.typography.labelLarge,
++            fontWeight = FontWeight.Bold,
++            color = MaterialTheme.colorScheme.onPrimaryContainer,
++            modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
++          )
++        }
++      }
++
++      Spacer(modifier = Modifier.height(10.dp))
++
++      Row(
++        modifier = Modifier.fillMaxWidth(),
++        horizontalArrangement = Arrangement.SpaceBetween
++      ) {
++        Column {
++          Text(
++            text = "Age",
++            style = MaterialTheme.typography.labelSmall,
++            color = MaterialTheme.colorScheme.onSurfaceVariant
++          )
++          Text(
++            text = "$age years (DOB: ${patient.dateOfBirth})",
++            style = MaterialTheme.typography.bodyMedium,
++            fontWeight = FontWeight.Medium
++          )
++        }
++
++        Column(horizontalAlignment = Alignment.End) {
++          Text(
++            text = "Est. Due Date",
++            style = MaterialTheme.typography.labelSmall,
++            color = MaterialTheme.colorScheme.onSurfaceVariant
++          )
++          Text(
++            text = patient.estimatedDueDate.toString(),
++            style = MaterialTheme.typography.bodyMedium,
++            fontWeight = FontWeight.SemiBold,
++            color = MaterialTheme.colorScheme.primary
++          )
++        }
++      }
++
++      if (lastVisit != null) {
++        Spacer(modifier = Modifier.height(8.dp))
++        HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant)
++        Spacer(modifier = Modifier.height(6.dp))
++        Row(
++          modifier = Modifier.fillMaxWidth(),
++          horizontalArrangement = Arrangement.SpaceBetween
++        ) {
++          Text(
++            text = "Last visit: ${lastVisit.visitDate}",
++            style = MaterialTheme.typography.bodySmall,
++            color = MaterialTheme.colorScheme.onSurfaceVariant
++          )
++          Text(
++            text = "${patientWithVisits.visits.size} visit(s) on file",
++            style = MaterialTheme.typography.bodySmall,
++            fontWeight = FontWeight.Medium,
++            color = MaterialTheme.colorScheme.secondary
++          )
++        }
++      }
++    }
++  }
++}
++
++@OptIn(ExperimentalMaterial3Api::class)
++@Composable
++fun PatientDetailScreen(
++  patientWithVisits: PatientWithVisits,
++  savedMessage: String?,
++  onBackClick: () -> Unit,
++  onRecordNewVisitClick: () -> Unit
++) {
++  val patient = patientWithVisits.patient
++  val visits = patientWithVisits.visits
++  val today = remember { LocalDate.now() }
++  val age = patient.ageYears(today)
++  val currentWeeks = patient.currentPregnancyWeeks(today)
++
++  Scaffold(
++    topBar = {
++      TopAppBar(
++        title = {
++          Column {
++            Text(
++              text = patient.name,
++              style = MaterialTheme.typography.titleLarge,
++              fontWeight = FontWeight.Bold
++            )
++            Text(
++              text = "Patient ANC Record",
++              style = MaterialTheme.typography.labelMedium,
++              color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.85f)
++            )
++          }
++        },
++        navigationIcon = {
++          IconButton(
++            onClick = onBackClick,
++            modifier = Modifier.testTag("back_to_register_button")
++          ) {
++            Icon(
++              imageVector = Icons.AutoMirrored.Filled.ArrowBack,
++              contentDescription = "Back to Register",
++              tint = MaterialTheme.colorScheme.onPrimary
++            )
++          }
++        },
++        colors = TopAppBarDefaults.topAppBarColors(
++          containerColor = MaterialTheme.colorScheme.primary,
++          titleContentColor = MaterialTheme.colorScheme.onPrimary
++        )
++      )
++    }
++  ) { innerPadding ->
++    LazyColumn(
++      modifier = Modifier
++        .fillMaxSize()
++        .padding(innerPadding)
++        .testTag("patient_detail_list"),
++      contentPadding = PaddingValues(16.dp),
++      verticalArrangement = Arrangement.spacedBy(12.dp)
++    ) {
++      if (savedMessage != null) {
++        item {
++          Surface(
++            color = MaterialTheme.colorScheme.primaryContainer,
++            shape = RoundedCornerShape(10.dp),
++            modifier = Modifier.fillMaxWidth()
++          ) {
++            Row(
++              modifier = Modifier.padding(12.dp),
++              verticalAlignment = Alignment.CenterVertically
++            ) {
++              Icon(
++                imageVector = Icons.Default.CheckCircle,
++                contentDescription = null,
++                tint = MaterialTheme.colorScheme.primary
++              )
++              Spacer(modifier = Modifier.width(8.dp))
++              Text(
++                text = savedMessage,
++                style = MaterialTheme.typography.bodyMedium,
++                fontWeight = FontWeight.SemiBold,
++                color = MaterialTheme.colorScheme.onPrimaryContainer
++              )
++            }
++          }
++        }
++      }
++
++      item {
++        Card(
++          modifier = Modifier.fillMaxWidth(),
++          shape = RoundedCornerShape(14.dp),
++          colors = CardDefaults.cardColors(
++            containerColor = MaterialTheme.colorScheme.secondaryContainer
++          )
++        ) {
++          Column(modifier = Modifier.padding(16.dp)) {
++            Row(
++              modifier = Modifier.fillMaxWidth(),
++              horizontalArrangement = Arrangement.SpaceBetween,
++              verticalAlignment = Alignment.CenterVertically
++            ) {
++              Column {
++                Text(
++                  text = patient.name,
++                  style = MaterialTheme.typography.titleMedium,
++                  fontWeight = FontWeight.Bold,
++                  color = MaterialTheme.colorScheme.onSecondaryContainer
++                )
++                Text(
++                  text = "Age: $age years • DOB: ${patient.dateOfBirth}",
++                  style = MaterialTheme.typography.bodyMedium,
++                  color = MaterialTheme.colorScheme.onSecondaryContainer
++                )
++              }
++              Surface(
++                color = MaterialTheme.colorScheme.primary,
++                shape = RoundedCornerShape(20.dp)
++              ) {
++                Text(
++                  text = "$currentWeeks weeks",
++                  style = MaterialTheme.typography.labelLarge,
++                  fontWeight = FontWeight.Bold,
++                  color = MaterialTheme.colorScheme.onPrimary,
++                  modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
++                )
++              }
++            }
++
++            Spacer(modifier = Modifier.height(8.dp))
++            Text(
++              text = "Estimated Due Date: ${patient.estimatedDueDate}",
++              style = MaterialTheme.typography.bodyMedium,
++              fontWeight = FontWeight.SemiBold,
++              color = MaterialTheme.colorScheme.onSecondaryContainer
++            )
++
++            Spacer(modifier = Modifier.height(12.dp))
++            Button(
++              onClick = onRecordNewVisitClick,
++              modifier = Modifier
++                .fillMaxWidth()
++                .testTag("record_new_visit_button"),
++              shape = RoundedCornerShape(10.dp)
++            ) {
++              Icon(
++                imageVector = Icons.Default.Add,
++                contentDescription = null
++              )
++              Spacer(modifier = Modifier.width(8.dp))
++              Text(
++                text = "Record New ANC Visit",
++                style = MaterialTheme.typography.titleSmall,
++                fontWeight = FontWeight.Bold
++              )
++            }
++          }
++        }
++      }
++
++      item {
++        Row(
++          modifier = Modifier
++            .fillMaxWidth()
++            .padding(top = 4.dp),
++          horizontalArrangement = Arrangement.SpaceBetween,
++          verticalAlignment = Alignment.CenterVertically
++        ) {
++          Text(
++            text = "Past ANC Visits (${visits.size})",
++            style = MaterialTheme.typography.titleMedium,
++            fontWeight = FontWeight.Bold
++          )
++        }
++      }
++
++      items(visits, key = { it.id }) { visit ->
++        AncVisitCard(visit = visit)
++      }
++    }
++  }
++}
++
++@Composable
++private fun AncVisitCard(visit: AncVisit) {
++  val formattedWeight = remember(visit.weightKg) {
++    String.format(Locale.US, "%.1f kg", visit.weightKg)
++  }
++  val formattedHb = remember(visit.hemoglobinGdl) {
++    visit.hemoglobinGdl?.let { String.format(Locale.US, "%.1f g/dL", it) }
++  }
++
++  Card(
++    modifier = Modifier
++      .fillMaxWidth()
++      .testTag("visit_card_${visit.id}"),
++    shape = RoundedCornerShape(12.dp),
++    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
++    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
++    border = BorderStroke(
++      1.dp,
++      if (visit.hasActiveDangerSigns) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.surfaceVariant
++    )
++  ) {
++    Column(modifier = Modifier.padding(16.dp)) {
++      Row(
++        modifier = Modifier.fillMaxWidth(),
++        horizontalArrangement = Arrangement.SpaceBetween,
++        verticalAlignment = Alignment.CenterVertically
++      ) {
++        Row(verticalAlignment = Alignment.CenterVertically) {
++          Icon(
++            imageVector = Icons.Default.CalendarMonth,
++            contentDescription = null,
++            tint = MaterialTheme.colorScheme.primary,
++            modifier = Modifier.size(20.dp)
++          )
++          Spacer(modifier = Modifier.width(6.dp))
++          Text(
++            text = visit.visitDate.toString(),
++            style = MaterialTheme.typography.titleMedium,
++            fontWeight = FontWeight.Bold
++          )
++        }
++
++        Surface(
++          color = MaterialTheme.colorScheme.tertiaryContainer,
++          shape = RoundedCornerShape(16.dp)
++        ) {
++          Text(
++            text = "${visit.gestationalAgeWeeks} weeks GA",
++            style = MaterialTheme.typography.labelMedium,
++            fontWeight = FontWeight.SemiBold,
++            color = MaterialTheme.colorScheme.onTertiaryContainer,
++            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
++          )
++        }
++      }
++
++      Spacer(modifier = Modifier.height(12.dp))
++
++      Row(
++        modifier = Modifier.fillMaxWidth(),
++        horizontalArrangement = Arrangement.spacedBy(12.dp)
++      ) {
++        MetricBox(
++          label = "Weight",
++          value = formattedWeight,
++          modifier = Modifier.weight(1f)
++        )
++        MetricBox(
++          label = "Blood Pressure",
++          value = "${visit.systolicBp}/${visit.diastolicBp} mmHg",
++          modifier = Modifier.weight(1f)
++        )
++        if (formattedHb != null) {
++          MetricBox(
++            label = "Hemoglobin",
++            value = formattedHb,
++            modifier = Modifier.weight(1f)
++          )
++        }
++      }
++
++      Spacer(modifier = Modifier.height(10.dp))
++
++      Surface(
++        color = if (visit.hasActiveDangerSigns) {
++          MaterialTheme.colorScheme.errorContainer
++        } else {
++          MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
++        },
++        shape = RoundedCornerShape(8.dp),
++        modifier = Modifier.fillMaxWidth()
++      ) {
++        Row(
++          modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
++          verticalAlignment = Alignment.CenterVertically
++        ) {
++          if (visit.hasActiveDangerSigns) {
++            Icon(
++              imageVector = Icons.Default.Warning,
++              contentDescription = null,
++              tint = MaterialTheme.colorScheme.error,
++              modifier = Modifier.size(16.dp)
++            )
++            Spacer(modifier = Modifier.width(6.dp))
++          }
++          Text(
++            text = "Danger signs: ${visit.formattedDangerSigns}",
++            style = MaterialTheme.typography.bodySmall,
++            fontWeight = if (visit.hasActiveDangerSigns) FontWeight.Bold else FontWeight.Normal,
++            color = if (visit.hasActiveDangerSigns) {
++              MaterialTheme.colorScheme.onErrorContainer
++            } else {
++              MaterialTheme.colorScheme.onSurfaceVariant
++            }
++          )
++        }
++      }
++
++      if (visit.notes.isNotBlank()) {
++        Spacer(modifier = Modifier.height(8.dp))
++        Text(
++          text = "Notes: ${visit.notes}",
++          style = MaterialTheme.typography.bodyMedium,
++          color = MaterialTheme.colorScheme.onSurface
++        )
++      }
++    }
++  }
++}
++
++@Composable
++private fun MetricBox(
++  label: String,
++  value: String,
++  modifier: Modifier = Modifier
++) {
++  Surface(
++    color = MaterialTheme.colorScheme.background,
++    shape = RoundedCornerShape(8.dp),
++    border = BorderStroke(1.dp, MaterialTheme.colorScheme.surfaceVariant),
++    modifier = modifier
++  ) {
++    Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)) {
++      Text(
++        text = label,
++        style = MaterialTheme.typography.labelSmall,
++        color = MaterialTheme.colorScheme.onSurfaceVariant
++      )
++      Spacer(modifier = Modifier.height(2.dp))
++      Text(
++        text = value,
++        style = MaterialTheme.typography.bodyMedium,
++        fontWeight = FontWeight.Bold,
++        color = MaterialTheme.colorScheme.onSurface
++      )
++    }
++  }
++}
++
++@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
++@Composable
++fun RecordVisitScreen(
++  patientWithVisits: PatientWithVisits,
++  onCancelClick: () -> Unit,
++  onSaveVisit: (AncVisit) -> Unit
++) {
++  val patient = patientWithVisits.patient
++  val context = LocalContext.current
++  val today = remember { LocalDate.now() }
++  val suggestedWeeks = remember(patient) { patient.currentPregnancyWeeks(today) }
++
++  var visitDateText by rememberSaveable { mutableStateOf(today.toString()) }
++  var gestationalWeeksText by rememberSaveable { mutableStateOf("") }
++  var weightKgText by rememberSaveable { mutableStateOf("") }
++  var systolicBpText by rememberSaveable { mutableStateOf("") }
++  var diastolicBpText by rememberSaveable { mutableStateOf("") }
++  var hemoglobinText by rememberSaveable { mutableStateOf("") }
++  var notesText by rememberSaveable { mutableStateOf("") }
++
++  val selectedDangerSigns = remember {
++    mutableStateListOf(DangerSign.NONE)
++  }
++
++  var errorMessage by rememberSaveable { mutableStateOf<String?>(null) }
++
++  fun toggleDangerSign(sign: DangerSign) {
++    if (sign == DangerSign.NONE) {
++      selectedDangerSigns.clear()
++      selectedDangerSigns.add(DangerSign.NONE)
++    } else {
++      selectedDangerSigns.remove(DangerSign.NONE)
++      if (selectedDangerSigns.contains(sign)) {
++        selectedDangerSigns.remove(sign)
++        if (selectedDangerSigns.isEmpty()) {
++          selectedDangerSigns.add(DangerSign.NONE)
++        }
++      } else {
++        selectedDangerSigns.add(sign)
++      }
++    }
++  }
++
++  fun openDatePicker() {
++    val initialDate = parseFlexibleDate(visitDateText) ?: today
++    DatePickerDialog(
++      context,
++      { _, year, month, dayOfMonth ->
++        visitDateText = LocalDate.of(year, month + 1, dayOfMonth).toString()
++      },
++      initialDate.year,
++      initialDate.monthValue - 1,
++      initialDate.dayOfMonth
++    ).show()
++  }
++
++  fun handleSave() {
++    val parsedDate = if (visitDateText.isBlank()) {
++      today
++    } else {
++      parseFlexibleDate(visitDateText)
++    }
++    if (parsedDate == null) {
++      errorMessage = "Please enter a valid visit date (YYYY-MM-DD)."
++      return
++    }
++
++    val gaWeeks = if (gestationalWeeksText.isBlank()) {
++      Patient.calculateGestationalWeeks(patient.estimatedDueDate, parsedDate)
++    } else {
++      gestationalWeeksText.trim().toIntOrNull()
++    }
++    if (gaWeeks == null || gaWeeks !in 1..48) {
++      errorMessage = "Please enter a valid gestational age in weeks (1-48)."
++      return
++    }
++
++    val weight = weightKgText.trim().toDoubleOrNull()
++    if (weight == null || weight <= 0.0) {
++      errorMessage = "Please enter a valid weight in kg."
++      return
++    }
++
++    val systolic = systolicBpText.trim().toIntOrNull()
++    val diastolic = diastolicBpText.trim().toIntOrNull()
++    if (systolic == null || systolic <= 0 || diastolic == null || diastolic <= 0) {
++      errorMessage = "Please enter valid systolic and diastolic blood pressure (mmHg)."
++      return
++    }
++
++    val hb: Double? = if (hemoglobinText.isBlank()) {
++      null
++    } else {
++      val parsedHb = hemoglobinText.trim().toDoubleOrNull()
++      if (parsedHb == null || parsedHb <= 0.0) {
++        errorMessage = "Please enter a valid hemoglobin value (g/dL) or leave blank."
++        return
++      }
++      parsedHb
++    }
++
++    errorMessage = null
++    onSaveVisit(
++      AncVisit(
++        patientId = patient.id,
++        visitDate = parsedDate,
++        gestationalAgeWeeks = gaWeeks,
++        weightKg = weight,
++        systolicBp = systolic,
++        diastolicBp = diastolic,
++        hemoglobinGdl = hb,
++        dangerSigns = selectedDangerSigns.toList(),
++        notes = notesText.trim()
++      )
++    )
++  }
++
++  Scaffold(
++    topBar = {
++      TopAppBar(
++        title = {
++          Column {
++            Text(
++              text = "Record ANC Visit",
++              style = MaterialTheme.typography.titleLarge,
++              fontWeight = FontWeight.Bold
++            )
++            Text(
++              text = "${patient.name} • Due ${patient.estimatedDueDate}",
++              style = MaterialTheme.typography.labelMedium,
++              color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.85f)
++            )
++          }
++        },
++        navigationIcon = {
++          IconButton(
++            onClick = onCancelClick,
++            modifier = Modifier.testTag("cancel_visit_button")
++          ) {
++            Icon(
++              imageVector = Icons.AutoMirrored.Filled.ArrowBack,
++              contentDescription = "Back",
++              tint = MaterialTheme.colorScheme.onPrimary
++            )
++          }
++        },
++        colors = TopAppBarDefaults.topAppBarColors(
++          containerColor = MaterialTheme.colorScheme.primary,
++          titleContentColor = MaterialTheme.colorScheme.onPrimary
++        )
++      )
++    },
++    bottomBar = {
++      Surface(
++        tonalElevation = 4.dp,
++        shadowElevation = 6.dp,
++        color = MaterialTheme.colorScheme.surface
++      ) {
++        Row(
++          modifier = Modifier
++            .fillMaxWidth()
++            .padding(horizontal = 16.dp, vertical = 10.dp),
++          horizontalArrangement = Arrangement.spacedBy(12.dp)
++        ) {
++          OutlinedButton(
++            onClick = onCancelClick,
++            modifier = Modifier.weight(1f),
++            shape = RoundedCornerShape(10.dp)
++          ) {
++            Text("Cancel")
++          }
++          Button(
++            onClick = { handleSave() },
++            modifier = Modifier
++              .weight(2f)
++              .testTag("save_visit_button"),
++            shape = RoundedCornerShape(10.dp)
++          ) {
++            Text(
++              text = "Save Visit",
++              fontWeight = FontWeight.Bold
++            )
++          }
++        }
++      }
++    }
++  ) { innerPadding ->
++    Column(
++      modifier = Modifier
++        .fillMaxSize()
++        .padding(innerPadding)
++        .verticalScroll(rememberScrollState())
++        .padding(horizontal = 16.dp, vertical = 12.dp),
++      verticalArrangement = Arrangement.spacedBy(10.dp)
++    ) {
++      if (errorMessage != null) {
++        Surface(
++          color = MaterialTheme.colorScheme.errorContainer,
++          shape = RoundedCornerShape(8.dp),
++          modifier = Modifier.fillMaxWidth()
++        ) {
++          Text(
++            text = errorMessage!!,
++            color = MaterialTheme.colorScheme.onErrorContainer,
++            style = MaterialTheme.typography.bodySmall,
++            fontWeight = FontWeight.SemiBold,
++            modifier = Modifier.padding(10.dp)
++          )
++        }
++      }
++
++      Row(
++        modifier = Modifier.fillMaxWidth(),
++        horizontalArrangement = Arrangement.spacedBy(10.dp)
++      ) {
++        OutlinedTextField(
++          value = visitDateText,
++          onValueChange = { visitDateText = it },
++          label = { Text("Visit Date (YYYY-MM-DD)") },
++          placeholder = { Text(today.toString()) },
++          singleLine = true,
++          trailingIcon = {
++            IconButton(onClick = { openDatePicker() }) {
++              Icon(
++                imageVector = Icons.Default.CalendarMonth,
++                contentDescription = "Select Date"
++              )
++            }
++          },
++          modifier = Modifier
++            .weight(1.2f)
++            .testTag("input_visit_date")
++        )
++
++        OutlinedTextField(
++          value = gestationalWeeksText,
++          onValueChange = { gestationalWeeksText = it },
++          label = { Text("Gestational Age (weeks)") },
++          placeholder = { Text("$suggestedWeeks") },
++          singleLine = true,
++          keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
++          modifier = Modifier
++            .weight(1f)
++            .testTag("input_gestational_weeks")
++        )
++      }
++
++      Row(
++        modifier = Modifier.fillMaxWidth(),
++        horizontalArrangement = Arrangement.spacedBy(10.dp)
++      ) {
++        OutlinedTextField(
++          value = weightKgText,
++          onValueChange = { weightKgText = it },
++          label = { Text("Weight (kg)") },
++          placeholder = { Text("e.g. 68.5") },
++          singleLine = true,
++          keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
++          modifier = Modifier
++            .weight(1f)
++            .testTag("input_weight_kg")
++        )
++
++        OutlinedTextField(
++          value = hemoglobinText,
++          onValueChange = { hemoglobinText = it },
++          label = { Text("Hemoglobin (g/dL, optional)") },
++          placeholder = { Text("e.g. 11.8") },
++          singleLine = true,
++          keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
++          modifier = Modifier
++            .weight(1f)
++            .testTag("input_hemoglobin")
++        )
++      }
++
++      Row(
++        modifier = Modifier.fillMaxWidth(),
++        horizontalArrangement = Arrangement.spacedBy(10.dp)
++      ) {
++        OutlinedTextField(
++          value = systolicBpText,
++          onValueChange = { systolicBpText = it },
++          label = { Text("Systolic BP (mmHg)") },
++          placeholder = { Text("e.g. 120") },
++          singleLine = true,
++          keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
++          modifier = Modifier
++            .weight(1f)
++            .testTag("input_systolic_bp")
++        )
++
++        OutlinedTextField(
++          value = diastolicBpText,
++          onValueChange = { diastolicBpText = it },
++          label = { Text("Diastolic BP (mmHg)") },
++          placeholder = { Text("e.g. 80") },
++          singleLine = true,
++          keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
++          modifier = Modifier
++            .weight(1f)
++            .testTag("input_diastolic_bp")
++        )
++      }
++
++      Card(
++        modifier = Modifier.fillMaxWidth(),
++        shape = RoundedCornerShape(10.dp),
++        colors = CardDefaults.cardColors(
++          containerColor = MaterialTheme.colorScheme.surface
++        ),
++        border = BorderStroke(1.dp, MaterialTheme.colorScheme.surfaceVariant)
++      ) {
++        Column(modifier = Modifier.padding(12.dp)) {
++          Text(
++            text = "Danger Signs (select all that apply)",
++            style = MaterialTheme.typography.titleSmall,
++            fontWeight = FontWeight.Bold
++          )
++          Spacer(modifier = Modifier.height(6.dp))
++
++          FlowRow(
++            modifier = Modifier.fillMaxWidth(),
++            horizontalArrangement = Arrangement.spacedBy(8.dp),
++            verticalArrangement = Arrangement.spacedBy(6.dp)
++          ) {
++            DangerSign.entries.forEach { sign ->
++              val isSelected = selectedDangerSigns.contains(sign)
++              DangerSignOptionChip(
++                sign = sign,
++                selected = isSelected,
++                onClick = { toggleDangerSign(sign) }
++              )
++            }
++          }
++        }
++      }
++
++      OutlinedTextField(
++        value = notesText,
++        onValueChange = { notesText = it },
++        label = { Text("Notes") },
++        placeholder = { Text("Clinical observations, counseling, follow-up plan...") },
++        minLines = 2,
++        maxLines = 4,
++        modifier = Modifier
++          .fillMaxWidth()
++          .testTag("input_notes")
++      )
++    }
++  }
++}
++
++@Composable
++private fun DangerSignOptionChip(
++  sign: DangerSign,
++  selected: Boolean,
++  onClick: () -> Unit
++) {
++  val isWarningSign = sign != DangerSign.NONE && selected
++  Surface(
++    shape = RoundedCornerShape(8.dp),
++    color = when {
++      isWarningSign -> MaterialTheme.colorScheme.errorContainer
++      selected -> MaterialTheme.colorScheme.primaryContainer
++      else -> MaterialTheme.colorScheme.background
++    },
++    border = BorderStroke(
++      width = 1.dp,
++      color = when {
++        isWarningSign -> MaterialTheme.colorScheme.error
++        selected -> MaterialTheme.colorScheme.primary
++        else -> MaterialTheme.colorScheme.surfaceVariant
++      }
++    ),
++    modifier = Modifier
++      .clickable(role = Role.Checkbox, onClick = onClick)
++      .testTag("danger_sign_${sign.name.lowercase()}")
++  ) {
++    Row(
++      modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
++      verticalAlignment = Alignment.CenterVertically
++    ) {
++      Checkbox(
++        checked = selected,
++        onCheckedChange = null,
++        modifier = Modifier.size(20.dp)
++      )
++      Spacer(modifier = Modifier.width(6.dp))
++      Text(
++        text = sign.label,
++        style = MaterialTheme.typography.bodyMedium,
++        fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
++        color = when {
++          isWarningSign -> MaterialTheme.colorScheme.onErrorContainer
++          selected -> MaterialTheme.colorScheme.onPrimaryContainer
++          else -> MaterialTheme.colorScheme.onSurface
++        }
++      )
++    }
++  }
++}
++
++private fun parseFlexibleDate(rawInput: String): LocalDate? {
++  val trimmed = rawInput.trim()
++  if (trimmed.isEmpty()) return null
++
++  // If user appended onto existing ISO date (e.g. "2026-11-022026-09-15" from automated text input without clearing)
++  val isoRegex = Regex("""\d{4}-\d{2}-\d{2}""")
++  val allIsoMatches = isoRegex.findAll(trimmed).toList()
++  if (allIsoMatches.isNotEmpty()) {
++    val lastIso = allIsoMatches.last().value
++    runCatching { return LocalDate.parse(lastIso) }
++  }
++
++  val formats = listOf(
++    DateTimeFormatter.ISO_LOCAL_DATE,
++    DateTimeFormatter.ofPattern("yyyy/M/d"),
++    DateTimeFormatter.ofPattern("M/d/yyyy"),
++    DateTimeFormatter.ofPattern("d/M/yyyy")
++  )
++  for (formatter in formats) {
++    runCatching { return LocalDate.parse(trimmed, formatter) }
++  }
++  return null
++}
+diff --git a/app/src/main/java/com/example/ancapp/ui/Theme.kt b/app/src/main/java/com/example/ancapp/ui/Theme.kt
+new file mode 100644
+index 0000000..48ce3a5
+--- /dev/null
++++ b/app/src/main/java/com/example/ancapp/ui/Theme.kt
+@@ -0,0 +1,39 @@
++package com.example.ancapp.ui
++
++import androidx.compose.material3.MaterialTheme
++import androidx.compose.material3.lightColorScheme
++import androidx.compose.runtime.Composable
++import androidx.compose.ui.graphics.Color
++
++private val AncColorScheme = lightColorScheme(
++  primary = Color(0xFF006A60),
++  onPrimary = Color.White,
++  primaryContainer = Color(0xFF9EF2E4),
++  onPrimaryContainer = Color(0xFF00201C),
++  secondary = Color(0xFF4A635E),
++  onSecondary = Color.White,
++  secondaryContainer = Color(0xFFCCE8E2),
++  onSecondaryContainer = Color(0xFF05201C),
++  tertiary = Color(0xFF456179),
++  onTertiary = Color.White,
++  tertiaryContainer = Color(0xFFCCE5FF),
++  onTertiaryContainer = Color(0xFF001E31),
++  error = Color(0xFFBA1A1A),
++  errorContainer = Color(0xFFFFDAD6),
++  onError = Color.White,
++  onErrorContainer = Color(0xFF410002),
++  background = Color(0xFFF4FBF8),
++  onBackground = Color(0xFF161D1B),
++  surface = Color.White,
++  onSurface = Color(0xFF161D1B),
++  surfaceVariant = Color(0xFFDAE5E1),
++  onSurfaceVariant = Color(0xFF3F4946)
++)
++
++@Composable
++fun AncAppTheme(content: @Composable () -> Unit) {
++  MaterialTheme(
++    colorScheme = AncColorScheme,
++    content = content
++  )
++}
