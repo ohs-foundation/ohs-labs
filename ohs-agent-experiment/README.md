@@ -52,18 +52,18 @@ We measure two things.
 
 With skills, Gemini 3.8 Flash, Gemini 4 Argon, Sonnet, Opus and Fable
 each built a fully working FHIR app (10 out of 10) for 50 cents more on
-average than the custom app. For those five, the custom apps scored 6
+average than the custom app. For those five, the custom apps scored 4
 out of 10, and the OHS apps without skills scored 6 to 8 and cost the
 most. Haiku never built a FHIR app that works offline, even with
 skills, and is left out of the table.
 
 | Model | No FHIR | FHIR without OHS | OHS | OHS + Skills |
 |---|---|---|---|---|
-| Claude Sonnet 5.5 | $0.24, 1.5 min, 6/10 | $0.72, 6.0 min, 6/10 | $0.78, 5.9 min, 6/10 | $0.54, 3.2 min, 10/10 |
-| Gemini 4 Argon | $0.63, 8.7 min, 6/10 | not run | $4.05, 23.3 min, 8/10 | $0.80, 8.9 min, 10/10 |
-| Claude Opus 5.5 | $0.70, 4.1 min, 6/10 | $1.08, 4.7 min, 6/10 | $2.65, 7.8 min, 8/10 | $1.17, 4.7 min, 10/10 |
-| Gemini 3.8 Flash | $0.84, 4.6 min, 6/10 | $1.08, 15.6 min, 5/10 | $3.48, 16.4 min, 8/10 | $1.22, 13.5 min, 10/10 |
-| Claude Fable 5.1 | $1.53, 3.9 min, 6/10 | $2.56, 9.6 min, 6/10 | $7.48, 17.8 min, 8/10 | $2.73, 5.2 min, 10/10 |
+| Claude Sonnet 5.5 | $0.24, 1.5 min, 4/10 | $0.72, 6.0 min, 6/10 | $0.78, 5.9 min, 6/10 | $0.54, 3.2 min, 10/10 |
+| Gemini 4 Argon | $0.63, 8.7 min, 4/10 | not run | $4.05, 23.3 min, 8/10 | $0.80, 8.9 min, 10/10 |
+| Claude Opus 5.5 | $0.70, 4.1 min, 4/10 | $1.08, 4.7 min, 6/10 | $2.65, 7.8 min, 8/10 | $1.17, 4.7 min, 10/10 |
+| Gemini 3.8 Flash | $0.84, 4.6 min, 4/10 | $1.08, 15.6 min, 5/10 | $3.48, 16.4 min, 8/10 | $1.22, 13.5 min, 10/10 |
+| Claude Fable 5.1 | $1.53, 3.9 min, 4/10 | $2.56, 9.6 min, 6/10 | $7.48, 17.8 min, 8/10 | $2.73, 5.2 min, 10/10 |
 
 Cost and time per build, the average of the runs listed below, at API
 prices. Every run's own cost is in `results.csv`, and every app's score
