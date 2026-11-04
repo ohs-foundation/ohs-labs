@@ -13,7 +13,7 @@ measurements.
 
 | You want to | Read |
 |---|---|
-| See the results | [docs/blog-interoperability-tax.md](docs/blog-interoperability-tax.md) |
+| See the results | [Results](#results), below |
 | See every app's score | [results/app-scores.md](results/app-scores.md) |
 | Run one build yourself | [Run one build](#run-one-build), below |
 | Run campaigns, walk apps, fix faults | [RUNNING.md](RUNNING.md) |
@@ -53,27 +53,38 @@ We measure two things.
 With skills, Gemini 3.8 Flash, Gemini 4 Argon, Sonnet, Opus and Fable
 each built a fully working FHIR app (10 out of 10) for 50 cents more on
 average than the custom app. For those five, the custom apps scored 6
-out of 10, and
-the OHS apps without skills scored 6 to 8 and cost the most. Haiku never
-built a FHIR app that works offline, even with skills. The cost and time
-table is in the [blog](docs/blog-interoperability-tax.md), and every
-app's score in [results/app-scores.md](results/app-scores.md).
+out of 10, and the OHS apps without skills scored 6 to 8 and cost the
+most. Haiku never built a FHIR app that works offline, even with
+skills, and is left out of the table.
 
-### Runs used in the blog
+| Model | No FHIR | FHIR without OHS | OHS | OHS + Skills |
+|---|---|---|---|---|
+| Claude Sonnet 5.5 | $0.24, 1.5 min, 6/10 | $0.72, 6.0 min, 6/10 | $0.78, 5.9 min, 6/10 | $0.54, 3.2 min, 10/10 |
+| Gemini 4 Argon | $0.63, 8.7 min, 6/10 | not run | $4.05, 23.3 min, 8/10 | $0.80, 8.9 min, 10/10 |
+| Claude Opus 5.5 | $0.70, 4.1 min, 6/10 | $1.08, 4.7 min, 6/10 | $2.65, 7.8 min, 8/10 | $1.17, 4.7 min, 10/10 |
+| Gemini 3.8 Flash | $0.84, 4.6 min, 6/10 | $1.08, 15.6 min, 5/10 | $3.48, 16.4 min, 8/10 | $1.22, 13.5 min, 10/10 |
+| Claude Fable 5.1 | $1.53, 3.9 min, 6/10 | $2.56, 9.6 min, 6/10 | $7.48, 17.8 min, 8/10 | $2.73, 5.2 min, 10/10 |
+
+Cost and time per build, the average of the runs listed below, at API
+prices. Every run's own cost is in `results.csv`, and every app's score
+in [results/app-scores.md](results/app-scores.md).
+
+### Runs behind the results
 
 | Condition | Claude models | Gemini 3.8 Flash | Gemini 4 Argon |
 |---|---|---|---|
 | `cold` | runs 1, 2 | runs 1, 2 | runs 1, 2 |
+| `fhir` | runs 1, 2 | runs 1, 2 | not run |
 | `ohs` | runs 1, 2 | runs 1, 2 | runs 2, 3 |
 | `ohs-skills` (skills v2.5) | runs 8, 9 | run 15 | runs 3, 4 |
 
 Run ids are `s1-<condition>-<model>-<run>`, e.g.
 `s1-ohs-skills-claude-opus-5-5-medium-8` or
 `s1-cold-gemini-3.8-flash-medium-1`. The other runs are earlier skills
-versions, the `fhir` baseline, or one extra Gemini run at low effort.
+versions or one extra Gemini run at low effort.
 
-Rerunning the blog's 45 runs (the three conditions above for all six
-models plus the `fhir` baseline) costs about $68 at API prices and about
+Rerunning these 45 runs (the conditions above for all six models,
+including Haiku) costs about $68 at API prices and about
 6 hours of agent time, plus about 10 minutes per app to score it.
 
 Charts: `python3 results/plot_charts.py` (needs matplotlib) redraws
