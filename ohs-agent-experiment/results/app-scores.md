@@ -32,19 +32,24 @@ because frontline clinics lose signal.
 The runs used in the blog (see `../README.md`). Two runs per cell, one
 for Gemini 3.8 Flash with skills.
 
-| Model | No FHIR (`cold`) | OHS | OHS + Skills (v2.5) |
-|---|---|---|---|
-| Gemini 3.8 Flash | 6 | 8 | 10 |
-| Gemini 4 Argon | 6 | 8 | 10 |
-| Claude Fable 5.1 | 6 | 8 | 10 |
-| Claude Opus 5.5 | 6 | 8 | 10 |
-| Claude Sonnet 5.5 | 6 | 6 | 10 |
-| Claude Haiku 5.5 | not tested offline | 4 | 6 |
+| Model | No FHIR (`cold`) | FHIR without OHS (`fhir`) | OHS | OHS + Skills (v2.5) |
+|---|---|---|---|---|
+| Gemini 3.8 Flash | 4 | 5 | 8 | 10 |
+| Gemini 4 Argon | 4 | not run | 8 | 10 |
+| Claude Fable 5.1 | 4 | 6 | 8 | 10 |
+| Claude Opus 5.5 | 4 | 6 | 8 | 10 |
+| Claude Sonnet 5.5 | 4 | 6 | 6 | 10 |
+| Claude Haiku 5.5 | not tested offline | 4.5 (from the earlier 9 checks) | 4 | 6 |
 
-The custom apps pass 1, 2, 4, 5, 7 and 9. They have no server and their
-own visit form, so 3, 6, 8 and 10 fail. The `fhir` (FHIR without OHS)
-apps were scored on the earlier 9 checks only, see "FHIR without OHS"
-below.
+The custom apps pass 1, 2, 4 and 5. They have no server and their own
+visit form, so 3, 6, 8 and 10 fail. Checks 7 and 9 test that an app
+keeps working while it cannot sync, so they count only for apps that
+sync with a server. The custom apps never use a network, so they get no
+points for them.
+
+The FHIR without OHS apps pass 1 to 6 online but store nothing on the
+phone, so 7 to 10 fail. Gemini's also builds its own visit form and
+fails 3.
 
 ## Test log
 
@@ -286,10 +291,11 @@ every v2.5 skills app except Haiku's is.
 The eight custom apps (Gemini 3.8 Flash, Fable, Opus and Sonnet, runs 1
 and 2) were installed fresh with airplane mode on. Each one opened and listed
 the patients offline, saved a new visit offline, and still showed it after a
-restart. All eight pass checks 7 and 9.
+restart. They never use a network, so this does not count as passing
+checks 7 and 9 (see "Final scores").
 
 They have no server and no Questionnaire, so checks 3, 6, 8 and 10 fail. That
-gives every custom app 6 out of 10.
+gives every custom app 4 out of 10.
 
 ### Gemini 4 Argon (2026-11-02)
 
@@ -298,8 +304,8 @@ with the scripts in `../harness/walk/`.
 
 | App | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | Score |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| cold-argon-1 | pass | pass | FAIL | pass | pass | FAIL | pass | FAIL | pass | FAIL | 6/10 |
-| cold-argon-2 | pass | pass | FAIL | pass | pass | FAIL | pass | FAIL | pass | FAIL | 6/10 |
+| cold-argon-1 | pass | pass | FAIL | pass | pass | FAIL | n/a | FAIL | n/a | FAIL | 4/10 |
+| cold-argon-2 | pass | pass | FAIL | pass | pass | FAIL | n/a | FAIL | n/a | FAIL | 4/10 |
 | ohs-argon-2 | pass | pass | pass | pass | pass | pass | pass | FAIL | pass | FAIL | 8/10 |
 | ohs-argon-3 | pass | pass | pass | pass | pass | pass | pass | FAIL | pass | FAIL | 8/10 |
 | ohs-skills-argon-3 | pass | pass | pass | pass | pass | pass | pass | pass | pass | pass | 10/10 |
@@ -312,6 +318,31 @@ with the scripts in `../harness/walk/`.
 - **The skills apps upload in the background.** The offline visit
   reached the server within 60 s of the network coming back, and within
   30 s after the app was closed.
+
+### FHIR without OHS on the 10 checks (2026-11-03)
+
+The eight apps of the models in the blog, walked again on all 10 checks
+with the scripts in `../harness/walk/`.
+
+| App | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | Score |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| fhir-gemini-1 | pass | pass | FAIL | pass | pass | pass | FAIL | FAIL | FAIL | FAIL | 5/10 |
+| fhir-gemini-2 | pass | pass | FAIL | pass | pass | pass | FAIL | FAIL | FAIL | FAIL | 5/10 |
+| fhir-fable-1 | pass | pass | pass | pass | pass | pass | FAIL | FAIL | FAIL | FAIL | 6/10 |
+| fhir-fable-2 | pass | pass | pass | pass | pass | pass | FAIL | FAIL | FAIL | FAIL | 6/10 |
+| fhir-opus-1 | pass | pass | pass | pass | pass | pass | FAIL | FAIL | FAIL | FAIL | 6/10 |
+| fhir-opus-2 | pass | pass | pass | pass | pass | pass | FAIL | FAIL | FAIL | FAIL | 6/10 |
+| fhir-sonnet-1 | pass | pass | pass | pass | pass | pass | FAIL | FAIL | FAIL | FAIL | 6/10 |
+| fhir-sonnet-2 | pass | pass | pass | pass | pass | pass | FAIL | FAIL | FAIL | FAIL | 6/10 |
+
+- **Online they work.** Every app lists the patients, saves a visit the
+  server accepts, and keeps it after a restart. Several show the new
+  visit only after the patient or the app is reopened, counted as a pass
+  for check 4 as before.
+- **Offline they stop.** Each app reads and writes the server live and
+  stores nothing on the phone. Opened with no network, the register
+  shows "Failed to connect", so no visit can be opened or saved, and
+  checks 7 to 10 fail.
 
 ## Limits
 
