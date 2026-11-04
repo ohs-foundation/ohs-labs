@@ -35,7 +35,7 @@ for Gemini 3.8 Flash with skills.
 | Model | No FHIR (`cold`) | FHIR without OHS (`fhir`) | OHS | OHS + Skills (v2.5) |
 |---|---|---|---|---|
 | Gemini 3.8 Flash | 4 | 5 | 8 | 10 |
-| Gemini 4 Argon | 4 | not run | 8 | 10 |
+| Gemini 4 Argon | 4 | 6 | 8 | 10 |
 | Claude Fable 5.1 | 4 | 6 | 8 | 10 |
 | Claude Opus 5.5 | 4 | 6 | 8 | 10 |
 | Claude Sonnet 5.5 | 4 | 6 | 6 | 10 |
@@ -321,8 +321,8 @@ with the scripts in `../harness/walk/`.
 
 ### FHIR without OHS on the 10 checks (2026-11-03)
 
-The eight apps of the models in the blog, walked again on all 10 checks
-with the scripts in `../harness/walk/`.
+The apps of the models in the blog, walked on all 10 checks with the
+scripts in `../harness/walk/`.
 
 | App | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | Score |
 |---|---|---|---|---|---|---|---|---|---|---|---|
@@ -334,6 +334,7 @@ with the scripts in `../harness/walk/`.
 | fhir-opus-2 | pass | pass | pass | pass | pass | pass | FAIL | FAIL | FAIL | FAIL | 6/10 |
 | fhir-sonnet-1 | pass | pass | pass | pass | pass | pass | FAIL | FAIL | FAIL | FAIL | 6/10 |
 | fhir-sonnet-2 | pass | pass | pass | pass | pass | pass | FAIL | FAIL | FAIL | FAIL | 6/10 |
+| fhir-argon-2 | pass | pass | pass | pass | pass | pass | FAIL | FAIL | FAIL | FAIL | 6/10 |
 
 - **Online they work.** Every app lists the patients, saves a visit the
   server accepts, and keeps it after a restart. Several show the new

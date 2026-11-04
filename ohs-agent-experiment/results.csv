@@ -58,3 +58,4 @@ s1-ohs-gemini-4-argon-medium-2,s1-build,ohs,gemini-4-argon-medium,2,,34.8,0,179,
 s1-cold-gemini-4-argon-medium-1,s1-build,cold,gemini-4-argon-medium,1,,7.4,0,24,0,,0,26189,508502,0.51,1621,true,n/a
 s1-cold-gemini-4-argon-medium-2,s1-build,cold,gemini-4-argon-medium,2,,9.9,0,26,0,,0,41065,784405,0.74,2006,true,n/a
 s1-ohs-gemini-4-argon-medium-3,s1-build,ohs,gemini-4-argon-medium,3,,11.8,0,84,1,,2,27855,8064593,2.48,1880,true,true
+s1-fhir-gemini-4-argon-medium-2,s1-build,fhir,gemini-4-argon-medium,2,,6.3,0,22,0,,0,20764,415625,0.44,1943,true,true
