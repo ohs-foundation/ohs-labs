@@ -1,30 +1,21 @@
-# OHS labs
+# OHS Labs
 
-Quick AI experiments that could become future Open Health Stack (OHS)
+AI experiments that could become future Open Health Stack (OHS)
 features or capabilities.
 
 ## Experiments
 
-| Experiment | Status | Folder |
+| Experiment | Status | Repo |
 |---|---|---|
-| Agentic coding evaluation on the OHS stack | Done, results published | [ohs-agent-experiment](ohs-agent-experiment/) |
+| Agentic coding evaluation on the OHS stack | Done, results published | [labs-ohs-agent](https://github.com/ohs-foundation/labs-ohs-agent) |
 
-### Agentic coding evaluation on the OHS stack
+### Agentic coding evaluation on the OHS stack ([labs-ohs-agent](https://github.com/ohs-foundation/labs-ohs-agent))
 
 Measures what it costs an AI coding agent to build a standards-based
 health app compared with a custom one. The agent builds the same
 antenatal care app from a blank project (No FHIR), with the OHS
 libraries and a FHIR server (OHS), and with the same plus [agent
-skills](ohs-agent-experiment/skills/) for the libraries (OHS + skills).
-
-With the three short skills, Gemini 3.8 Flash, Gemini 4 Argon, Claude
-Sonnet, Opus and Fable each built a fully working FHIR app (10 out of 10
-checks) for 50 cents more on average than a custom app. Without skills, the libraries
-were the most expensive way to build.
-
-Read the [blog post](ohs-agent-experiment/docs/blog-interoperability-tax.md)
-for the results, or the [experiment README](ohs-agent-experiment/README.md)
-to run it yourself.
+skills](https://github.com/ohs-foundation/labs-ohs-agent/tree/main/skills) for the libraries (OHS + skills).
 
 ## Ideas not started yet
 

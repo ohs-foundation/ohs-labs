@@ -1,8 +1,0 @@
-.DS_Store
-# Derived/bulky harness state (each entry is its own nested git repo or scratch):
-harness/work/
-harness/archive/
-harness/templates/
-harness/logs/
-.idea/
-harness/__pycache__/
