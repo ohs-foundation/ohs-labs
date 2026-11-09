@@ -9,7 +9,7 @@ features or capabilities.
 |---|---|---|
 | Agentic coding evaluation on the OHS stack | Done, results published | [labs-ohs-agent](https://github.com/ohs-foundation/labs-ohs-agent) |
 
-### [Agentic coding evaluation on the OHS stack](https://github.com/ohs-foundation/labs-ohs-agent)
+### Agentic coding evaluation on the OHS stack ([labs-ohs-agent](https://github.com/ohs-foundation/labs-ohs-agent))
 
 Measures what it costs an AI coding agent to build a standards-based
 health app compared with a custom one. The agent builds the same
