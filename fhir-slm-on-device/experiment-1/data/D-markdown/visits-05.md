@@ -1,7 +1,6 @@
 # Patient Summary — Miquel905 Jenkins714 (1974-11-27)
 
-## demographics
-- Miquel905 Jenkins714 | 1974-11-27 | male
+## allergies
 
 ## conditions
 - 361055000 | Misuses drugs (finding) | active | 2025-12-03T10:10:42+07:00
@@ -13,10 +12,24 @@
 - 39898005 | Sleep disorder (disorder) | active | 2020-11-15T07:45:49+07:00
 - 66383009 | Gingivitis (disorder) | resolved | 2013-06-05T09:11:46+07:00
 
-## medications
-- Acetaminophen 325 MG Oral Tablet | completed | 2024-09-16T08:42:09+07:00
+## demographics
+- Miquel905 Jenkins714 | 1974-11-27 | male
 
-## allergies
+## encounters
+- General examination of patient (procedure) | 2025-12-03T07:45:49+07:00 | 2025-12-03T08:27:26+07:00
+- Encounter for check up (procedure) | 2024-12-11T07:45:49+07:00 | 2024-12-11T10:23:27+07:00
+- Encounter for check up (procedure) | 2024-12-04T07:45:49+07:00 | 2024-12-04T08:19:44+07:00
+- General examination of patient (procedure) | 2024-11-27T07:45:49+07:00 | 2024-11-27T08:33:37+07:00
+- Emergency room admission (procedure) | 2024-09-16T08:28:33+07:00 | 2024-09-16T09:28:33+07:00
+- Encounter for symptom (procedure) | 2020-11-15T07:45:49+07:00 | 2020-11-15T08:23:21+07:00
+- Encounter for check up (procedure) | 2013-06-05T07:45:49+07:00 | 2013-06-05T08:30:47+07:00
+
+## immunizations
+- zoster vaccine, live | 2025-12-03T07:45:49+07:00 | completed
+- Influenza, split virus, trivalent, PF | 2025-12-03T07:45:49+07:00 | completed
+- Td (adult), 5 Lf tetanus toxoid, preservative free, adsorbed | 2025-12-03T07:45:49+07:00 | completed
+- zoster vaccine, live | 2024-11-27T07:45:49+07:00 | completed
+- Influenza, split virus, trivalent, PF | 2024-11-27T07:45:49+07:00 | completed
 
 ## labs
 - 2025-12-03T07:45:49+07:00 | 4548-4 | Hemoglobin A1c/Hemoglobin.total in Blood | 6.1 | %
@@ -49,21 +62,8 @@
 - 2024-11-27T07:45:49+07:00 | 2069-3 | Chloride [Moles/volume] in Blood | 102.28 | mmol/L
 - 2024-11-27T07:45:49+07:00 | 20565-8 | Carbon dioxide, total [Moles/volume] in Blood | 25.6 | mmol/L
 
-## vitals
-- 2025-12-03T07:45:49+07:00 | 8302-2 | Body Height | 182.1 | cm
-- 2025-12-03T07:45:49+07:00 | 72514-3 | Pain severity - 0-10 verbal numeric rating [Score] - Reported | 1 | {score}
-- 2025-12-03T07:45:49+07:00 | 29463-7 | Body Weight | 92 | kg
-- 2025-12-03T07:45:49+07:00 | 39156-5 | Body mass index (BMI) [Ratio] | 27.74 | kg/m2
-- 2025-12-03T07:45:49+07:00 | 85354-9 | Blood pressure panel with all children optional
-- 2025-12-03T07:45:49+07:00 | 8867-4 | Heart rate | 92 | /min
-- 2025-12-03T07:45:49+07:00 | 9279-1 | Respiratory rate | 12 | /min
-- 2024-11-27T07:45:49+07:00 | 8302-2 | Body Height | 182.1 | cm
-- 2024-11-27T07:45:49+07:00 | 72514-3 | Pain severity - 0-10 verbal numeric rating [Score] - Reported | 1 | {score}
-- 2024-11-27T07:45:49+07:00 | 29463-7 | Body Weight | 92 | kg
-- 2024-11-27T07:45:49+07:00 | 39156-5 | Body mass index (BMI) [Ratio] | 27.74 | kg/m2
-- 2024-11-27T07:45:49+07:00 | 85354-9 | Blood pressure panel with all children optional
-- 2024-11-27T07:45:49+07:00 | 8867-4 | Heart rate | 66 | /min
-- 2024-11-27T07:45:49+07:00 | 9279-1 | Respiratory rate | 14 | /min
+## medications
+- Acetaminophen 325 MG Oral Tablet | completed | 2024-09-16T08:42:09+07:00
 
 ## procedures
 - 103750000 | Sleep apnea assessment (procedure)
@@ -88,21 +88,21 @@
 - 103697008 | Patient referral for dental care (procedure)
 - 288086009 | Suture open wound (procedure)
 
-## immunizations
-- zoster vaccine, live | 2025-12-03T07:45:49+07:00 | completed
-- Influenza, split virus, trivalent, PF | 2025-12-03T07:45:49+07:00 | completed
-- Td (adult), 5 Lf tetanus toxoid, preservative free, adsorbed | 2025-12-03T07:45:49+07:00 | completed
-- zoster vaccine, live | 2024-11-27T07:45:49+07:00 | completed
-- Influenza, split virus, trivalent, PF | 2024-11-27T07:45:49+07:00 | completed
-
-## encounters
-- General examination of patient (procedure) | 2025-12-03T07:45:49+07:00 | 2025-12-03T08:27:26+07:00
-- Encounter for check up (procedure) | 2024-12-11T07:45:49+07:00 | 2024-12-11T10:23:27+07:00
-- Encounter for check up (procedure) | 2024-12-04T07:45:49+07:00 | 2024-12-04T08:19:44+07:00
-- General examination of patient (procedure) | 2024-11-27T07:45:49+07:00 | 2024-11-27T08:33:37+07:00
-- Emergency room admission (procedure) | 2024-09-16T08:28:33+07:00 | 2024-09-16T09:28:33+07:00
-- Encounter for symptom (procedure) | 2020-11-15T07:45:49+07:00 | 2020-11-15T08:23:21+07:00
-- Encounter for check up (procedure) | 2013-06-05T07:45:49+07:00 | 2013-06-05T08:30:47+07:00
-
 ## relatedpersons
+
+## vitals
+- 2025-12-03T07:45:49+07:00 | 8302-2 | Body Height | 182.1 | cm
+- 2025-12-03T07:45:49+07:00 | 72514-3 | Pain severity - 0-10 verbal numeric rating [Score] - Reported | 1 | {score}
+- 2025-12-03T07:45:49+07:00 | 29463-7 | Body Weight | 92 | kg
+- 2025-12-03T07:45:49+07:00 | 39156-5 | Body mass index (BMI) [Ratio] | 27.74 | kg/m2
+- 2025-12-03T07:45:49+07:00 | 85354-9 | Blood pressure panel with all children optional | 108/93 | mm[Hg]
+- 2025-12-03T07:45:49+07:00 | 8867-4 | Heart rate | 92 | /min
+- 2025-12-03T07:45:49+07:00 | 9279-1 | Respiratory rate | 12 | /min
+- 2024-11-27T07:45:49+07:00 | 8302-2 | Body Height | 182.1 | cm
+- 2024-11-27T07:45:49+07:00 | 72514-3 | Pain severity - 0-10 verbal numeric rating [Score] - Reported | 1 | {score}
+- 2024-11-27T07:45:49+07:00 | 29463-7 | Body Weight | 92 | kg
+- 2024-11-27T07:45:49+07:00 | 39156-5 | Body mass index (BMI) [Ratio] | 27.74 | kg/m2
+- 2024-11-27T07:45:49+07:00 | 85354-9 | Blood pressure panel with all children optional | 110/92 | mm[Hg]
+- 2024-11-27T07:45:49+07:00 | 8867-4 | Heart rate | 66 | /min
+- 2024-11-27T07:45:49+07:00 | 9279-1 | Respiratory rate | 14 | /min
 

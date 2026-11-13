@@ -1,15 +1,22 @@
 # Patient Summary — Miquel905 Jenkins714 (1974-11-27)
 
-## demographics
-- Miquel905 Jenkins714 | 1974-11-27 | male
+## allergies
 
 ## conditions
 - 361055000 | Misuses drugs (finding) | active | 2025-12-03T10:10:42+07:00
 - 39898005 | Sleep disorder (disorder) | active | 2020-11-15T07:45:49+07:00
 
-## medications
+## demographics
+- Miquel905 Jenkins714 | 1974-11-27 | male
 
-## allergies
+## encounters
+- General examination of patient (procedure) | 2025-12-03T07:45:49+07:00 | 2025-12-03T08:27:26+07:00
+- Encounter for symptom (procedure) | 2020-11-15T07:45:49+07:00 | 2020-11-15T08:23:21+07:00
+
+## immunizations
+- zoster vaccine, live | 2025-12-03T07:45:49+07:00 | completed
+- Influenza, split virus, trivalent, PF | 2025-12-03T07:45:49+07:00 | completed
+- Td (adult), 5 Lf tetanus toxoid, preservative free, adsorbed | 2025-12-03T07:45:49+07:00 | completed
 
 ## labs
 - 2025-12-03T07:45:49+07:00 | 4548-4 | Hemoglobin A1c/Hemoglobin.total in Blood | 6.1 | %
@@ -33,14 +40,7 @@
 - 2025-12-03T07:45:49+07:00 | 32207-3 | Platelet distribution width [Entitic volume] in Blood by Automated count | 9.8322 | fL
 - 2025-12-03T07:45:49+07:00 | 32623-1 | Platelet [Entitic mean volume] in Blood by Automated count | 10.178 | fL
 
-## vitals
-- 2025-12-03T07:45:49+07:00 | 8302-2 | Body Height | 182.1 | cm
-- 2025-12-03T07:45:49+07:00 | 72514-3 | Pain severity - 0-10 verbal numeric rating [Score] - Reported | 1 | {score}
-- 2025-12-03T07:45:49+07:00 | 29463-7 | Body Weight | 92 | kg
-- 2025-12-03T07:45:49+07:00 | 39156-5 | Body mass index (BMI) [Ratio] | 27.74 | kg/m2
-- 2025-12-03T07:45:49+07:00 | 85354-9 | Blood pressure panel with all children optional
-- 2025-12-03T07:45:49+07:00 | 8867-4 | Heart rate | 92 | /min
-- 2025-12-03T07:45:49+07:00 | 9279-1 | Respiratory rate | 12 | /min
+## medications
 
 ## procedures
 - 103750000 | Sleep apnea assessment (procedure)
@@ -51,14 +51,14 @@
 - 428211000124100 | Assessment of substance use (procedure)
 - 713106006 | Screening for drug abuse (procedure)
 
-## immunizations
-- zoster vaccine, live | 2025-12-03T07:45:49+07:00 | completed
-- Influenza, split virus, trivalent, PF | 2025-12-03T07:45:49+07:00 | completed
-- Td (adult), 5 Lf tetanus toxoid, preservative free, adsorbed | 2025-12-03T07:45:49+07:00 | completed
-
-## encounters
-- General examination of patient (procedure) | 2025-12-03T07:45:49+07:00 | 2025-12-03T08:27:26+07:00
-- Encounter for symptom (procedure) | 2020-11-15T07:45:49+07:00 | 2020-11-15T08:23:21+07:00
-
 ## relatedpersons
+
+## vitals
+- 2025-12-03T07:45:49+07:00 | 8302-2 | Body Height | 182.1 | cm
+- 2025-12-03T07:45:49+07:00 | 72514-3 | Pain severity - 0-10 verbal numeric rating [Score] - Reported | 1 | {score}
+- 2025-12-03T07:45:49+07:00 | 29463-7 | Body Weight | 92 | kg
+- 2025-12-03T07:45:49+07:00 | 39156-5 | Body mass index (BMI) [Ratio] | 27.74 | kg/m2
+- 2025-12-03T07:45:49+07:00 | 85354-9 | Blood pressure panel with all children optional | 108/93 | mm[Hg]
+- 2025-12-03T07:45:49+07:00 | 8867-4 | Heart rate | 92 | /min
+- 2025-12-03T07:45:49+07:00 | 9279-1 | Respiratory rate | 12 | /min
 
