@@ -7,3 +7,5 @@ prompt=D-markdown_visits-20.md max_tokens=16384 load_ms=1307 ttft_ms=148285 pref
 prompt=D-markdown_visits-40.md max_tokens=32768 load_ms=1532 ttft_ms=628916 prefill_tokens=25734 decode_tokens=137 prefill_tps=40.9 decode_tps=4.4 total_ms=659804 first_chunk_ms=631634 chars=762 peak_rss_mb=5977
 prompt=D-markdown_visits-51.md max_tokens=32768 load_ms=2670 ttft_ms=636491 prefill_tokens=29552 decode_tokens=145 prefill_tps=46.4 decode_tps=6.2 total_ms=659664 first_chunk_ms=638467 chars=786 peak_rss_mb=5999
 prompt=A-raw_visits-01.json max_tokens=32768 load_ms=3085 ttft_ms=538916 prefill_tokens=25507 decode_tokens=168 prefill_tps=47.3 decode_tps=6.4 total_ms=565044 first_chunk_ms=540877 chars=678 peak_rss_mb=6072
+prompt=D-markdown_visits-01.md max_tokens=4096 load_ms=3598 ttft_ms=16133 prefill_tokens=2123 decode_tokens=115 prefill_tps=132.3 decode_tps=11.0 total_ms=26673 first_chunk_ms=17202 chars=572 peak_rss_mb=2183
+prompt=D-markdown_visits-02.md max_tokens=4096 load_ms=3555 ttft_ms=21290 prefill_tokens=2438 decode_tokens=95 prefill_tps=115.0 decode_tps=11.7 total_ms=29434 first_chunk_ms=22574 chars=462 peak_rss_mb=2219
