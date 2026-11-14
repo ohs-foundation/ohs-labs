@@ -39,7 +39,8 @@ import kotlinx.coroutines.launch
 /**
  * Benchmark runs are started from adb, one cold start per run:
  *   adb shell am start -S -n dev.ohs.slm.smoketest/.MainActivity --es prompt_file p.txt --ei max_tokens 4096
- * prompt_file is a file in the app's files dir. The result is one logcat line with the tag SlmBench.
+ * prompt_file is a file in the app's files dir. The result is one logcat line with the tag SlmBench,
+ * and the reply is saved next to the prompt as <prompt_file>.reply.txt.
  */
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -99,6 +100,7 @@ class SmokeTestViewModel(app: Application) : AndroidViewModel(app) {
                     if (benchName != null) Log.i(BENCH_TAG, benchLine(benchName, stats))
                     _state.update { it.copy(stats = stats) }
                 }.collect { chunk -> _state.update { it.copy(reply = it.reply + chunk) } }
+                if (benchName != null) File(getApplication<Application>().filesDir, "$benchName.reply.txt").writeText(_state.value.reply)
             }.onFailure { e ->
                 if (benchName != null) Log.i(BENCH_TAG, "prompt=$benchName error=${e.message?.replace(' ', '_')}")
                 _state.update { it.copy(reply = it.reply + "\n[error: ${e.message}]") }

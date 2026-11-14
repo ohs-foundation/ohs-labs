@@ -26,3 +26,6 @@ if [ -z "$LINE" ]; then
   $ADB shell am force-stop $PKG
 fi
 echo "$LINE" | tee -a results/device-runs.txt
+# Keep what the model wrote, for checking the answers later.
+mkdir -p results/replies
+$ADB shell run-as $PKG cat "files/$NAME.reply.txt" > "results/replies/$NAME.txt" 2>/dev/null || true
