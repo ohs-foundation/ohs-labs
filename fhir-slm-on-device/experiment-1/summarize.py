@@ -12,16 +12,19 @@ HERE = Path(__file__).parent
 tokens = {(r["format"], r["slice"]): int(r["tokens"]) for r in csv.DictReader(open(HERE / "results/tokens.csv"))}
 # Device runs made with run_device.sh (prompt names like D-markdown_visits-05.md). When a slice
 # was run with several context sizes, keep the smallest, which is the one sized to the prompt.
-runs = {}
+# When it was run more than once at that size, keep the run with the median total time.
+by_slice = collections.defaultdict(list)
 for line in open(HERE / "results/device-runs.txt"):
     if line.startswith("prompt=") and "error=" not in line:
         kv = dict(p.split("=", 1) for p in line.split())
         fmt, _, name = kv["prompt"].partition("_")
-        if not name:
-            continue
-        key = (fmt, Path(name).stem)
-        if key not in runs or int(kv["max_tokens"]) < int(runs[key]["max_tokens"]):
-            runs[key] = kv
+        if name:
+            by_slice[(fmt, Path(name).stem)].append(kv)
+runs = {}
+for key, kvs in by_slice.items():
+    smallest = min(int(kv["max_tokens"]) for kv in kvs)
+    same = sorted((kv for kv in kvs if int(kv["max_tokens"]) == smallest), key=lambda kv: int(kv["total_ms"]))
+    runs[key] = same[len(same) // 2]
 
 rows = []
 for f in sorted((HERE / "data/A-raw").glob("visits-*.json")):

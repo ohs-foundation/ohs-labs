@@ -1,0 +1,12 @@
+# One line per on-device run (SlmBench). Device: Android emulator Pixel 4 XL arm64, CPU, Gemma 4 E2B.
+prompt=D-markdown_visits-01.md max_tokens=131072 load_ms=7340 ttft_ms=128887 prefill_tokens=2123 decode_tokens=115 prefill_tps=16.5 decode_tps=5.3 total_ms=150493 first_chunk_ms=130859 chars=572 peak_rss_mb=5847
+prompt=A-raw_visits-01.json max_tokens=32768 load_ms=3085 ttft_ms=538916 prefill_tokens=25507 decode_tokens=168 prefill_tps=47.3 decode_tps=6.4 total_ms=565044 first_chunk_ms=540877 chars=678 peak_rss_mb=6072
+prompt=D-markdown_visits-01.md max_tokens=4096 load_ms=4174 ttft_ms=12468 prefill_tokens=2136 decode_tokens=168 prefill_tps=172.7 decode_tps=9.7 total_ms=29670 first_chunk_ms=16270 chars=669 peak_rss_mb=2202
+prompt=D-markdown_visits-02.md max_tokens=4096 load_ms=1231 ttft_ms=9247 prefill_tokens=2451 decode_tokens=145 prefill_tps=266.8 decode_tps=16.7 total_ms=17909 first_chunk_ms=9588 chars=651 peak_rss_mb=2217
+prompt=D-markdown_visits-05.md max_tokens=8192 load_ms=927 ttft_ms=26834 prefill_tokens=4034 decode_tokens=138 prefill_tps=150.8 decode_tps=11.4 total_ms=38867 first_chunk_ms=28489 chars=623 peak_rss_mb=2780
+prompt=D-markdown_visits-10.md max_tokens=8192 load_ms=1210 ttft_ms=36484 prefill_tokens=7128 decode_tokens=154 prefill_tps=195.7 decode_tps=14.6 total_ms=46996 first_chunk_ms=36995 chars=743 peak_rss_mb=2815
+prompt=D-markdown_visits-20.md max_tokens=16384 load_ms=1112 ttft_ms=117698 prefill_tokens=12061 decode_tokens=170 prefill_tps=102.6 decode_tps=9.5 total_ms=135535 first_chunk_ms=118430 chars=814 peak_rss_mb=3908
+prompt=D-markdown_visits-40.md max_tokens=32768 load_ms=1673 ttft_ms=646072 prefill_tokens=25965 decode_tokens=150 prefill_tps=40.2 decode_tps=5.5 total_ms=673442 first_chunk_ms=647950 chars=841 peak_rss_mb=5973
+prompt=D-markdown_visits-51.md max_tokens=32768 load_ms=2467 ttft_ms=709544 prefill_tokens=29877 decode_tokens=155 prefill_tps=42.1 decode_tps=6.3 total_ms=734154 first_chunk_ms=712057 chars=880 peak_rss_mb=6007
+prompt=D-markdown_visits-10.md max_tokens=8192 load_ms=3018 ttft_ms=58169 prefill_tokens=7128 decode_tokens=154 prefill_tps=122.8 decode_tps=8.7 total_ms=75797 first_chunk_ms=58991 chars=743 peak_rss_mb=2816
+prompt=D-markdown_visits-10.md max_tokens=8192 load_ms=1960 ttft_ms=40204 prefill_tokens=7128 decode_tokens=154 prefill_tps=177.6 decode_tps=14.8 total_ms=50617 first_chunk_ms=40965 chars=743 peak_rss_mb=2816

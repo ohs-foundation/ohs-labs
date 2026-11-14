@@ -1,0 +1,5 @@
+Here is a summary of the patient record in three bullet points:
+
+* **Medical History & Concerns:** The patient has a history of various resolved conditions (including past issues with stress, gingivitis, and injuries) but currently has an active concern regarding drug misuse and ongoing issues with social isolation and limited social contact.
+* **Recent Health Metrics:** Recent lab results show relatively stable vital signs, with a Hemoglobin A1c around 6.0-6.1% and a BMI in the overweight category (27.74 kg/m²).
+* **Clinical Activity:** The patient has had multiple encounters, including emergency room visits, urgent care clinic visits, and numerous procedures related to dental care, depression screening, and sleep apnea assessments.
