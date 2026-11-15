@@ -4,10 +4,10 @@ plugins {
 }
 
 android {
-    namespace = "dev.ohs.slm.smoketest"
+    namespace = "dev.ohs.slm.bench"
     compileSdk = 36
     defaultConfig {
-        applicationId = "dev.ohs.slm.smoketest"
+        applicationId = "dev.ohs.slm.bench"
         minSdk = 24
         targetSdk = 36
         versionCode = 1

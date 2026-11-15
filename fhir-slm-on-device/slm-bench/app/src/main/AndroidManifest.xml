@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <application
-        android:label="SLM Smoke Test"
+        android:label="SLM Bench"
         android:theme="@android:style/Theme.Material.Light.NoActionBar">
         <!-- For LiteRT-LM's GPU backend. Optional, so the app still runs where they are missing. -->
         <uses-native-library android:name="libvndksupport.so" android:required="false" />

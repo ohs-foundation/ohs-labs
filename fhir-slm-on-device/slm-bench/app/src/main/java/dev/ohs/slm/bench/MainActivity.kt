@@ -1,4 +1,4 @@
-package dev.ohs.slm.smoketest
+package dev.ohs.slm.bench
 
 import android.app.Application
 import android.os.Bundle
@@ -39,7 +39,7 @@ import kotlinx.coroutines.launch
 
 /**
  * Benchmark runs are started from adb, one cold start per run:
- *   adb shell am start -S -n dev.ohs.slm.smoketest/.MainActivity --es prompt_file p.txt --ei max_tokens 4096 --es backend gpu
+ *   adb shell am start -S -n dev.ohs.slm.bench/.MainActivity --es prompt_file p.txt --ei max_tokens 4096 --es backend gpu
  * prompt_file is a file in the app's files dir. The result is one logcat line with the tag SlmBench,
  * and the reply is saved next to the prompt as <prompt_file>.reply.txt.
  */
@@ -49,7 +49,7 @@ class MainActivity : ComponentActivity() {
         BenchRequest.promptFile = intent.getStringExtra("prompt_file")
         BenchRequest.maxTokens = intent.getIntExtra("max_tokens", 0).takeIf { it > 0 }
         BenchRequest.gpu = intent.getStringExtra("backend") == "gpu"
-        setContent { MaterialTheme { SmokeTestScreen() } }
+        setContent { MaterialTheme { BenchScreen() } }
     }
 }
 
@@ -68,8 +68,8 @@ data class UiState(
     val stats: GenerationStats? = null,
 )
 
-class SmokeTestViewModel(app: Application) : AndroidViewModel(app) {
-    // Copy the model here with: adb shell run-as dev.ohs.slm.smoketest cp /data/local/tmp/model.litertlm files/
+class BenchViewModel(app: Application) : AndroidViewModel(app) {
+    // Copy the model here with: adb shell run-as dev.ohs.slm.bench cp /data/local/tmp/model.litertlm files/
     private val modelFile = File(app.filesDir, "model.litertlm")
     private val maxTokens = BenchRequest.maxTokens
     private val backendName = if (BenchRequest.gpu) "gpu" else "cpu"
@@ -130,13 +130,13 @@ class SmokeTestViewModel(app: Application) : AndroidViewModel(app) {
     override fun onCleared() = engine.close()
 
     companion object {
-        const val TAG = "SlmSmoke"
+        const val TAG = "SlmApp"
         const val BENCH_TAG = "SlmBench"
     }
 }
 
 @Composable
-fun SmokeTestScreen(vm: SmokeTestViewModel = viewModel()) {
+fun BenchScreen(vm: BenchViewModel = viewModel()) {
     val state by vm.state.collectAsStateWithLifecycle()
     var prompt by remember { mutableStateOf("Say hello in one sentence.") }
     Column(Modifier.fillMaxSize().padding(16.dp).padding(top = 32.dp)) {

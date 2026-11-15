@@ -5,7 +5,7 @@
 set -e
 FILE=$1; MAX=$2; BACKEND=${3:-cpu}
 ADB=${ADB:-~/Library/Android/sdk/platform-tools/adb}
-PKG=dev.ohs.slm.smoketest
+PKG=dev.ohs.slm.bench
 NAME=$(echo "$FILE" | sed 's#^data/##; s#/#_#g')
 TMP=$(mktemp)
 { echo "Summarize this patient record in 3 bullet points."; echo; cat "$FILE"; } > "$TMP"
