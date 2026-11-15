@@ -27,6 +27,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.google.ai.edge.litertlm.Backend
 import dev.ohs.slm.GenerationStats
 import dev.ohs.slm.LiteRtLmEngine
 import dev.ohs.slm.generateMeasured
@@ -38,7 +39,7 @@ import kotlinx.coroutines.launch
 
 /**
  * Benchmark runs are started from adb, one cold start per run:
- *   adb shell am start -S -n dev.ohs.slm.smoketest/.MainActivity --es prompt_file p.txt --ei max_tokens 4096
+ *   adb shell am start -S -n dev.ohs.slm.smoketest/.MainActivity --es prompt_file p.txt --ei max_tokens 4096 --es backend gpu
  * prompt_file is a file in the app's files dir. The result is one logcat line with the tag SlmBench,
  * and the reply is saved next to the prompt as <prompt_file>.reply.txt.
  */
@@ -47,6 +48,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         BenchRequest.promptFile = intent.getStringExtra("prompt_file")
         BenchRequest.maxTokens = intent.getIntExtra("max_tokens", 0).takeIf { it > 0 }
+        BenchRequest.gpu = intent.getStringExtra("backend") == "gpu"
         setContent { MaterialTheme { SmokeTestScreen() } }
     }
 }
@@ -55,6 +57,7 @@ class MainActivity : ComponentActivity() {
 object BenchRequest {
     var promptFile: String? = null
     var maxTokens: Int? = null
+    var gpu: Boolean = false
 }
 
 data class UiState(
@@ -69,7 +72,12 @@ class SmokeTestViewModel(app: Application) : AndroidViewModel(app) {
     // Copy the model here with: adb shell run-as dev.ohs.slm.smoketest cp /data/local/tmp/model.litertlm files/
     private val modelFile = File(app.filesDir, "model.litertlm")
     private val maxTokens = BenchRequest.maxTokens
-    private val engine = LiteRtLmEngine(cacheDir = app.cacheDir.path, maxNumTokens = maxTokens)
+    private val backendName = if (BenchRequest.gpu) "gpu" else "cpu"
+    private val engine = LiteRtLmEngine(
+        cacheDir = app.cacheDir.path,
+        backend = if (BenchRequest.gpu) Backend.GPU() else Backend.CPU(),
+        maxNumTokens = maxTokens,
+    )
     private var loadMs = 0L
     private val _state = MutableStateFlow(UiState())
     val state = _state.asStateFlow()
@@ -85,7 +93,7 @@ class SmokeTestViewModel(app: Application) : AndroidViewModel(app) {
                 .getOrNull() ?: return@launch
             loadMs = ms
             Log.i(TAG, "model loaded in $ms ms")
-            _state.update { it.copy(status = "Model loaded in ${ms / 1000.0} s (CPU)", ready = true) }
+            _state.update { it.copy(status = "Model loaded in ${ms / 1000.0} s (${backendName.uppercase()})", ready = true) }
             BenchRequest.promptFile?.let { send(File(app.filesDir, it).readText(), it) }
         }
     }
@@ -112,7 +120,7 @@ class SmokeTestViewModel(app: Application) : AndroidViewModel(app) {
     // One line per run, key=value, so a script can collect the results.
     private fun benchLine(name: String, s: GenerationStats): String {
         val r = s.runtime
-        return "prompt=$name max_tokens=${maxTokens ?: "default"} load_ms=$loadMs " +
+        return "prompt=$name backend=$backendName max_tokens=${maxTokens ?: "default"} load_ms=$loadMs " +
             "ttft_ms=${r?.timeToFirstTokenMs} prefill_tokens=${r?.prefillTokens} decode_tokens=${r?.decodeTokens} " +
             "prefill_tps=${r?.prefillTokensPerSecond?.let { "%.1f".format(it) }} " +
             "decode_tps=${r?.decodeTokensPerSecond?.let { "%.1f".format(it) }} " +
