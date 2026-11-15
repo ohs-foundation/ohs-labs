@@ -27,7 +27,7 @@ kotlin {
 }
 
 dependencies {
-    implementation(project(":slm-runtime"))
+    implementation("dev.ohs.slm:slm-runtime:0.1.0")
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.activity.compose)

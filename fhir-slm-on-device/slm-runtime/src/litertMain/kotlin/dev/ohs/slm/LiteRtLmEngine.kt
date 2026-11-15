@@ -76,7 +76,18 @@ class LiteRtLmEngine(
     }
 }
 
-actual fun peakRssMb(): Long =
-    File("/proc/self/status").readLines()
-        .firstOrNull { it.startsWith("VmHWM:") }
-        ?.filter(Char::isDigit)?.toLongOrNull()?.div(1024) ?: -1
+/**
+ * Android and Linux report the peak (VmHWM in /proc). macOS has no /proc, so there it is the
+ * current resident memory from ps, which is a lower bound on the peak.
+ */
+actual fun peakRssMb(): Long {
+    val status = File("/proc/self/status")
+    if (status.exists()) {
+        return status.readLines().firstOrNull { it.startsWith("VmHWM:") }
+            ?.filter(Char::isDigit)?.toLongOrNull()?.div(1024) ?: -1
+    }
+    return runCatching {
+        ProcessBuilder("ps", "-o", "rss=", "-p", ProcessHandle.current().pid().toString())
+            .start().inputStream.bufferedReader().readText().trim().toLong() / 1024
+    }.getOrDefault(-1)
+}

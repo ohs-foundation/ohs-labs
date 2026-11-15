@@ -14,4 +14,6 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "slm-smoke-test"
-include(":slm-runtime", ":app")
+include(":app")
+// The runtime library lives next to this app as its own build.
+includeBuild("../slm-runtime")
