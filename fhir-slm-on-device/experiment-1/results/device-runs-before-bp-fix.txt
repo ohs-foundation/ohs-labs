@@ -1,0 +1,11 @@
+# One line per on-device run (SlmBench). Device: Android emulator Pixel 4 XL arm64, CPU, Gemma 4 E2B.
+prompt=D-markdown/visits-01.md max_tokens=4096 load_ms=2634 ttft_ms=13847 prefill_tokens=2111 decode_tokens=630 prefill_tps=153.2 decode_tps=15.1 total_ms=55501 first_chunk_ms=15364 chars=1920 peak_rss_mb=2220
+prompt=D-markdown_visits-01.md max_tokens=131072 load_ms=7340 ttft_ms=128887 prefill_tokens=2123 decode_tokens=115 prefill_tps=16.5 decode_tps=5.3 total_ms=150493 first_chunk_ms=130859 chars=572 peak_rss_mb=5847
+prompt=D-markdown_visits-05.md max_tokens=8192 load_ms=2635 ttft_ms=27732 prefill_tokens=4008 decode_tokens=149 prefill_tps=144.9 decode_tps=13.0 total_ms=39134 first_chunk_ms=28376 chars=747 peak_rss_mb=2783
+prompt=D-markdown_visits-10.md max_tokens=8192 load_ms=1367 ttft_ms=36557 prefill_tokens=7076 decode_tokens=143 prefill_tps=193.9 decode_tps=14.7 total_ms=46245 first_chunk_ms=37068 chars=777 peak_rss_mb=2816
+prompt=D-markdown_visits-20.md max_tokens=16384 load_ms=1307 ttft_ms=148285 prefill_tokens=11947 decode_tokens=154 prefill_tps=80.6 decode_tps=9.8 total_ms=163916 first_chunk_ms=149718 chars=834 peak_rss_mb=3908
+prompt=D-markdown_visits-40.md max_tokens=32768 load_ms=1532 ttft_ms=628916 prefill_tokens=25734 decode_tokens=137 prefill_tps=40.9 decode_tps=4.4 total_ms=659804 first_chunk_ms=631634 chars=762 peak_rss_mb=5977
+prompt=D-markdown_visits-51.md max_tokens=32768 load_ms=2670 ttft_ms=636491 prefill_tokens=29552 decode_tokens=145 prefill_tps=46.4 decode_tps=6.2 total_ms=659664 first_chunk_ms=638467 chars=786 peak_rss_mb=5999
+prompt=A-raw_visits-01.json max_tokens=32768 load_ms=3085 ttft_ms=538916 prefill_tokens=25507 decode_tokens=168 prefill_tps=47.3 decode_tps=6.4 total_ms=565044 first_chunk_ms=540877 chars=678 peak_rss_mb=6072
+prompt=D-markdown_visits-01.md max_tokens=4096 load_ms=3598 ttft_ms=16133 prefill_tokens=2123 decode_tokens=115 prefill_tps=132.3 decode_tps=11.0 total_ms=26673 first_chunk_ms=17202 chars=572 peak_rss_mb=2183
+prompt=D-markdown_visits-02.md max_tokens=4096 load_ms=3555 ttft_ms=21290 prefill_tokens=2438 decode_tokens=95 prefill_tps=115.0 decode_tps=11.7 total_ms=29434 first_chunk_ms=22574 chars=462 peak_rss_mb=2219

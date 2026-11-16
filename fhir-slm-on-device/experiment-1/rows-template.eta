@@ -1,0 +1,5 @@
+<% for (const [name, rows] of Object.entries(it.views)) { if (!rows.length) continue; %>
+## <%~ name %>
+<%~ Object.keys(rows[0]).join(',') %>
+<% for (const r of rows) { %><%~ Object.values(r).map(v => v ?? '').join(',') %>
+<% } } %>

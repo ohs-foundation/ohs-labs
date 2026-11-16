@@ -1,0 +1,654 @@
+# Patient Summary — Miquel905 Jenkins714 (1974-11-27)
+
+## allergies
+
+## conditions
+- 361055000 | Misuses drugs (finding) | active | 2025-12-03T10:10:42+07:00
+- 73595000 | Stress (finding) | resolved | 2024-11-27T08:33:37+07:00
+- 706893006 | Victim of intimate partner abuse (finding) | resolved | 2024-11-27T08:33:37+07:00
+- 66383009 | Gingivitis (disorder) | resolved | 2024-11-27T09:42:10+07:00
+- 312608009 | Laceration - injury (disorder) | resolved | 2024-09-16T08:28:33+07:00
+- 283371005 | Laceration of forearm (disorder) | resolved | 2024-09-16T08:28:33+07:00
+- 444814009 | Viral sinusitis (disorder) | resolved | 2023-08-09T07:45:49+07:00
+- 314529007 | Medication review due (situation) | active | 2023-07-26T07:45:49+07:00
+- 160903007 | Full-time employment (finding) | active | 2023-07-26T08:27:08+07:00
+- 422650009 | Social isolation (finding) | resolved | 2023-07-26T08:27:08+07:00
+- 195662009 | Acute viral pharyngitis (disorder) | resolved | 2023-07-17T03:45:49+07:00
+- 73438004 | Unemployed (finding) | resolved | 2022-12-21T08:23:32+07:00
+- 423315002 | Limited social contact (finding) | active | 2022-12-21T08:23:32+07:00
+- 49727002 | Cough (finding) | resolved | 2021-03-09T07:45:49+07:00
+- 43724002 | Chill (finding) | resolved | 2021-03-09T07:45:49+07:00
+- 386661006 | Fever (finding) | resolved | 2021-03-09T07:45:49+07:00
+- 840539006 | Disease caused by severe acute respiratory syndrome coronavirus 2 (disorder) | resolved | 2021-03-09T09:10:50+07:00
+- 160904001 | Part-time employment (finding) | resolved | 2020-12-16T08:16:05+07:00
+- 840544004 | Suspected disease caused by Severe acute respiratory coronavirus 2 (situation) | resolved | 2021-03-09T07:45:49+07:00
+- 73430006 | Sleep apnea (disorder) | active | 2020-12-02T17:51:04+07:00
+- 39898005 | Sleep disorder (disorder) | active | 2020-11-15T07:45:49+07:00
+- 444814009 | Viral sinusitis (disorder) | resolved | 2020-07-15T07:45:49+07:00
+- 741062008 | Not in labor force (finding) | resolved | 2020-07-08T08:22:17+07:00
+- 444814009 | Viral sinusitis (disorder) | resolved | 2019-09-03T03:45:49+07:00
+- 160904001 | Part-time employment (finding) | resolved | 2019-02-27T08:35:02+07:00
+- 741062008 | Not in labor force (finding) | resolved | 2019-02-13T08:45:13+07:00
+- 73595000 | Stress (finding) | resolved | 2019-02-13T08:45:13+07:00
+- 160904001 | Part-time employment (finding) | resolved | 2019-01-16T08:20:11+07:00
+- 706893006 | Victim of intimate partner abuse (finding) | resolved | 2019-01-16T08:20:11+07:00
+- 80583007 | Severe anxiety (panic) (finding) | resolved | 2019-01-16T08:49:45+07:00
+- 66383009 | Gingivitis (disorder) | resolved | 2019-01-16T08:49:45+07:00
+- 40055000 | Chronic sinusitis (disorder) | active | 2019-01-06T07:45:49+07:00
+- 36971009 | Sinusitis (disorder) | resolved | 2018-12-19T07:45:49+07:00
+- 422650009 | Social isolation (finding) | resolved | 2018-12-12T08:28:32+07:00
+- 384709000 | Sprain (morphologic abnormality) | resolved | 2017-07-25T08:28:33+07:00
+- 70704007 | Sprain of wrist (disorder) | resolved | 2017-07-25T08:28:33+07:00
+- 271737000 | Anemia (disorder) | active | 2016-12-07T07:45:49+07:00
+- 66383009 | Gingivitis (disorder) | resolved | 2016-12-07T09:34:23+07:00
+- 66383009 | Gingivitis (disorder) | resolved | 2013-06-05T09:11:46+07:00
+- 444814009 | Viral sinusitis (disorder) | resolved | 2013-06-12T07:45:49+07:00
+- 314529007 | Medication review due (situation) | resolved | 2012-02-15T07:45:49+07:00
+- 714628002 | Prediabetes (finding) | active | 2012-02-15T07:45:49+07:00
+- 160903007 | Full-time employment (finding) | resolved | 2012-02-15T08:39:15+07:00
+- 73595000 | Stress (finding) | resolved | 2012-02-15T08:39:15+07:00
+- 314529007 | Medication review due (situation) | resolved | 2009-02-11T07:45:49+07:00
+- 424393004 | Reports of violence in the environment (finding) | resolved | 2009-02-11T08:44:55+07:00
+- 444814009 | Viral sinusitis (disorder) | resolved | 2008-07-23T07:45:49+07:00
+- 160904001 | Part-time employment (finding) | resolved | 2008-07-16T08:21:57+07:00
+- 444814009 | Viral sinusitis (disorder) | resolved | 2007-05-03T08:45:49+07:00
+- 307426000 | Acute infective cystitis (disorder) | resolved | 2007-05-29T07:45:49+07:00
+- 160903007 | Full-time employment (finding) | resolved | 2006-02-08T08:29:36+07:00
+- 73595000 | Stress (finding) | resolved | 2006-02-08T08:29:36+07:00
+- 424393004 | Reports of violence in the environment (finding) | resolved | 2006-02-08T08:29:36+07:00
+- 314529007 | Medication review due (situation) | resolved | 2003-02-05T07:45:49+07:00
+- 422650009 | Social isolation (finding) | resolved | 2003-02-05T08:35:42+07:00
+- 713458007 | Lack of access to transportation (finding) | active | 2000-02-02T08:30:20+07:00
+- 162864005 | Body mass index 30+ - obesity (finding) | active | 1997-01-29T07:45:49+07:00
+- 105531004 | Housing unsatisfactory (finding) | active | 1993-01-20T08:44:08+07:00
+- 224299000 | Received higher education (finding) | active | 1993-01-20T08:44:08+07:00
+- 266934004 | Transport problem (finding) | active | 1993-01-20T08:44:08+07:00
+- 423315002 | Limited social contact (finding) | resolved | 1993-01-20T08:44:08+07:00
+
+## demographics
+- Miquel905 Jenkins714 | 1974-11-27 | male
+
+## encounters
+- General examination of patient (procedure) | 2025-12-03T07:45:49+07:00 | 2025-12-03T08:27:26+07:00
+- Encounter for check up (procedure) | 2024-12-11T07:45:49+07:00 | 2024-12-11T10:23:27+07:00
+- Encounter for check up (procedure) | 2024-12-04T07:45:49+07:00 | 2024-12-04T08:19:44+07:00
+- General examination of patient (procedure) | 2024-11-27T07:45:49+07:00 | 2024-11-27T08:33:37+07:00
+- Emergency room admission (procedure) | 2024-09-16T08:28:33+07:00 | 2024-09-16T09:28:33+07:00
+- Encounter for symptom (procedure) | 2023-08-09T07:45:49+07:00 | 2023-08-09T08:00:49+07:00
+- Urgent care clinic (environment) | 2023-08-02T07:45:49+07:00 | 2023-08-02T08:00:49+07:00
+- Urgent care clinic (environment) | 2023-07-26T07:45:49+07:00 | 2023-07-26T08:27:08+07:00
+- Encounter for symptom (procedure) | 2023-07-17T03:45:49+07:00 | 2023-07-17T04:00:49+07:00
+- General examination of patient (procedure) | 2022-12-21T07:45:49+07:00 | 2022-12-21T08:23:32+07:00
+- Administration of vaccine to produce active immunity (procedure) | 2021-05-19T07:45:49+07:00 | 2021-05-19T08:00:49+07:00
+- Administration of vaccine to produce active immunity (procedure) | 2021-04-21T07:45:49+07:00 | 2021-04-21T08:00:49+07:00
+- Encounter for symptom (procedure) | 2021-03-09T07:45:49+07:00 | 2021-03-09T09:10:50+07:00
+- General examination of patient (procedure) | 2020-12-16T07:45:49+07:00 | 2020-12-16T08:16:05+07:00
+- Follow-up visit (procedure) | 2020-12-02T09:01:13+07:00 | 2020-12-03T09:01:13+07:00
+- Encounter for symptom (procedure) | 2020-11-23T08:23:21+07:00 | 2020-11-23T09:01:13+07:00
+- Encounter for symptom (procedure) | 2020-11-15T07:45:49+07:00 | 2020-11-15T08:23:21+07:00
+- Encounter for check up (procedure) | 2020-07-22T07:45:49+07:00 | 2020-07-22T11:16:55+07:00
+- Encounter for symptom (procedure) | 2020-07-15T07:45:49+07:00 | 2020-07-15T08:00:49+07:00
+- Encounter for check up (procedure) | 2020-07-08T07:45:49+07:00 | 2020-07-08T08:22:17+07:00
+- Encounter for symptom (procedure) | 2019-09-03T03:45:49+07:00 | 2019-09-03T04:00:49+07:00
+- Encounter for check up (procedure) | 2019-02-27T07:45:49+07:00 | 2019-02-27T08:35:02+07:00
+- Encounter for symptom (procedure) | 2019-02-20T07:45:49+07:00 | 2019-02-20T08:00:49+07:00
+- Urgent care clinic (environment) | 2019-02-13T07:45:49+07:00 | 2019-02-13T08:45:13+07:00
+- Encounter for symptom (procedure) | 2019-02-06T07:45:49+07:00 | 2019-02-06T08:00:49+07:00
+- Encounter for check up (procedure) | 2019-01-30T07:45:49+07:00 | 2019-01-30T10:49:43+07:00
+- Urgent care clinic (environment) | 2019-01-16T07:45:49+07:00 | 2019-01-16T08:20:11+07:00
+- Encounter for symptom (procedure) | 2019-01-06T07:45:49+07:00 | 2019-01-06T08:00:49+07:00
+- Encounter for symptom (procedure) | 2018-12-19T07:45:49+07:00 | 2018-12-19T08:00:49+07:00
+- General examination of patient (procedure) | 2018-12-12T07:45:49+07:00 | 2018-12-12T08:28:32+07:00
+- Emergency room admission (procedure) | 2017-07-25T08:28:33+07:00 | 2017-07-25T09:28:33+07:00
+- Encounter for check up (procedure) | 2016-12-28T07:45:49+07:00 | 2016-12-28T10:50:11+07:00
+- Encounter for problem (procedure) | 2016-12-14T07:45:49+07:00 | 2016-12-14T09:07:05+07:00
+- General examination of patient (procedure) | 2016-12-07T07:45:49+07:00 | 2016-12-07T08:26:09+07:00
+- General examination of patient (procedure) | 2014-12-03T07:45:49+07:00 | 2014-12-03T08:42:52+07:00
+- Encounter for check up (procedure) | 2013-06-19T07:45:49+07:00 | 2013-06-19T11:22:55+07:00
+- Encounter for symptom (procedure) | 2013-06-12T07:45:49+07:00 | 2013-06-12T08:00:49+07:00
+- Encounter for check up (procedure) | 2013-06-05T07:45:49+07:00 | 2013-06-05T08:30:47+07:00
+- General examination of patient (procedure) | 2012-02-15T07:45:49+07:00 | 2012-02-15T08:39:15+07:00
+- General examination of patient (procedure) | 2009-02-11T07:45:49+07:00 | 2009-02-11T08:44:55+07:00
+- Encounter for symptom (procedure) | 2008-07-23T07:45:49+07:00 | 2008-07-23T08:00:49+07:00
+- Encounter for check up (procedure) | 2008-07-16T07:45:49+07:00 | 2008-07-16T08:21:57+07:00
+- Encounter for symptom (procedure) | 2007-05-29T07:45:49+07:00 | 2007-05-29T09:51:19+07:00
+- Encounter for symptom (procedure) | 2007-05-03T08:45:49+07:00 | 2007-05-03T09:00:49+07:00
+- General examination of patient (procedure) | 2006-02-08T07:45:49+07:00 | 2006-02-08T08:29:36+07:00
+- General examination of patient (procedure) | 2003-02-05T07:45:49+07:00 | 2003-02-05T08:35:42+07:00
+- General examination of patient (procedure) | 2000-02-02T07:45:49+07:00 | 2000-02-02T08:30:20+07:00
+- General examination of patient (procedure) | 1997-01-29T07:45:49+07:00 | 1997-01-29T08:42:32+07:00
+- General examination of patient (procedure) | 1993-01-20T07:45:49+07:00 | 1993-01-20T08:44:08+07:00
+- Encounter for problem (procedure) | 1976-04-12T14:45:49+07:00 | 1976-04-12T15:10:41+07:00
+- Encounter for problem (procedure) | 1976-03-26T07:45:49+07:00 | 1976-03-26T08:00:49+07:00
+
+## immunizations
+- zoster vaccine, live | 2025-12-03T07:45:49+07:00 | completed
+- Influenza, split virus, trivalent, PF | 2025-12-03T07:45:49+07:00 | completed
+- Td (adult), 5 Lf tetanus toxoid, preservative free, adsorbed | 2025-12-03T07:45:49+07:00 | completed
+- zoster vaccine, live | 2024-11-27T07:45:49+07:00 | completed
+- Influenza, split virus, trivalent, PF | 2024-11-27T07:45:49+07:00 | completed
+- Influenza, split virus, trivalent, PF | 2023-08-02T07:45:49+07:00 | completed
+- Influenza, split virus, trivalent, PF | 2023-07-26T07:45:49+07:00 | completed
+- Influenza, split virus, trivalent, PF | 2022-12-21T07:45:49+07:00 | completed
+- COVID-19, mRNA, LNP-S, PF, 100 mcg/0.5mL dose or 50 mcg/0.25mL dose | 2021-05-19T07:45:49+07:00 | completed
+- COVID-19, mRNA, LNP-S, PF, 100 mcg/0.5mL dose or 50 mcg/0.25mL dose | 2021-04-21T07:45:49+07:00 | completed
+- Influenza, split virus, trivalent, PF | 2020-12-16T07:45:49+07:00 | completed
+- Influenza, split virus, trivalent, PF | 2020-07-08T07:45:49+07:00 | completed
+- Influenza, split virus, trivalent, PF | 2019-02-13T07:45:49+07:00 | completed
+- Influenza, split virus, trivalent, PF | 2019-01-16T07:45:49+07:00 | completed
+- Influenza, split virus, trivalent, PF | 2018-12-12T07:45:49+07:00 | completed
+- Influenza, split virus, trivalent, PF | 2016-12-07T07:45:49+07:00 | completed
+- Td (adult), 5 Lf tetanus toxoid, preservative free, adsorbed | 2016-12-07T07:45:49+07:00 | completed
+- Hep A, adult | 2016-12-07T07:45:49+07:00 | completed
+- Influenza, split virus, trivalent, PF | 2014-12-03T07:45:49+07:00 | completed
+- Hep A, adult | 2014-12-03T07:45:49+07:00 | completed
+- Influenza, split virus, trivalent, PF | 2013-06-05T07:45:49+07:00 | completed
+- Influenza, split virus, trivalent, PF | 2012-02-15T07:45:49+07:00 | completed
+- Influenza, split virus, trivalent, PF | 2009-02-11T07:45:49+07:00 | completed
+- Influenza, split virus, trivalent, PF | 2008-07-16T07:45:49+07:00 | completed
+
+## labs
+- 2025-12-03T07:45:49+07:00 | 4548-4 | Hemoglobin A1c/Hemoglobin.total in Blood | 6.1 | %
+- 2025-12-03T07:45:49+07:00 | 2339-0 | Glucose [Mass/volume] in Blood | 66.28 | mg/dL
+- 2025-12-03T07:45:49+07:00 | 6299-2 | Urea nitrogen [Mass/volume] in Blood | 16.63 | mg/dL
+- 2025-12-03T07:45:49+07:00 | 38483-4 | Creatinine [Mass/volume] in Blood | 1.28 | mg/dL
+- 2025-12-03T07:45:49+07:00 | 49765-1 | Calcium [Mass/volume] in Blood | 8.82 | mg/dL
+- 2025-12-03T07:45:49+07:00 | 2947-0 | Sodium [Moles/volume] in Blood | 138.46 | mmol/L
+- 2025-12-03T07:45:49+07:00 | 6298-4 | Potassium [Moles/volume] in Blood | 4.59 | mmol/L
+- 2025-12-03T07:45:49+07:00 | 2069-3 | Chloride [Moles/volume] in Blood | 106.7 | mmol/L
+- 2025-12-03T07:45:49+07:00 | 20565-8 | Carbon dioxide, total [Moles/volume] in Blood | 20.67 | mmol/L
+- 2025-12-03T07:45:49+07:00 | 6690-2 | Leukocytes [#/volume] in Blood by Automated count | 6.318 | 10*3/uL
+- 2025-12-03T07:45:49+07:00 | 789-8 | Erythrocytes [#/volume] in Blood by Automated count | 4.3966 | 10*6/uL
+- 2025-12-03T07:45:49+07:00 | 718-7 | Hemoglobin [Mass/volume] in Blood | 14.351 | g/dL
+- 2025-12-03T07:45:49+07:00 | 4544-3 | Hematocrit [Volume Fraction] of Blood by Automated count | 40.47 | %
+- 2025-12-03T07:45:49+07:00 | 787-2 | MCV [Entitic mean volume] in Red Blood Cells by Automated count | 89.987 | fL
+- 2025-12-03T07:45:49+07:00 | 785-6 | MCH [Entitic mass] by Automated count | 32.71 | pg
+- 2025-12-03T07:45:49+07:00 | 786-4 | MCHC [Entitic Mass/volume] in Red Blood Cells by Automated count | 35.218 | g/dL
+- 2025-12-03T07:45:49+07:00 | 788-0 | Erythrocyte [DistWidth] in Blood by Automated count | 44.637 | fL
+- 2025-12-03T07:45:49+07:00 | 777-3 | Platelets [#/volume] in Blood by Automated count | 358.95 | 10*3/uL
+- 2025-12-03T07:45:49+07:00 | 32207-3 | Platelet distribution width [Entitic volume] in Blood by Automated count | 9.8322 | fL
+- 2025-12-03T07:45:49+07:00 | 32623-1 | Platelet [Entitic mean volume] in Blood by Automated count | 10.178 | fL
+- 2024-11-27T07:45:49+07:00 | 4548-4 | Hemoglobin A1c/Hemoglobin.total in Blood | 6.06 | %
+- 2024-11-27T07:45:49+07:00 | 2339-0 | Glucose [Mass/volume] in Blood | 64.66 | mg/dL
+- 2024-11-27T07:45:49+07:00 | 6299-2 | Urea nitrogen [Mass/volume] in Blood | 12.56 | mg/dL
+- 2024-11-27T07:45:49+07:00 | 38483-4 | Creatinine [Mass/volume] in Blood | 1.15 | mg/dL
+- 2024-11-27T07:45:49+07:00 | 49765-1 | Calcium [Mass/volume] in Blood | 8.98 | mg/dL
+- 2024-11-27T07:45:49+07:00 | 2947-0 | Sodium [Moles/volume] in Blood | 136.83 | mmol/L
+- 2024-11-27T07:45:49+07:00 | 6298-4 | Potassium [Moles/volume] in Blood | 4.68 | mmol/L
+- 2024-11-27T07:45:49+07:00 | 2069-3 | Chloride [Moles/volume] in Blood | 102.28 | mmol/L
+- 2024-11-27T07:45:49+07:00 | 20565-8 | Carbon dioxide, total [Moles/volume] in Blood | 25.6 | mmol/L
+- 2023-08-02T07:45:49+07:00 | 4548-4 | Hemoglobin A1c/Hemoglobin.total in Blood | 5.84 | %
+- 2023-07-26T07:45:49+07:00 | 4548-4 | Hemoglobin A1c/Hemoglobin.total in Blood | 6.15 | %
+- 2023-07-26T07:45:49+07:00 | 2339-0 | Glucose [Mass/volume] in Blood | 84.44 | mg/dL
+- 2023-07-26T07:45:49+07:00 | 6299-2 | Urea nitrogen [Mass/volume] in Blood | 9.27 | mg/dL
+- 2023-07-26T07:45:49+07:00 | 38483-4 | Creatinine [Mass/volume] in Blood | 1.18 | mg/dL
+- 2023-07-26T07:45:49+07:00 | 49765-1 | Calcium [Mass/volume] in Blood | 9.43 | mg/dL
+- 2023-07-26T07:45:49+07:00 | 2947-0 | Sodium [Moles/volume] in Blood | 137.22 | mmol/L
+- 2023-07-26T07:45:49+07:00 | 6298-4 | Potassium [Moles/volume] in Blood | 5.14 | mmol/L
+- 2023-07-26T07:45:49+07:00 | 2069-3 | Chloride [Moles/volume] in Blood | 102.65 | mmol/L
+- 2023-07-26T07:45:49+07:00 | 20565-8 | Carbon dioxide, total [Moles/volume] in Blood | 22.96 | mmol/L
+- 2023-07-26T07:45:49+07:00 | 2093-3 | Cholesterol [Mass/volume] in Serum or Plasma | 163.53 | mg/dL
+- 2023-07-26T07:45:49+07:00 | 2571-8 | Triglyceride [Mass/volume] in Serum or Plasma | 132.09 | mg/dL
+- 2023-07-26T07:45:49+07:00 | 18262-6 | Cholesterol in LDL [Mass/volume] in Serum or Plasma by Direct assay | 106.91 | mg/dL
+- 2023-07-26T07:45:49+07:00 | 2085-9 | Cholesterol in HDL [Mass/volume] in Serum or Plasma | 30.21 | mg/dL
+- 2022-12-21T07:45:49+07:00 | 4548-4 | Hemoglobin A1c/Hemoglobin.total in Blood | 5.81 | %
+- 2022-12-21T07:45:49+07:00 | 2339-0 | Glucose [Mass/volume] in Blood | 73.42 | mg/dL
+- 2022-12-21T07:45:49+07:00 | 6299-2 | Urea nitrogen [Mass/volume] in Blood | 11.15 | mg/dL
+- 2022-12-21T07:45:49+07:00 | 38483-4 | Creatinine [Mass/volume] in Blood | 1.19 | mg/dL
+- 2022-12-21T07:45:49+07:00 | 49765-1 | Calcium [Mass/volume] in Blood | 9.85 | mg/dL
+- 2022-12-21T07:45:49+07:00 | 2947-0 | Sodium [Moles/volume] in Blood | 138.17 | mmol/L
+- 2022-12-21T07:45:49+07:00 | 6298-4 | Potassium [Moles/volume] in Blood | 4.64 | mmol/L
+- 2022-12-21T07:45:49+07:00 | 2069-3 | Chloride [Moles/volume] in Blood | 107.68 | mmol/L
+- 2022-12-21T07:45:49+07:00 | 20565-8 | Carbon dioxide, total [Moles/volume] in Blood | 20.83 | mmol/L
+- 2021-03-09T07:56:50+07:00 | 80382-5 | Influenza virus A Ag [Presence] in Upper respiratory specimen by Rapid immunoassay | Not detected (qualifier value)
+- 2021-03-09T07:56:50+07:00 | 80383-3 | Influenza virus B Ag [Presence] in Upper respiratory specimen by Rapid immunoassay | Not detected (qualifier value)
+- 2021-03-09T09:10:50+07:00 | 94531-1 | SARS-CoV-2 (COVID-19) RNA panel - Respiratory system specimen by NAA with probe detection | Detected (qualifier value)
+- 2020-12-16T07:45:49+07:00 | 4548-4 | Hemoglobin A1c/Hemoglobin.total in Blood | 6.03 | %
+- 2020-12-16T07:45:49+07:00 | 2339-0 | Glucose [Mass/volume] in Blood | 97.85 | mg/dL
+- 2020-12-16T07:45:49+07:00 | 6299-2 | Urea nitrogen [Mass/volume] in Blood | 17.1 | mg/dL
+- 2020-12-16T07:45:49+07:00 | 38483-4 | Creatinine [Mass/volume] in Blood | 1.32 | mg/dL
+- 2020-12-16T07:45:49+07:00 | 49765-1 | Calcium [Mass/volume] in Blood | 9.56 | mg/dL
+- 2020-12-16T07:45:49+07:00 | 2947-0 | Sodium [Moles/volume] in Blood | 143.92 | mmol/L
+- 2020-12-16T07:45:49+07:00 | 6298-4 | Potassium [Moles/volume] in Blood | 5 | mmol/L
+- 2020-12-16T07:45:49+07:00 | 2069-3 | Chloride [Moles/volume] in Blood | 107.01 | mmol/L
+- 2020-12-16T07:45:49+07:00 | 20565-8 | Carbon dioxide, total [Moles/volume] in Blood | 21.4 | mmol/L
+- 2020-07-08T07:45:49+07:00 | 4548-4 | Hemoglobin A1c/Hemoglobin.total in Blood | 6.33 | %
+- 2020-07-08T07:45:49+07:00 | 2339-0 | Glucose [Mass/volume] in Blood | 78.15 | mg/dL
+- 2020-07-08T07:45:49+07:00 | 6299-2 | Urea nitrogen [Mass/volume] in Blood | 10.23 | mg/dL
+- 2020-07-08T07:45:49+07:00 | 38483-4 | Creatinine [Mass/volume] in Blood | 1.33 | mg/dL
+- 2020-07-08T07:45:49+07:00 | 49765-1 | Calcium [Mass/volume] in Blood | 9.12 | mg/dL
+- 2020-07-08T07:45:49+07:00 | 2947-0 | Sodium [Moles/volume] in Blood | 138.15 | mmol/L
+- 2020-07-08T07:45:49+07:00 | 6298-4 | Potassium [Moles/volume] in Blood | 4.43 | mmol/L
+- 2020-07-08T07:45:49+07:00 | 2069-3 | Chloride [Moles/volume] in Blood | 101.68 | mmol/L
+- 2020-07-08T07:45:49+07:00 | 20565-8 | Carbon dioxide, total [Moles/volume] in Blood | 22.3 | mmol/L
+- 2020-07-08T07:45:49+07:00 | 2093-3 | Cholesterol [Mass/volume] in Serum or Plasma | 191.73 | mg/dL
+- 2020-07-08T07:45:49+07:00 | 2571-8 | Triglyceride [Mass/volume] in Serum or Plasma | 124.4 | mg/dL
+- 2020-07-08T07:45:49+07:00 | 18262-6 | Cholesterol in LDL [Mass/volume] in Serum or Plasma by Direct assay | 134.7 | mg/dL
+- 2020-07-08T07:45:49+07:00 | 2085-9 | Cholesterol in HDL [Mass/volume] in Serum or Plasma | 32.15 | mg/dL
+- 2020-07-08T07:45:49+07:00 | 6690-2 | Leukocytes [#/volume] in Blood by Automated count | 7.3809 | 10*3/uL
+- 2020-07-08T07:45:49+07:00 | 789-8 | Erythrocytes [#/volume] in Blood by Automated count | 4.771 | 10*6/uL
+- 2020-07-08T07:45:49+07:00 | 718-7 | Hemoglobin [Mass/volume] in Blood | 12.322 | g/dL
+- 2020-07-08T07:45:49+07:00 | 4544-3 | Hematocrit [Volume Fraction] of Blood by Automated count | 41.19 | %
+- 2020-07-08T07:45:49+07:00 | 787-2 | MCV [Entitic mean volume] in Red Blood Cells by Automated count | 80.029 | fL
+- 2020-07-08T07:45:49+07:00 | 785-6 | MCH [Entitic mass] by Automated count | 32.43 | pg
+- 2020-07-08T07:45:49+07:00 | 786-4 | MCHC [Entitic Mass/volume] in Red Blood Cells by Automated count | 33.231 | g/dL
+- 2020-07-08T07:45:49+07:00 | 788-0 | Erythrocyte [DistWidth] in Blood by Automated count | 45.79 | fL
+- 2020-07-08T07:45:49+07:00 | 777-3 | Platelets [#/volume] in Blood by Automated count | 166.27 | 10*3/uL
+- 2020-07-08T07:45:49+07:00 | 32207-3 | Platelet distribution width [Entitic volume] in Blood by Automated count | 12.26 | fL
+- 2020-07-08T07:45:49+07:00 | 32623-1 | Platelet [Entitic mean volume] in Blood by Automated count | 12.206 | fL
+- 2019-02-27T07:45:49+07:00 | 4548-4 | Hemoglobin A1c/Hemoglobin.total in Blood | 5.97 | %
+- 2019-02-27T07:45:49+07:00 | 2339-0 | Glucose [Mass/volume] in Blood | 69.99 | mg/dL
+- 2019-02-27T07:45:49+07:00 | 6299-2 | Urea nitrogen [Mass/volume] in Blood | 9.47 | mg/dL
+- 2019-02-27T07:45:49+07:00 | 38483-4 | Creatinine [Mass/volume] in Blood | 1.35 | mg/dL
+- 2019-02-27T07:45:49+07:00 | 49765-1 | Calcium [Mass/volume] in Blood | 9.9 | mg/dL
+- 2019-02-27T07:45:49+07:00 | 2947-0 | Sodium [Moles/volume] in Blood | 136.09 | mmol/L
+- 2019-02-27T07:45:49+07:00 | 6298-4 | Potassium [Moles/volume] in Blood | 5.08 | mmol/L
+- 2019-02-27T07:45:49+07:00 | 2069-3 | Chloride [Moles/volume] in Blood | 110.89 | mmol/L
+- 2019-02-27T07:45:49+07:00 | 20565-8 | Carbon dioxide, total [Moles/volume] in Blood | 21.65 | mmol/L
+- 2019-02-13T07:45:49+07:00 | 4548-4 | Hemoglobin A1c/Hemoglobin.total in Blood | 6.24 | %
+- 2019-02-13T07:45:49+07:00 | 2339-0 | Glucose [Mass/volume] in Blood | 76.67 | mg/dL
+- 2019-02-13T07:45:49+07:00 | 6299-2 | Urea nitrogen [Mass/volume] in Blood | 14.99 | mg/dL
+- 2019-02-13T07:45:49+07:00 | 38483-4 | Creatinine [Mass/volume] in Blood | 1.35 | mg/dL
+- 2019-02-13T07:45:49+07:00 | 49765-1 | Calcium [Mass/volume] in Blood | 9 | mg/dL
+- 2019-02-13T07:45:49+07:00 | 2947-0 | Sodium [Moles/volume] in Blood | 142.72 | mmol/L
+- 2019-02-13T07:45:49+07:00 | 6298-4 | Potassium [Moles/volume] in Blood | 3.98 | mmol/L
+- 2019-02-13T07:45:49+07:00 | 2069-3 | Chloride [Moles/volume] in Blood | 102.3 | mmol/L
+- 2019-02-13T07:45:49+07:00 | 20565-8 | Carbon dioxide, total [Moles/volume] in Blood | 27.2 | mmol/L
+- 2019-01-16T07:45:49+07:00 | 4548-4 | Hemoglobin A1c/Hemoglobin.total in Blood | 6 | %
+- 2019-01-16T07:45:49+07:00 | 2339-0 | Glucose [Mass/volume] in Blood | 65.7 | mg/dL
+- 2019-01-16T07:45:49+07:00 | 6299-2 | Urea nitrogen [Mass/volume] in Blood | 12.86 | mg/dL
+- 2019-01-16T07:45:49+07:00 | 38483-4 | Creatinine [Mass/volume] in Blood | 1.35 | mg/dL
+- 2019-01-16T07:45:49+07:00 | 49765-1 | Calcium [Mass/volume] in Blood | 10.14 | mg/dL
+- 2019-01-16T07:45:49+07:00 | 2947-0 | Sodium [Moles/volume] in Blood | 140.87 | mmol/L
+- 2019-01-16T07:45:49+07:00 | 6298-4 | Potassium [Moles/volume] in Blood | 3.94 | mmol/L
+- 2019-01-16T07:45:49+07:00 | 2069-3 | Chloride [Moles/volume] in Blood | 107.04 | mmol/L
+- 2019-01-16T07:45:49+07:00 | 20565-8 | Carbon dioxide, total [Moles/volume] in Blood | 25.24 | mmol/L
+- 2018-12-12T07:45:49+07:00 | 4548-4 | Hemoglobin A1c/Hemoglobin.total in Blood | 6.27 | %
+- 2018-12-12T07:45:49+07:00 | 2339-0 | Glucose [Mass/volume] in Blood | 65.57 | mg/dL
+- 2018-12-12T07:45:49+07:00 | 6299-2 | Urea nitrogen [Mass/volume] in Blood | 13.36 | mg/dL
+- 2018-12-12T07:45:49+07:00 | 38483-4 | Creatinine [Mass/volume] in Blood | 1.35 | mg/dL
+- 2018-12-12T07:45:49+07:00 | 49765-1 | Calcium [Mass/volume] in Blood | 8.78 | mg/dL
+- 2018-12-12T07:45:49+07:00 | 2947-0 | Sodium [Moles/volume] in Blood | 139.13 | mmol/L
+- 2018-12-12T07:45:49+07:00 | 6298-4 | Potassium [Moles/volume] in Blood | 4.74 | mmol/L
+- 2018-12-12T07:45:49+07:00 | 2069-3 | Chloride [Moles/volume] in Blood | 107.12 | mmol/L
+- 2018-12-12T07:45:49+07:00 | 20565-8 | Carbon dioxide, total [Moles/volume] in Blood | 21.53 | mmol/L
+- 2016-12-14T07:45:49+07:00 | 718-7 | Hemoglobin [Mass/volume] in Blood | 11.172 | g/dL
+- 2016-12-14T07:45:49+07:00 | 20570-8 | Hematocrit [Volume Fraction] of Blood by calculation | 31.761 | %
+- 2016-12-14T07:45:49+07:00 | 6690-2 | Leukocytes [#/volume] in Blood by Automated count | 8.6319 | 10*3/uL
+- 2016-12-14T07:45:49+07:00 | 789-8 | Erythrocytes [#/volume] in Blood by Automated count | 4.7073 | 10*6/uL
+- 2016-12-14T07:45:49+07:00 | 787-2 | MCV [Entitic mean volume] in Red Blood Cells by Automated count | 85.943 | fL
+- 2016-12-14T07:45:49+07:00 | 785-6 | MCH [Entitic mass] by Automated count | 27.032 | pg
+- 2016-12-14T07:45:49+07:00 | 786-4 | MCHC [Entitic Mass/volume] in Red Blood Cells by Automated count | 35.679 | g/dL
+- 2016-12-14T07:45:49+07:00 | 788-0 | Erythrocyte [DistWidth] in Blood by Automated count | 41.976 | fL
+- 2016-12-14T07:45:49+07:00 | 777-3 | Platelets [#/volume] in Blood by Automated count | 219.66 | 10*3/uL
+- 2016-12-14T07:45:49+07:00 | 32207-3 | Platelet distribution width [Entitic volume] in Blood by Automated count | 9.2856 | fL
+- 2016-12-14T07:45:49+07:00 | 32623-1 | Platelet [Entitic mean volume] in Blood by Automated count | 11.971 | fL
+- 2016-12-07T07:45:49+07:00 | 4548-4 | Hemoglobin A1c/Hemoglobin.total in Blood | 5.82 | %
+- 2016-12-07T07:45:49+07:00 | 2339-0 | Glucose [Mass/volume] in Blood | 76.94 | mg/dL
+- 2016-12-07T07:45:49+07:00 | 6299-2 | Urea nitrogen [Mass/volume] in Blood | 19.64 | mg/dL
+- 2016-12-07T07:45:49+07:00 | 38483-4 | Creatinine [Mass/volume] in Blood | 1.37 | mg/dL
+- 2016-12-07T07:45:49+07:00 | 49765-1 | Calcium [Mass/volume] in Blood | 9.76 | mg/dL
+- 2016-12-07T07:45:49+07:00 | 2947-0 | Sodium [Moles/volume] in Blood | 137.33 | mmol/L
+- 2016-12-07T07:45:49+07:00 | 6298-4 | Potassium [Moles/volume] in Blood | 3.87 | mmol/L
+- 2016-12-07T07:45:49+07:00 | 2069-3 | Chloride [Moles/volume] in Blood | 110.08 | mmol/L
+- 2016-12-07T07:45:49+07:00 | 20565-8 | Carbon dioxide, total [Moles/volume] in Blood | 24.64 | mmol/L
+- 2016-12-07T07:45:49+07:00 | 2093-3 | Cholesterol [Mass/volume] in Serum or Plasma | 188.31 | mg/dL
+- 2016-12-07T07:45:49+07:00 | 2571-8 | Triglyceride [Mass/volume] in Serum or Plasma | 114.45 | mg/dL
+- 2016-12-07T07:45:49+07:00 | 18262-6 | Cholesterol in LDL [Mass/volume] in Serum or Plasma by Direct assay | 132.53 | mg/dL
+- 2016-12-07T07:45:49+07:00 | 2085-9 | Cholesterol in HDL [Mass/volume] in Serum or Plasma | 32.89 | mg/dL
+- 2014-12-03T07:45:49+07:00 | 4548-4 | Hemoglobin A1c/Hemoglobin.total in Blood | 5.98 | %
+- 2014-12-03T07:45:49+07:00 | 2339-0 | Glucose [Mass/volume] in Blood | 83.86 | mg/dL
+- 2014-12-03T07:45:49+07:00 | 6299-2 | Urea nitrogen [Mass/volume] in Blood | 12.74 | mg/dL
+- 2014-12-03T07:45:49+07:00 | 38483-4 | Creatinine [Mass/volume] in Blood | 1.45 | mg/dL
+- 2014-12-03T07:45:49+07:00 | 49765-1 | Calcium [Mass/volume] in Blood | 9.29 | mg/dL
+- 2014-12-03T07:45:49+07:00 | 2947-0 | Sodium [Moles/volume] in Blood | 137.37 | mmol/L
+- 2014-12-03T07:45:49+07:00 | 6298-4 | Potassium [Moles/volume] in Blood | 4.47 | mmol/L
+- 2014-12-03T07:45:49+07:00 | 2069-3 | Chloride [Moles/volume] in Blood | 110.82 | mmol/L
+- 2014-12-03T07:45:49+07:00 | 20565-8 | Carbon dioxide, total [Moles/volume] in Blood | 23.56 | mmol/L
+- 2014-12-03T07:45:49+07:00 | 6690-2 | Leukocytes [#/volume] in Blood by Automated count | 9.3635 | 10*3/uL
+- 2014-12-03T07:45:49+07:00 | 789-8 | Erythrocytes [#/volume] in Blood by Automated count | 4.2933 | 10*6/uL
+- 2014-12-03T07:45:49+07:00 | 718-7 | Hemoglobin [Mass/volume] in Blood | 17.034 | g/dL
+- 2014-12-03T07:45:49+07:00 | 4544-3 | Hematocrit [Volume Fraction] of Blood by Automated count | 44.196 | %
+- 2014-12-03T07:45:49+07:00 | 787-2 | MCV [Entitic mean volume] in Red Blood Cells by Automated count | 85.073 | fL
+- 2014-12-03T07:45:49+07:00 | 785-6 | MCH [Entitic mass] by Automated count | 30.271 | pg
+- 2014-12-03T07:45:49+07:00 | 786-4 | MCHC [Entitic Mass/volume] in Red Blood Cells by Automated count | 33.643 | g/dL
+- 2014-12-03T07:45:49+07:00 | 788-0 | Erythrocyte [DistWidth] in Blood by Automated count | 42.426 | fL
+- 2014-12-03T07:45:49+07:00 | 777-3 | Platelets [#/volume] in Blood by Automated count | 150.08 | 10*3/uL
+- 2014-12-03T07:45:49+07:00 | 32207-3 | Platelet distribution width [Entitic volume] in Blood by Automated count | 16.628 | fL
+- 2014-12-03T07:45:49+07:00 | 32623-1 | Platelet [Entitic mean volume] in Blood by Automated count | 9.9256 | fL
+- 2013-06-05T07:45:49+07:00 | 4548-4 | Hemoglobin A1c/Hemoglobin.total in Blood | 6.34 | %
+- 2013-06-05T07:45:49+07:00 | 2339-0 | Glucose [Mass/volume] in Blood | 87.64 | mg/dL
+- 2013-06-05T07:45:49+07:00 | 6299-2 | Urea nitrogen [Mass/volume] in Blood | 8.52 | mg/dL
+- 2013-06-05T07:45:49+07:00 | 38483-4 | Creatinine [Mass/volume] in Blood | 1.43 | mg/dL
+- 2013-06-05T07:45:49+07:00 | 49765-1 | Calcium [Mass/volume] in Blood | 9.52 | mg/dL
+- 2013-06-05T07:45:49+07:00 | 2947-0 | Sodium [Moles/volume] in Blood | 143.87 | mmol/L
+- 2013-06-05T07:45:49+07:00 | 6298-4 | Potassium [Moles/volume] in Blood | 4.54 | mmol/L
+- 2013-06-05T07:45:49+07:00 | 2069-3 | Chloride [Moles/volume] in Blood | 109.85 | mmol/L
+- 2013-06-05T07:45:49+07:00 | 20565-8 | Carbon dioxide, total [Moles/volume] in Blood | 21.18 | mmol/L
+- 2012-02-15T07:45:49+07:00 | 4548-4 | Hemoglobin A1c/Hemoglobin.total in Blood | 6.05 | %
+- 2012-02-15T07:45:49+07:00 | 2339-0 | Glucose [Mass/volume] in Blood | 68.68 | mg/dL
+- 2012-02-15T07:45:49+07:00 | 6299-2 | Urea nitrogen [Mass/volume] in Blood | 17.19 | mg/dL
+- 2012-02-15T07:45:49+07:00 | 38483-4 | Creatinine [Mass/volume] in Blood | 1.44 | mg/dL
+- 2012-02-15T07:45:49+07:00 | 49765-1 | Calcium [Mass/volume] in Blood | 9 | mg/dL
+- 2012-02-15T07:45:49+07:00 | 2947-0 | Sodium [Moles/volume] in Blood | 140.59 | mmol/L
+- 2012-02-15T07:45:49+07:00 | 6298-4 | Potassium [Moles/volume] in Blood | 4.22 | mmol/L
+- 2012-02-15T07:45:49+07:00 | 2069-3 | Chloride [Moles/volume] in Blood | 103.35 | mmol/L
+- 2012-02-15T07:45:49+07:00 | 20565-8 | Carbon dioxide, total [Moles/volume] in Blood | 22.14 | mmol/L
+- 2012-02-15T07:45:49+07:00 | 2093-3 | Cholesterol [Mass/volume] in Serum or Plasma | 151.07 | mg/dL
+- 2012-02-15T07:45:49+07:00 | 2571-8 | Triglyceride [Mass/volume] in Serum or Plasma | 103.36 | mg/dL
+- 2012-02-15T07:45:49+07:00 | 18262-6 | Cholesterol in LDL [Mass/volume] in Serum or Plasma by Direct assay | 97.03 | mg/dL
+- 2012-02-15T07:45:49+07:00 | 2085-9 | Cholesterol in HDL [Mass/volume] in Serum or Plasma | 33.37 | mg/dL
+- 2009-02-11T07:45:49+07:00 | 2093-3 | Cholesterol [Mass/volume] in Serum or Plasma | 161.33 | mg/dL
+- 2009-02-11T07:45:49+07:00 | 2571-8 | Triglyceride [Mass/volume] in Serum or Plasma | 104.87 | mg/dL
+- 2009-02-11T07:45:49+07:00 | 18262-6 | Cholesterol in LDL [Mass/volume] in Serum or Plasma by Direct assay | 110.81 | mg/dL
+- 2009-02-11T07:45:49+07:00 | 2085-9 | Cholesterol in HDL [Mass/volume] in Serum or Plasma | 29.55 | mg/dL
+- 2008-07-16T07:45:49+07:00 | 6690-2 | Leukocytes [#/volume] in Blood by Automated count | 5.2236 | 10*3/uL
+- 2008-07-16T07:45:49+07:00 | 789-8 | Erythrocytes [#/volume] in Blood by Automated count | 3.9426 | 10*6/uL
+- 2008-07-16T07:45:49+07:00 | 718-7 | Hemoglobin [Mass/volume] in Blood | 15.312 | g/dL
+- 2008-07-16T07:45:49+07:00 | 4544-3 | Hematocrit [Volume Fraction] of Blood by Automated count | 42.84 | %
+- 2008-07-16T07:45:49+07:00 | 787-2 | MCV [Entitic mean volume] in Red Blood Cells by Automated count | 91.459 | fL
+- 2008-07-16T07:45:49+07:00 | 785-6 | MCH [Entitic mass] by Automated count | 29.715 | pg
+- 2008-07-16T07:45:49+07:00 | 786-4 | MCHC [Entitic Mass/volume] in Red Blood Cells by Automated count | 35.719 | g/dL
+- 2008-07-16T07:45:49+07:00 | 788-0 | Erythrocyte [DistWidth] in Blood by Automated count | 44.081 | fL
+- 2008-07-16T07:45:49+07:00 | 777-3 | Platelets [#/volume] in Blood by Automated count | 327.28 | 10*3/uL
+- 2008-07-16T07:45:49+07:00 | 32207-3 | Platelet distribution width [Entitic volume] in Blood by Automated count | 16.442 | fL
+- 2008-07-16T07:45:49+07:00 | 32623-1 | Platelet [Entitic mean volume] in Blood by Automated count | 9.6639 | fL
+- 2007-05-29T09:31:19+07:00 | 5792-7 | Glucose [Mass/volume] in Urine by Test strip | 11.768 | mg/dL
+- 2007-05-29T09:31:19+07:00 | 2514-8 | Ketones [Presence] in Urine by Test strip | Urine ketones not detected (finding)
+- 2007-05-29T09:31:19+07:00 | 5811-5 | Specific gravity of Urine by Test strip | 1.0104 | {nominal}
+- 2007-05-29T09:31:19+07:00 | 5803-2 | pH of Urine by Test strip | 6.2788 | pH
+- 2007-05-29T09:31:19+07:00 | 5804-0 | Protein [Mass/volume] in Urine by Test strip | 5.7332 | mg/dL
+- 2007-05-29T09:31:19+07:00 | 5802-4 | Nitrite [Presence] in Urine by Test strip | Nitrite detected in urine (finding)
+- 2007-05-29T09:31:19+07:00 | 5794-3 | Hemoglobin [Presence] in Urine by Test strip | Urine blood test = + (finding)
+- 2007-05-29T09:31:19+07:00 | 5799-2 | Leukocyte esterase [Presence] in Urine by Test strip | Urine leukocyte test one plus (finding)
+- 2007-05-29T09:31:19+07:00 | 5821-4 | Leukocytes [#/area] in Urine sediment by Microscopy high power field | 39.778 | /[HPF]
+- 2007-05-29T09:31:19+07:00 | 13945-1 | Erythrocytes [#/area] in Urine sediment by Microscopy high power field | 1.205 | /[HPF]
+- 2007-05-29T09:31:19+07:00 | 5787-7 | Epithelial cells [#/area] in Urine sediment by Microscopy high power field | 1.9948 | /[HPF]
+- 2007-05-29T09:31:19+07:00 | 24124-0 | Casts [Presence] in Urine sediment by Light microscopy | Urine microscopy: no casts (finding)
+- 2007-05-29T09:31:19+07:00 | 8247-9 | Mucus [Presence] in Urine sediment by Light microscopy | Mucus in urine (finding)
+- 2007-05-29T09:31:19+07:00 | 5769-5 | Bacteria [#/area] in Urine sediment by Microscopy high power field | Finding of presence of bacteria (finding)
+- 2007-05-29T09:31:19+07:00 | 630-4 | Bacteria identified in Urine by Culture
+
+## medications
+- Acetaminophen 325 MG Oral Tablet | completed | 2024-09-16T08:42:09+07:00
+- completed | 2019-01-30T09:58:00+07:00
+- Acetaminophen 325 MG Oral Tablet | completed | 2017-07-25T08:28:33+07:00
+- completed | 2013-06-19T10:39:38+07:00
+- doxycycline hyclate 100 MG | active | 2013-06-12T07:45:49+07:00
+- ciprofloxacin 500 MG Oral Tablet | completed | 2007-05-29T09:41:19+07:00
+- diphenhydrAMINE Hydrochloride 25 MG Oral Tablet | active | 1976-04-12T15:10:41+07:00
+
+## procedures
+- 103750000 | Sleep apnea assessment (procedure)
+- 710824005 | Assessment of health and social care needs (procedure)
+- 710841007 | Assessment of anxiety (procedure)
+- 171207006 | Depression screening (procedure)
+- 171207006 | Depression screening (procedure)
+- 428211000124100 | Assessment of substance use (procedure)
+- 713106006 | Screening for drug abuse (procedure)
+- 34043003 | Dental consultation and report (procedure)
+- 225362009 | Dental care (regime/therapy)
+- 1260009003 | Removal of supragingival plaque and calculus from all teeth using dental instrument (procedure)
+- 1260010008 | Removal of subgingival plaque and calculus from all teeth using dental instrument (procedure)
+- 274788003 | Examination of gingivae (procedure)
+- 243085009 | Oral health education (procedure)
+- 73761001 | Colonoscopy (procedure)
+- 103750000 | Sleep apnea assessment (procedure)
+- 710824005 | Assessment of health and social care needs (procedure)
+- 171207006 | Depression screening (procedure)
+- 171207006 | Depression screening (procedure)
+- 715252007 | Depression screening using Patient Health Questionnaire Nine Item score (procedure)
+- 103697008 | Patient referral for dental care (procedure)
+- 288086009 | Suture open wound (procedure)
+- 103750000 | Sleep apnea assessment (procedure)
+- 710824005 | Assessment of health and social care needs (procedure)
+- 171207006 | Depression screening (procedure)
+- 171207006 | Depression screening (procedure)
+- 430193006 | Medication reconciliation (procedure)
+- 103750000 | Sleep apnea assessment (procedure)
+- 710824005 | Assessment of health and social care needs (procedure)
+- 171207006 | Depression screening (procedure)
+- 171207006 | Depression screening (procedure)
+- 428211000124100 | Assessment of substance use (procedure)
+- 763302001 | Assessment using Alcohol Use Disorders Identification Test - Consumption (procedure)
+- 261352009 | Face mask (physical object)
+- 103750000 | Sleep apnea assessment (procedure)
+- 710824005 | Assessment of health and social care needs (procedure)
+- 171207006 | Depression screening (procedure)
+- 171207006 | Depression screening (procedure)
+- 428211000124100 | Assessment of substance use (procedure)
+- 763302001 | Assessment using Alcohol Use Disorders Identification Test - Consumption (procedure)
+- 103750000 | Sleep apnea assessment (procedure)
+- 446573003 | Continuous positive airway pressure titration (procedure)
+- 103750000 | Sleep apnea assessment (procedure)
+- 103750000 | Sleep apnea assessment (procedure)
+- 698560000 | Referral to sleep apnea clinic (procedure)
+- 34043003 | Dental consultation and report (procedure)
+- 225362009 | Dental care (regime/therapy)
+- 1260009003 | Removal of supragingival plaque and calculus from all teeth using dental instrument (procedure)
+- 1260010008 | Removal of subgingival plaque and calculus from all teeth using dental instrument (procedure)
+- 274788003 | Examination of gingivae (procedure)
+- 243085009 | Oral health education (procedure)
+- 710824005 | Assessment of health and social care needs (procedure)
+- 710841007 | Assessment of anxiety (procedure)
+- 866148006 | Screening for domestic abuse (procedure)
+- 171207006 | Depression screening (procedure)
+- 171207006 | Depression screening (procedure)
+- 428211000124100 | Assessment of substance use (procedure)
+- 713106006 | Screening for drug abuse (procedure)
+- 103697008 | Patient referral for dental care (procedure)
+- 710824005 | Assessment of health and social care needs (procedure)
+- 710841007 | Assessment of anxiety (procedure)
+- 171207006 | Depression screening (procedure)
+- 171207006 | Depression screening (procedure)
+- 428211000124100 | Assessment of substance use (procedure)
+- 763302001 | Assessment using Alcohol Use Disorders Identification Test - Consumption (procedure)
+- 710824005 | Assessment of health and social care needs (procedure)
+- 710841007 | Assessment of anxiety (procedure)
+- 171207006 | Depression screening (procedure)
+- 171207006 | Depression screening (procedure)
+- 34043003 | Dental consultation and report (procedure)
+- 225362009 | Dental care (regime/therapy)
+- 1260009003 | Removal of supragingival plaque and calculus from all teeth using dental instrument (procedure)
+- 1260010008 | Removal of subgingival plaque and calculus from all teeth using dental instrument (procedure)
+- 241046008 | Dental plain X-ray bitewing (procedure)
+- 274788003 | Examination of gingivae (procedure)
+- 68071007 | Dental fluoride treatment (procedure)
+- 243085009 | Oral health education (procedure)
+- 710824005 | Assessment of health and social care needs (procedure)
+- 710841007 | Assessment of anxiety (procedure)
+- 103697008 | Patient referral for dental care (procedure)
+- 710824005 | Assessment of health and social care needs (procedure)
+- 710841007 | Assessment of anxiety (procedure)
+- 171207006 | Depression screening (procedure)
+- 171207006 | Depression screening (procedure)
+- 715252007 | Depression screening using Patient Health Questionnaire Nine Item score (procedure)
+- 34043003 | Dental consultation and report (procedure)
+- 225362009 | Dental care (regime/therapy)
+- 1260009003 | Removal of supragingival plaque and calculus from all teeth using dental instrument (procedure)
+- 1260010008 | Removal of subgingival plaque and calculus from all teeth using dental instrument (procedure)
+- 241046008 | Dental plain X-ray bitewing (procedure)
+- 274788003 | Examination of gingivae (procedure)
+- 243085009 | Oral health education (procedure)
+- 14768001 | Peripheral blood smear interpretation (procedure)
+- 415300000 | Review of systems (procedure)
+- 430193006 | Medication reconciliation (procedure)
+- 162676008 | Brief general examination (procedure)
+- 710824005 | Assessment of health and social care needs (procedure)
+- 171207006 | Depression screening (procedure)
+- 171207006 | Depression screening (procedure)
+- 428211000124100 | Assessment of substance use (procedure)
+- 713106006 | Screening for drug abuse (procedure)
+- 103697008 | Patient referral for dental care (procedure)
+- 710824005 | Assessment of health and social care needs (procedure)
+- 710841007 | Assessment of anxiety (procedure)
+- 866148006 | Screening for domestic abuse (procedure)
+- 171207006 | Depression screening (procedure)
+- 171207006 | Depression screening (procedure)
+- 34043003 | Dental consultation and report (procedure)
+- 225362009 | Dental care (regime/therapy)
+- 1260009003 | Removal of supragingival plaque and calculus from all teeth using dental instrument (procedure)
+- 1260010008 | Removal of subgingival plaque and calculus from all teeth using dental instrument (procedure)
+- 241046008 | Dental plain X-ray bitewing (procedure)
+- 274788003 | Examination of gingivae (procedure)
+- 68071007 | Dental fluoride treatment (procedure)
+- 243085009 | Oral health education (procedure)
+- 710824005 | Assessment of health and social care needs (procedure)
+- 171207006 | Depression screening (procedure)
+- 171207006 | Depression screening (procedure)
+- 103697008 | Patient referral for dental care (procedure)
+- 710824005 | Assessment of health and social care needs (procedure)
+- 866148006 | Screening for domestic abuse (procedure)
+- 428211000124100 | Assessment of substance use (procedure)
+- 763302001 | Assessment using Alcohol Use Disorders Identification Test - Consumption (procedure)
+- 430193006 | Medication reconciliation (procedure)
+- 710824005 | Assessment of health and social care needs (procedure)
+- 710841007 | Assessment of anxiety (procedure)
+- 171207006 | Depression screening (procedure)
+- 171207006 | Depression screening (procedure)
+- 428211000124100 | Assessment of substance use (procedure)
+- 763302001 | Assessment using Alcohol Use Disorders Identification Test - Consumption (procedure)
+- 430193006 | Medication reconciliation (procedure)
+- 710824005 | Assessment of health and social care needs (procedure)
+- 866148006 | Screening for domestic abuse (procedure)
+- 428211000124100 | Assessment of substance use (procedure)
+- 713106006 | Screening for drug abuse (procedure)
+- 84100007 | History taking (procedure)
+- 223470000 | Discussion about signs and symptoms (procedure)
+- 386478007 | Triage: emergency center (procedure)
+- 61746007 | Taking patient vital signs (procedure)
+- 14736009 | History and physical examination with evaluation and management of patient (procedure)
+- 441550005 | Urinalysis with reflex to microscopy and culture (procedure)
+- 57617002 | Urine specimen collection (procedure)
+- 441550005 | Urinalysis with reflex to microscopy and culture (procedure)
+- 281789004 | Antibiotic therapy (procedure)
+- 58000006 | Patient discharge (procedure)
+
+## relatedpersons
+
+## vitals
+- 2025-12-03T07:45:49+07:00 | 8302-2 | Body Height | 182.1 | cm
+- 2025-12-03T07:45:49+07:00 | 72514-3 | Pain severity - 0-10 verbal numeric rating [Score] - Reported | 1 | {score}
+- 2025-12-03T07:45:49+07:00 | 29463-7 | Body Weight | 92 | kg
+- 2025-12-03T07:45:49+07:00 | 39156-5 | Body mass index (BMI) [Ratio] | 27.74 | kg/m2
+- 2025-12-03T07:45:49+07:00 | 85354-9 | Blood pressure panel with all children optional | 108/93 | mm[Hg]
+- 2025-12-03T07:45:49+07:00 | 8867-4 | Heart rate | 92 | /min
+- 2025-12-03T07:45:49+07:00 | 9279-1 | Respiratory rate | 12 | /min
+- 2024-11-27T07:45:49+07:00 | 8302-2 | Body Height | 182.1 | cm
+- 2024-11-27T07:45:49+07:00 | 72514-3 | Pain severity - 0-10 verbal numeric rating [Score] - Reported | 1 | {score}
+- 2024-11-27T07:45:49+07:00 | 29463-7 | Body Weight | 92 | kg
+- 2024-11-27T07:45:49+07:00 | 39156-5 | Body mass index (BMI) [Ratio] | 27.74 | kg/m2
+- 2024-11-27T07:45:49+07:00 | 85354-9 | Blood pressure panel with all children optional | 110/92 | mm[Hg]
+- 2024-11-27T07:45:49+07:00 | 8867-4 | Heart rate | 66 | /min
+- 2024-11-27T07:45:49+07:00 | 9279-1 | Respiratory rate | 14 | /min
+- 2023-07-26T07:45:49+07:00 | 8302-2 | Body Height | 182.1 | cm
+- 2023-07-26T07:45:49+07:00 | 72514-3 | Pain severity - 0-10 verbal numeric rating [Score] - Reported | 2 | {score}
+- 2023-07-26T07:45:49+07:00 | 29463-7 | Body Weight | 92 | kg
+- 2023-07-26T07:45:49+07:00 | 39156-5 | Body mass index (BMI) [Ratio] | 27.74 | kg/m2
+- 2023-07-26T07:45:49+07:00 | 85354-9 | Blood pressure panel with all children optional | 110/96 | mm[Hg]
+- 2023-07-26T07:45:49+07:00 | 8867-4 | Heart rate | 80 | /min
+- 2023-07-26T07:45:49+07:00 | 9279-1 | Respiratory rate | 13 | /min
+- 2023-07-17T03:45:49+07:00 | 8310-5 | Body temperature | 37.919 | Cel
+- 2022-12-21T07:45:49+07:00 | 8302-2 | Body Height | 182.1 | cm
+- 2022-12-21T07:45:49+07:00 | 72514-3 | Pain severity - 0-10 verbal numeric rating [Score] - Reported | 3 | {score}
+- 2022-12-21T07:45:49+07:00 | 29463-7 | Body Weight | 92.7 | kg
+- 2022-12-21T07:45:49+07:00 | 39156-5 | Body mass index (BMI) [Ratio] | 27.95 | kg/m2
+- 2022-12-21T07:45:49+07:00 | 85354-9 | Blood pressure panel with all children optional | 104/92 | mm[Hg]
+- 2022-12-21T07:45:49+07:00 | 8867-4 | Heart rate | 93 | /min
+- 2022-12-21T07:45:49+07:00 | 9279-1 | Respiratory rate | 13 | /min
+- 2021-03-09T07:45:49+07:00 | 8310-5 | Body temperature | 38.956 | Cel
+- 2021-03-09T07:45:49+07:00 | 9279-1 | Respiratory rate | 37.55 | /min
+- 2021-03-09T07:45:49+07:00 | 8867-4 | Heart rate | 198.17 | /min
+- 2021-03-09T07:45:49+07:00 | 2708-6 | Oxygen saturation in Arterial blood | 77.7 | %
+- 2021-03-09T07:45:49+07:00 | 85354-9 | Blood pressure panel with all children optional | 111/90 | mm[Hg]
+- 2021-03-09T07:45:49+07:00 | 29463-7 | Body Weight | 101 | kg
+- 2020-12-16T07:45:49+07:00 | 8302-2 | Body Height | 182.1 | cm
+- 2020-12-16T07:45:49+07:00 | 72514-3 | Pain severity - 0-10 verbal numeric rating [Score] - Reported | 3 | {score}
+- 2020-12-16T07:45:49+07:00 | 29463-7 | Body Weight | 101 | kg
+- 2020-12-16T07:45:49+07:00 | 39156-5 | Body mass index (BMI) [Ratio] | 30.46 | kg/m2
+- 2020-12-16T07:45:49+07:00 | 85354-9 | Blood pressure panel with all children optional | 104/89 | mm[Hg]
+- 2020-12-16T07:45:49+07:00 | 8867-4 | Heart rate | 76 | /min
+- 2020-12-16T07:45:49+07:00 | 9279-1 | Respiratory rate | 13 | /min
+- 2020-07-08T07:45:49+07:00 | 8302-2 | Body Height | 182.1 | cm
+- 2020-07-08T07:45:49+07:00 | 72514-3 | Pain severity - 0-10 verbal numeric rating [Score] - Reported | 3 | {score}
+- 2020-07-08T07:45:49+07:00 | 29463-7 | Body Weight | 101 | kg
+- 2020-07-08T07:45:49+07:00 | 39156-5 | Body mass index (BMI) [Ratio] | 30.46 | kg/m2
+- 2020-07-08T07:45:49+07:00 | 85354-9 | Blood pressure panel with all children optional | 110/89 | mm[Hg]
+- 2020-07-08T07:45:49+07:00 | 8867-4 | Heart rate | 73 | /min
+- 2020-07-08T07:45:49+07:00 | 9279-1 | Respiratory rate | 14 | /min
+- 2019-02-27T07:45:49+07:00 | 8302-2 | Body Height | 182.1 | cm
+- 2019-02-27T07:45:49+07:00 | 72514-3 | Pain severity - 0-10 verbal numeric rating [Score] - Reported | 1 | {score}
+- 2019-02-27T07:45:49+07:00 | 29463-7 | Body Weight | 101 | kg
+- 2019-02-27T07:45:49+07:00 | 39156-5 | Body mass index (BMI) [Ratio] | 30.46 | kg/m2
+- 2019-02-27T07:45:49+07:00 | 85354-9 | Blood pressure panel with all children optional | 112/92 | mm[Hg]
+- 2019-02-27T07:45:49+07:00 | 8867-4 | Heart rate | 82 | /min
+- 2019-02-27T07:45:49+07:00 | 9279-1 | Respiratory rate | 15 | /min
+- 2019-02-13T07:45:49+07:00 | 8302-2 | Body Height | 182.1 | cm
+- 2019-02-13T07:45:49+07:00 | 72514-3 | Pain severity - 0-10 verbal numeric rating [Score] - Reported | 0 | {score}
+- 2019-02-13T07:45:49+07:00 | 29463-7 | Body Weight | 101 | kg
+- 2019-02-13T07:45:49+07:00 | 39156-5 | Body mass index (BMI) [Ratio] | 30.46 | kg/m2
+- 2019-02-13T07:45:49+07:00 | 85354-9 | Blood pressure panel with all children optional | 105/89 | mm[Hg]
+- 2019-02-13T07:45:49+07:00 | 8867-4 | Heart rate | 77 | /min
+- 2019-02-13T07:45:49+07:00 | 9279-1 | Respiratory rate | 15 | /min
+- 2019-01-16T07:45:49+07:00 | 8302-2 | Body Height | 182.1 | cm
+- 2019-01-16T07:45:49+07:00 | 72514-3 | Pain severity - 0-10 verbal numeric rating [Score] - Reported | 2 | {score}
+- 2019-01-16T07:45:49+07:00 | 29463-7 | Body Weight | 101 | kg
+- 2019-01-16T07:45:49+07:00 | 39156-5 | Body mass index (BMI) [Ratio] | 30.46 | kg/m2
+- 2019-01-16T07:45:49+07:00 | 85354-9 | Blood pressure panel with all children optional | 112/94 | mm[Hg]
+- 2019-01-16T07:45:49+07:00 | 8867-4 | Heart rate | 86 | /min
+- 2019-01-16T07:45:49+07:00 | 9279-1 | Respiratory rate | 14 | /min
+- 2018-12-12T07:45:49+07:00 | 8302-2 | Body Height | 182.1 | cm
+- 2018-12-12T07:45:49+07:00 | 72514-3 | Pain severity - 0-10 verbal numeric rating [Score] - Reported | 3 | {score}
+- 2018-12-12T07:45:49+07:00 | 29463-7 | Body Weight | 101 | kg
+- 2018-12-12T07:45:49+07:00 | 39156-5 | Body mass index (BMI) [Ratio] | 30.46 | kg/m2
+- 2018-12-12T07:45:49+07:00 | 85354-9 | Blood pressure panel with all children optional | 112/92 | mm[Hg]
+- 2018-12-12T07:45:49+07:00 | 8867-4 | Heart rate | 84 | /min
+- 2018-12-12T07:45:49+07:00 | 9279-1 | Respiratory rate | 15 | /min
+- 2016-12-07T07:45:49+07:00 | 8302-2 | Body Height | 182.1 | cm
+- 2016-12-07T07:45:49+07:00 | 72514-3 | Pain severity - 0-10 verbal numeric rating [Score] - Reported | 3 | {score}
+- 2016-12-07T07:45:49+07:00 | 29463-7 | Body Weight | 101 | kg
+- 2016-12-07T07:45:49+07:00 | 39156-5 | Body mass index (BMI) [Ratio] | 30.46 | kg/m2
+- 2016-12-07T07:45:49+07:00 | 85354-9 | Blood pressure panel with all children optional | 115/92 | mm[Hg]
+- 2016-12-07T07:45:49+07:00 | 8867-4 | Heart rate | 64 | /min
+- 2016-12-07T07:45:49+07:00 | 9279-1 | Respiratory rate | 15 | /min
+- 2014-12-03T07:45:49+07:00 | 8302-2 | Body Height | 182.1 | cm
+- 2014-12-03T07:45:49+07:00 | 72514-3 | Pain severity - 0-10 verbal numeric rating [Score] - Reported | 1 | {score}
+- 2014-12-03T07:45:49+07:00 | 29463-7 | Body Weight | 101 | kg
+- 2014-12-03T07:45:49+07:00 | 39156-5 | Body mass index (BMI) [Ratio] | 30.46 | kg/m2
+- 2014-12-03T07:45:49+07:00 | 85354-9 | Blood pressure panel with all children optional | 107/89 | mm[Hg]
+- 2014-12-03T07:45:49+07:00 | 8867-4 | Heart rate | 98 | /min
+- 2014-12-03T07:45:49+07:00 | 9279-1 | Respiratory rate | 14 | /min
+- 2013-06-05T07:45:49+07:00 | 8302-2 | Body Height | 182.1 | cm
+- 2013-06-05T07:45:49+07:00 | 72514-3 | Pain severity - 0-10 verbal numeric rating [Score] - Reported | 1 | {score}
+- 2013-06-05T07:45:49+07:00 | 29463-7 | Body Weight | 101 | kg
+- 2013-06-05T07:45:49+07:00 | 39156-5 | Body mass index (BMI) [Ratio] | 30.46 | kg/m2
+- 2013-06-05T07:45:49+07:00 | 85354-9 | Blood pressure panel with all children optional | 106/91 | mm[Hg]
+- 2013-06-05T07:45:49+07:00 | 8867-4 | Heart rate | 95 | /min
+- 2013-06-05T07:45:49+07:00 | 9279-1 | Respiratory rate | 14 | /min
+- 2012-02-15T07:45:49+07:00 | 8302-2 | Body Height | 182.1 | cm
+- 2012-02-15T07:45:49+07:00 | 72514-3 | Pain severity - 0-10 verbal numeric rating [Score] - Reported | 1 | {score}
+- 2012-02-15T07:45:49+07:00 | 29463-7 | Body Weight | 101 | kg
+- 2012-02-15T07:45:49+07:00 | 39156-5 | Body mass index (BMI) [Ratio] | 30.46 | kg/m2
+- 2012-02-15T07:45:49+07:00 | 85354-9 | Blood pressure panel with all children optional | 106/90 | mm[Hg]
+- 2012-02-15T07:45:49+07:00 | 8867-4 | Heart rate | 76 | /min
+- 2012-02-15T07:45:49+07:00 | 9279-1 | Respiratory rate | 15 | /min
+- 2009-02-11T07:45:49+07:00 | 8302-2 | Body Height | 182.1 | cm
+- 2009-02-11T07:45:49+07:00 | 72514-3 | Pain severity - 0-10 verbal numeric rating [Score] - Reported | 1 | {score}
+- 2009-02-11T07:45:49+07:00 | 29463-7 | Body Weight | 94.3 | kg
+- 2009-02-11T07:45:49+07:00 | 39156-5 | Body mass index (BMI) [Ratio] | 28.44 | kg/m2
+- 2009-02-11T07:45:49+07:00 | 85354-9 | Blood pressure panel with all children optional | 108/90 | mm[Hg]
+- 2009-02-11T07:45:49+07:00 | 8867-4 | Heart rate | 85 | /min
+- 2009-02-11T07:45:49+07:00 | 9279-1 | Respiratory rate | 15 | /min
+- 2008-07-16T07:45:49+07:00 | 8302-2 | Body Height | 182.1 | cm
+- 2008-07-16T07:45:49+07:00 | 72514-3 | Pain severity - 0-10 verbal numeric rating [Score] - Reported | 0 | {score}
+- 2008-07-16T07:45:49+07:00 | 29463-7 | Body Weight | 93 | kg
+- 2008-07-16T07:45:49+07:00 | 39156-5 | Body mass index (BMI) [Ratio] | 28.04 | kg/m2
+- 2008-07-16T07:45:49+07:00 | 85354-9 | Blood pressure panel with all children optional | 105/93 | mm[Hg]
+- 2008-07-16T07:45:49+07:00 | 8867-4 | Heart rate | 97 | /min
+- 2008-07-16T07:45:49+07:00 | 9279-1 | Respiratory rate | 16 | /min
+- 2007-05-29T08:28:48+07:00 | 85354-9 | Blood Pressure panel with all children optional | 130.38/80.397 | mm[Hg]
+- 2007-05-29T08:28:48+07:00 | 8867-4 | Heart rate | 61.28 | /min
+- 2007-05-29T08:28:48+07:00 | 9279-1 | Respiratory rate | 14.675 | /min
+- 2007-05-29T08:28:48+07:00 | 2708-6 | Oxygen saturation in Arterial blood | 99.203 | %
+- 2007-05-29T08:28:48+07:00 | 8310-5 | Body temperature | 38.558 | Cel
+

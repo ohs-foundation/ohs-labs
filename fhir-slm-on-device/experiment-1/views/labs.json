@@ -1,0 +1,35 @@
+{
+  "name": "labs",
+  "resource": "Observation",
+  "where": [
+    {
+      "path": "category.coding.where(code='laboratory').exists()"
+    }
+  ],
+  "select": [
+    {
+      "column": [
+        {
+          "name": "date",
+          "path": "effectiveDateTime"
+        },
+        {
+          "name": "code",
+          "path": "code.coding.first().code"
+        },
+        {
+          "name": "display",
+          "path": "code.coding.first().display"
+        },
+        {
+          "name": "value",
+          "path": "iif(component.exists(), component.where(code.coding.code='8480-6').valueQuantity.value.toString() + '/' + component.where(code.coding.code='8462-4').valueQuantity.value.toString(), iif(valueQuantity.exists(), valueQuantity.value, valueCodeableConcept.coding.first().display))"
+        },
+        {
+          "name": "unit",
+          "path": "iif(component.exists(), component.first().valueQuantity.unit, valueQuantity.unit)"
+        }
+      ]
+    }
+  ]
+}

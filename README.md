@@ -8,6 +8,7 @@ features or capabilities.
 | Experiment | Status | Repo |
 |---|---|---|
 | Agentic coding evaluation on the OHS stack | Done, results published | [labs-ohs-agent](https://github.com/ohs-foundation/labs-ohs-agent) |
+| FHIR via small language models on device | In progress, emulator results | [fhir-slm-on-device](fhir-slm-on-device/) |
 
 ### Agentic coding evaluation on the OHS stack ([labs-ohs-agent](https://github.com/ohs-foundation/labs-ohs-agent))
 
@@ -16,6 +17,13 @@ health app compared with a custom one. The agent builds the same
 antenatal care app from a blank project (No FHIR), with the OHS
 libraries and a FHIR server (OHS), and with the same plus [agent
 skills](https://github.com/ohs-foundation/labs-ohs-agent/tree/main/skills) for the libraries (OHS + skills).
+
+### FHIR via small language models on device ([fhir-slm-on-device](fhir-slm-on-device/))
+
+Tests whether a small language model on a phone can read a patient's
+FHIR record. It compares raw FHIR JSON with SQL-on-FHIR views and
+Markdown (Tokempic) on tokens, speed and memory, with Gemma 4 E2B
+running through LiteRT-LM.
 
 ## Ideas not started yet
 
