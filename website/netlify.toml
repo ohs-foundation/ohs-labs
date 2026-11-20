@@ -1,0 +1,16 @@
+# This site lives in the website/ folder of ohs-foundation/ohs-labs.
+# In Netlify, set Base directory to "website"; the paths below are relative
+# to it. Netlify installs requirements.txt, runs the build and publishes dist/.
+[build]
+  command = "python build.py"
+  publish = "dist"
+  # Skip deploys for commits that don't touch website/.
+  ignore = "git diff --quiet $CACHED_COMMIT_REF $COMMIT_REF -- ."
+
+[build.environment]
+  PYTHON_VERSION = "3.11"
+
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=3600"

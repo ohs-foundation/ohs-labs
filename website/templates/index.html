@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>OHS Labs — Open Health Stack Software Foundation</title>
+<meta name="description" content="OHS Labs: quick AI experiments that could become future Open Health Stack features. See what we tried, what we found, and how to get involved." />
+<meta property="og:title" content="OHS Labs — Open Health Stack Software Foundation" />
+<meta property="og:description" content="Quick experiments. Real numbers. Open by default." />
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="assets/site.css?v={{VERSION}}" />
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="ohs-mark" viewBox="0 0 32 32"><rect fill="#7262b7" x="1" y="1" width="13.75" height="13.75" rx="3.99"/><rect fill="#0c87a7" x="17.25" y="1" width="13.75" height="13.75" rx="3.99"/><rect fill="#7666b2" x="1" y="17.25" width="13.75" height="13.75" rx="3.99"/><rect fill="#4f3f83" x="17.25" y="17.25" width="13.75" height="13.75" rx="3.99"/></symbol>
+</svg>
+
+<header class="topbar">
+  <div class="wrap">
+    <a class="brand" href="#top" aria-label="OHS Labs home">
+      <svg><use href="#ohs-mark"/></svg>
+      <div>
+        <div class="brand-name">Open Health Stack</div>
+        <div class="brand-sub">Software Foundation</div>
+      </div>
+      <span class="labs-pill">LABS</span>
+    </a>
+    <nav class="nav">
+      <a href="#experiments">Experiments</a>
+      <a href="#how">How Labs works</a>
+      <a href="https://ohs.foundation" target="_blank" rel="noopener">ohs.foundation ↗</a>
+      <a class="btn btn-primary" href="#involved">Get involved</a>
+    </nav>
+  </div>
+</header>
+
+<div class="hero" id="top">
+  <div class="grid-bg"></div>
+  <div class="wrap">
+    <div>
+      <div class="eyebrow"><span class="pulse"></span>OHS Labs · experiments in the open</div>
+      <h1>Quick experiments.<br/><span class="grad">Real numbers.</span><br/>Open by default.</h1>
+      <p class="lead">OHS Labs is where the Open Health Stack community tries new ideas in AI for digital health, measures what happens, and publishes everything: prompts, harnesses, transcripts and scores. The best ones become future OHS features.</p>
+      <div class="hero-ctas">
+        <a class="btn btn-primary" href="#experiments" style="background:#fff;color:#2b2357">Explore experiments ↓</a>
+        <a class="btn btn-ghost" href="https://github.com/ohs-foundation/ohs-labs" target="_blank" rel="noopener">ohs-labs on GitHub ↗</a>
+      </div>
+      <div class="hero-stats">
+        <div><b>10/10</b><span>working FHIR apps built by agents with OHS + Skills</span></div>
+        <div><b>~12×</b><span>fewer tokens for a patient record on device with Tokempic</span></div>
+        <div><b>{{COUNT}}</b><span>experiments, from proposal to published</span></div>
+      </div>
+    </div>
+    <div class="hero-art" aria-hidden="true"><div class="mosaic-big" id="mosaic"></div></div>
+  </div>
+</div>
+
+<section id="experiments">
+  <div class="wrap">
+    <div class="sec-head">
+      <div>
+        <div class="eyebrow" style="color:var(--teal)">The experiments</div>
+        <h2>What we're trying</h2>
+        <p>Each card is one experiment. Open it to see the question, what we did, what we found, and where the code lives.</p>
+      </div>
+      <div class="filters" role="tablist" aria-label="Filter experiments by stage">
+{{FILTERS}}
+      </div>
+    </div>
+    <div class="cards" id="cards">
+{{CARDS}}
+    </div>
+  </div>
+</section>
+
+<section class="how" id="how">
+  <div class="wrap">
+    <div class="sec-head">
+      <div>
+        <div class="eyebrow" style="color:var(--teal)">How Labs works</div>
+        <h2>From hunch to feature</h2>
+        <p>Labs experiments are small and fast on purpose. Each one moves through four stages, answering one question with measurements before it feeds the OHS pillars.</p>
+      </div>
+    </div>
+    <div class="steps">
+{{STEPS}}
+    </div>
+  </div>
+</section>
+
+<section id="involved">
+  <div class="wrap">
+    <div class="involve">
+      <div class="eyebrow" style="color:#9fe7e3">Get involved</div>
+      <h2>Run it, fork it, or bring us the next question.</h2>
+      <p>Every Labs experiment is open source and built to be rerun. Reproduce a result on a new model, add a condition, or propose an experiment of your own.</p>
+      <div class="ways">
+        <a class="way" href="{{REPO_URL}}" target="_blank" rel="noopener"><span class="ic">🧪</span><b>Propose an experiment</b><span>Copy the experiment template and open a pull request, or open an issue with your idea.</span><i>github.com/ohs-foundation ↗</i></a>
+        <a class="way" href="https://discord.gg/sfgUU7AHZT" target="_blank" rel="noopener"><span class="ic">💬</span><b>Join us on Discord</b><span>Talk with the people running the experiments, in per-pillar channels.</span><i>discord.gg ↗</i></a>
+        <a class="way" href="https://ohs.foundation/community#events" target="_blank" rel="noopener"><span class="ic">📅</span><b>Monthly community call</b><span>Open to everyone. Labs results are shared and discussed here.</span><i>ohs.foundation/community ↗</i></a>
+        <a class="way" href="https://ohs.foundation/community#involved" target="_blank" rel="noopener"><span class="ic">🤝</span><b>Join a working group</b><span>AI Commons working groups are forming. Register your interest.</span><i>ohs.foundation/community ↗</i></a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <div style="display:flex;align-items:center;gap:10px"><svg width="20" height="20"><use href="#ohs-mark"/></svg> © 2026 Open Health Stack Software Foundation · a project of the Linux Foundation</div>
+    <div style="display:flex;gap:18px"><a href="https://ohs.foundation/blog" target="_blank" rel="noopener">Blog</a><a href="https://github.com/ohs-foundation" target="_blank" rel="noopener">GitHub</a><a href="https://www.linkedin.com/company/ohs-sf/" target="_blank" rel="noopener">LinkedIn</a><a href="mailto:membership@ohs.foundation">Contact</a></div>
+  </div>
+</footer>
+
+<div class="overlay" id="overlay" role="dialog" aria-modal="true" aria-labelledby="ov-title">
+  <div class="scrim" data-close></div>
+  <div class="panel" id="panel"></div>
+</div>
+
+{{BODIES}}
+<script id="labs-data" type="application/json">{{DATA}}</script>
+<script src="assets/site.js?v={{VERSION}}"></script>
+</body>
+</html>
